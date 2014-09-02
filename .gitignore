@@ -1,0 +1,6 @@
+.cproject
+.project
+build/
+gtest/
+cmake/
+*~

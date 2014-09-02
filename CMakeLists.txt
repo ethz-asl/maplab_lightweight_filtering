@@ -1,0 +1,46 @@
+cmake_minimum_required (VERSION 2.8)
+project(lightweight_filtering)
+add_definitions(-std=c++11)
+
+##################### Set some variables #####################
+SET(CMAKE_BUILD_TYPE "Release")
+message(STATUS "cmake root folder:" ${CMAKE_ROOT})
+
+##################### Find, include, and compile library #####################
+find_package(Eigen REQUIRED)
+find_package(Kindr REQUIRED)
+message(STATUS "Eigen Include Directory: ${EIGEN_INCLUDE_DIRS} ${EIGEN3_INCLUDE_DIR}")
+include_directories(${EIGEN_INCLUDE_DIRS})
+include_directories(${EIGEN3_INCLUDE_DIR})
+include_directories(./include)
+include_directories(${Kindr_INCLUDE_DIRS})
+
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/gtest/")
+	message(STATUS "Building GTests!")
+	option(BUILD_GTEST "build gtest" ON)
+	add_subdirectory(gtest gtest)
+	enable_testing()
+	include_directories(${gtest_SOURCE_DIR}/include ${gtest_SOURCE_DIR})
+	add_executable(testState src/testState.cpp)
+	target_link_libraries(testState gtest_main gtest pthread )
+	add_test(testState testState)
+endif()
+
+# Generate FindLWF.cmake file
+file(WRITE cmake/FindLWF.cmake
+"# This file was automatically generated during the installation of the lightweight_filtering library
+# and can be used through cmake to find the corresponding header files. A copy of this
+# file was created in ${CMAKE_ROOT}/Modules (depending on the CMAKE_ROOT variable).
+
+set(LWF_INCLUDE_DIRS
+${CMAKE_INSTALL_PREFIX}/include/LWF/include
+)
+set(LWF_FOUND TRUE)
+message(\"-- LWF found (include: ${CMAKE_INSTALL_PREFIX}/include/LWF/include)\")
+"
+)
+
+# Setting for make install
+install(CODE "execute_process(COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_INSTALL_PREFIX}/include/LWF)")
+install(DIRECTORY include DESTINATION ${CMAKE_INSTALL_PREFIX}/include/LWF)
+install(FILES cmake/FindLWF.cmake DESTINATION ${CMAKE_ROOT}/Modules)
