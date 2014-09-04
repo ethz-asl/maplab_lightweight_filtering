@@ -10,6 +10,7 @@
 
 #include <Eigen/Dense>
 #include <iostream>
+#include <unordered_map>
 #include "kindr/rotations/RotationEigen.hpp"
 namespace rot = kindr::rotations::eigen_impl;
 
@@ -24,6 +25,7 @@ class StateSVQ{
   static const unsigned int D_ = S_+(V_+Q_)*3;
   typedef Eigen::Matrix<double,D_,1> DiffVec;
   typedef Eigen::Matrix<double,D_,D_> CovMat;
+  std::unordered_map<std::string,std::pair<double*,unsigned int>> scalarIdMap_;
   StateSVQ(){
     t_ = 0.0;
     setIdentity();
@@ -32,6 +34,19 @@ class StateSVQ{
   double scalarList[S_];
   Eigen::Vector3d vectorList[V_];
   rot::RotationQuaternionPD quaternionList[Q_];
+  void addScalarIdentifier(const std::string& idStr,unsigned int i){
+    assert(i<S_);
+    scalarIdMap_[idStr] = std::pair<double*,unsigned int>(&s(i),i);
+  }
+  const double& getScalar(const std::string& idStr) const{
+    return *(scalarIdMap_.at(idStr).first);
+  };
+  double& getScalar(const std::string& idStr){
+    return *(scalarIdMap_.at(idStr).first);
+  };
+  unsigned int getDifIndex(const std::string& idStr) const{
+    return scalarIdMap_.at(idStr).second;
+  }
   void boxPlus(const DiffVec& vecIn, StateSVQ<S_,V_,Q_>& stateOut) const{
     unsigned int index = 0;
     for(unsigned int i=0;i<S_;i++){
