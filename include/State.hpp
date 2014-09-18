@@ -26,18 +26,16 @@ class StateSVQ{
   typedef Eigen::Matrix<double,D_,1> DiffVec;
   typedef Eigen::Matrix<double,D_,D_> CovMat;
   std::unordered_map<std::string,std::pair<double*,unsigned int>> scalarIdMap_;
+  std::unordered_map<const void*,unsigned int> IdMap_;
   StateSVQ(){
     t_ = 0.0;
     setIdentity();
+    createVarLookup();
   };
   double t_;
   double scalarList[S_];
   Eigen::Vector3d vectorList[V_];
   rot::RotationQuaternionPD quaternionList[Q_];
-  void addScalarIdentifier(const std::string& idStr,unsigned int i){
-    assert(i<S_);
-    scalarIdMap_[idStr] = std::pair<double*,unsigned int>(&s(i),i);
-  }
   const double& getScalar(const std::string& idStr) const{
     return *(scalarIdMap_.at(idStr).first);
   };
@@ -131,6 +129,26 @@ class StateSVQ{
   rot::RotationQuaternionPD& q(unsigned int i) {
     assert(i<Q_);
     return quaternionList[i];
+  };
+  unsigned int getId(const double& var) const{
+    return IdMap_.at(static_cast<const void*>(&var));
+  };
+  unsigned int getId(const Eigen::Matrix<double,3,1>& var) const{
+    return IdMap_.at(static_cast<const void*>(&var));
+  };
+  unsigned int getId(const rot::RotationQuaternionPD& var) const{
+    return IdMap_.at(static_cast<const void*>(&var));
+  };
+  void createVarLookup(){
+    for(unsigned int i=0;i<S_;i++){
+      IdMap_[static_cast<const void*>(&s(i))] = i;
+    }
+    for(unsigned int i=0;i<V_;i++){
+      IdMap_[static_cast<const void*>(&v(i))] = S_+3*i;
+    }
+    for(unsigned int i=0;i<Q_;i++){
+      IdMap_[static_cast<const void*>(&q(i))] = S_+3*V_+3*i;
+    }
   };
 };
 

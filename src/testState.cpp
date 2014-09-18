@@ -205,9 +205,15 @@ TEST_F(StateSVQTest, accessors) {
   for(int i=0;i<Q_;i++){
     ASSERT_TRUE(testState1_.q(i).isNear(testQuat1_[i],1e-6));
   }
-  testState1_.addScalarIdentifier("pos",1);
-  ASSERT_TRUE(testState1_.s(1) == testState1_.getScalar("pos"));
-  ASSERT_TRUE(testState1_.getDifIndex("pos") == 1);
+  for(int i=0;i<S_;i++){
+    ASSERT_TRUE(testState1_.getId(testState1_.s(i)) == i);
+  }
+  for(int i=0;i<V_;i++){
+    ASSERT_TRUE(testState1_.getId(testState1_.v(i)) == S_+3*i);
+  }
+  for(int i=0;i<Q_;i++){
+    ASSERT_TRUE(testState1_.getId(testState1_.q(i)) == S_+3*(V_+i));
+  }
 }
 
 int main(int argc, char **argv) {
