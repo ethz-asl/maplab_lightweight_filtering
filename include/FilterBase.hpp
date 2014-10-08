@@ -17,19 +17,32 @@
 namespace LWF{
 
 template<typename State>
+class FilterState{
+ public:
+  typedef State mtState;
+  typedef typename mtState::CovMat mtCovMat;
+  static const unsigned int D_ = mtState::D_;
+  mtCovMat cov_;
+  mtState state_;
+  double t_;
+  FilterState(){
+    t_ = 0.0;
+  };
+  virtual ~FilterState(){};
+};
+
+template<typename State>
 class FilterBase{
  public:
   typedef State mtState;
   typedef typename mtState::CovMat mtCovMat;
   static const unsigned int D_ = mtState::D_;
-  mtCovMat covSafe_;
-  mtState stateSafe_;
-  mtCovMat covFront_;
-  mtState stateFront_;
+  FilterState<State> safe_;
+  FilterState<State> front_;
   bool validFront_;
 
-  std::map<double,PredictionBase<mtState>> predictionMeasMap_;
-  std::map<double,PredictionBase<mtState>> updateMeasMap_; //TODO: adapt
+  std::map<double,PredictionBase<mtState>*> predictionMeasMap_;
+  std::map<double,PredictionBase<mtState>*> updateMeasMap_; //TODO: adapt
   FilterBase(){
     validFront_ = false;
   };
@@ -37,11 +50,11 @@ class FilterBase{
   void updateSafe(){
     if(predictionMeasMap_.empty() || updateMeasMap_.empty()) return;
     double nextSafeTime = std::min(predictionMeasMap_.rbegin()->first,updateMeasMap_.rbegin()->first);
-    if(stateFront_.t_<=nextSafeTime && validFront_ && stateFront_.t_>stateSafe_.t_){
-      stateSafe_ = stateFront_;
-      covSafe_ = covFront_;
+    if(front_.t_<=nextSafeTime && validFront_ && front_.t_>safe_.t_){
+      safe_.state_ = front_.state_;
+      safe_.cov_ = front_.cov_;
     }
-    update(stateSafe_,covSafe_,nextSafeTime);
+    update(safe_.state_,safe_.cov_,nextSafeTime);
     clean(nextSafeTime);
   }
   void update(mtState& state, mtCovMat& cov,const double& tEnd){
@@ -50,7 +63,7 @@ class FilterBase{
     itPredictionMeas = predictionMeasMap_.upper_bound(state.t_);
     itUpdateMeas = updateMeasMap_.upper_bound(state.t_);
     double tNext = state.t_;
-    PredictionBase<mtState> usedPredictionMeas;
+    PredictionBase<mtState>* usedPredictionMeas;
     while(state.t_<tEnd){
       bool isFullUpdate = false;
       tNext = tEnd;
@@ -71,9 +84,9 @@ class FilterBase{
 //        usedPredictionMeas = defaultPredictionMeas_;
 //      }
       if(isFullUpdate){
-//        predictAndUpdate(&usedPredictionMeas,&itUpdateMeas->second,tNext-state_.t_);
+//        predictAndUpdate(&usedPredictionMeas,&itUpdateMeas->second,tNext-t_);
       } else {
-        usedPredictionMeas.predictEKF(state,cov,tNext);
+        usedPredictionMeas->predictEKF(state,cov,tNext);
       }
       itPredictionMeas = predictionMeasMap_.upper_bound(state.t_);
       itUpdateMeas = updateMeasMap_.upper_bound(state.t_);

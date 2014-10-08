@@ -27,11 +27,9 @@ class StateSVQ{
   typedef Eigen::Matrix<double,D_,D_> CovMat;
   std::unordered_map<const void*,unsigned int> IdMap_;
   StateSVQ(){
-    t_ = 0.0;
     setIdentity();
     createVarLookup();
   };
-  double t_;
   double scalarList[S_];
   Eigen::Vector3d vectorList[V_];
   rot::RotationQuaternionPD quaternionList[Q_];
@@ -49,7 +47,6 @@ class StateSVQ{
       stateOut.quaternionList[i] = quaternionList[i].boxPlus(vecIn.block(index,0,3,1));
       index += 3;
     }
-    stateOut.t_ = t_;
   }
   void boxMinus(const StateSVQ<S_,V_,Q_>& stateIn, DiffVec& vecOut) const{
     unsigned int index = 0;
@@ -150,13 +147,10 @@ class VectorState{
   typedef Eigen::Matrix<double,D_,D_> CovMat;
   VectorState(){
     vector_.setZero();
-    t_ = 0.0;
   };
   Eigen::Matrix<double,D_,1> vector_;
-  double t_;
   void boxPlus(const DiffVec& vecIn, VectorState<N>& stateOut) const{
     stateOut.vector_ = vector_+vecIn;
-    stateOut.t_ = t_;
   }
   void boxMinus(const VectorState<N>& stateIn, DiffVec& vecOut) const{
     vecOut = vector_-stateIn.vector_;

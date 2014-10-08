@@ -21,8 +21,15 @@ class PredictionNoise: public LWF::StateSVQ<4,0,0>{
 };
 class PredictionExample: public LWF::Prediction<State,PredictionMeas,PredictionNoise>{
  public:
+  typedef State mtState;
+  typedef typename mtState::CovMat mtCovMat;
+  typedef PredictionMeas mtMeas;
+  typedef PredictionNoise mtNoise;
   PredictionExample(){};
   ~PredictionExample(){};
+  mtState eval(const mtState& input, const mtMeas& meas, const mtNoise noise, const double dt) const{
+    return input;
+  }
 };
 
 // The fixture for testing class PredictionModel
@@ -60,6 +67,8 @@ class PredictionModelTest : public ::testing::Test {
   Eigen::Vector3d testVector2_[State::V_];
   rot::RotationQuaternionPD testQuat1_[State::Q_];
   rot::RotationQuaternionPD testQuat2_[State::Q_];
+  PredictionExample testPrediction;
+  LWF::FilterBase<State> testFilter;
 };
 
 // Test constructors

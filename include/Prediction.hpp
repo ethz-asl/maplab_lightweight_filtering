@@ -22,8 +22,8 @@ class PredictionBase{
   typedef typename mtState::CovMat mtCovMat;
   PredictionBase(){};
   virtual ~PredictionBase(){};
-  virtual int predictEKF(const mtState& stateIn, const mtCovMat& covIn, mtState& stateOut, mtCovMat& covOut) const = 0;
-  virtual int predictUKF(const mtState& stateIn, const mtCovMat& covIn, mtState& stateOut, mtCovMat& covOut) const = 0;
+  virtual int predictEKF(mtState& state, mtCovMat& cov, const double t) = 0;
+  virtual int predictUKF(mtState& state, mtCovMat& cov, const double t) = 0;
 };
 
 template<typename State, typename Meas, typename Noise>
@@ -45,18 +45,16 @@ class Prediction: public PredictionBase<State>, ModelBase<State,State,Meas,Noise
   void setMeasurement(const mtMeas& meas){
     meas_ = meas;
   };
-  int predictEKF(mtState& state, mtCovMat& cov, const double t) const{
-    const double dt = t-state.t_;
-    state.t_ = t;
-    F_ = evalPredictionJacState(state,meas_,dt);
-    Fn_ = evalPredictionJacNoise(state,meas_,dt);
-    state = eval(state,meas_,dt);
+  int predictEKF(mtState& state, mtCovMat& cov, const double dt){
+    F_ = this->jacInput(state,meas_,dt);
+    Fn_ = this->jacNoise(state,meas_,dt);
+    state = this->eval(state,meas_,dt);
     state.fix();
     cov = F_*cov*F_.transpose() + Fn_*prenoiP_*Fn_.transpose();
     return 0;
   }
-  int predictUKF(mtState& state, mtCovMat& cov, const double t) const{
-    return predictEKF(state,cov,t);
+  int predictUKF(mtState& state, mtCovMat& cov, const double dt){
+    return predictEKF(state,cov,dt);
   }
 };
 

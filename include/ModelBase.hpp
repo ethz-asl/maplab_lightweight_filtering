@@ -32,8 +32,16 @@ class ModelBase{
     return eval(input,meas,noise,dt);
   }
   virtual mtOutput eval(const mtInput& input, const mtMeas& meas, const mtNoise noise, const double dt) const = 0;
-  virtual mtJacInput jacInput(const mtInput& input, const mtMeas& meas, const double dt) const = 0;
-  virtual mtJacNoise jacNoise(const mtInput& input, const mtMeas& meas, const double dt) const = 0;
+  virtual mtJacInput jacInput(const mtInput& input, const mtMeas& meas, const double dt) const{
+    mtJacInput J;
+    J.setZero();
+    return J;
+  }
+  virtual mtJacNoise jacNoise(const mtInput& input, const mtMeas& meas, const double dt) const{
+    mtJacNoise J;
+    J.setZero();
+    return J;
+  }
   mtJacInput jacInputFD(const mtInput& input, const mtMeas& meas, double dt, double d){
     mtJacInput F;
     mtInput inputDisturbed;
