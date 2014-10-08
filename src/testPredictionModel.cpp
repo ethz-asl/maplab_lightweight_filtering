@@ -1,5 +1,6 @@
-#include "PredictionModel.hpp"
+#include "Prediction.hpp"
 #include "State.hpp"
+#include "FilterBase.hpp"
 #include "gtest/gtest.h"
 #include <assert.h>
 
@@ -13,10 +14,15 @@ class PredictionMeas: public LWF::StateSVQ<2,2,2>{
   PredictionMeas(){};
   ~PredictionMeas(){};
 };
-class PredictionModelExample: public LWF::PredictionModel<State,PredictionMeas,10>{
+class PredictionNoise: public LWF::StateSVQ<4,0,0>{
  public:
-  PredictionModelExample(){};
-  ~PredictionModelExample(){};
+  PredictionNoise(){};
+  ~PredictionNoise(){};
+};
+class PredictionExample: public LWF::Prediction<State,PredictionMeas,PredictionNoise>{
+ public:
+  PredictionExample(){};
+  ~PredictionExample(){};
 };
 
 // The fixture for testing class PredictionModel
