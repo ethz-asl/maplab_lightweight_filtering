@@ -40,65 +40,79 @@ class FilterBase{
   FilterState<State> safe_;
   FilterState<State> front_;
   bool validFront_;
+  PredictionBase<mtState>* mpDefaultPrediction_;
 
-  std::map<double,PredictionBase<mtState>*> predictionMeasMap_;
-  std::map<double,PredictionBase<mtState>*> updateMeasMap_; //TODO: adapt
+  std::map<double,PredictionBase<mtState>*> predictionMap_;
+  std::map<double,UpdateBase<mtState>*> updateMap_; //TODO: adapt
   FilterBase(){
     validFront_ = false;
+    mpDefaultPrediction_ = nullptr;
   };
   virtual ~FilterBase(){};
   void updateSafe(){
-    if(predictionMeasMap_.empty() || updateMeasMap_.empty()) return;
-    double nextSafeTime = std::min(predictionMeasMap_.rbegin()->first,updateMeasMap_.rbegin()->first);
+    if(predictionMap_.empty() || updateMap_.empty()) return;
+    double nextSafeTime = std::min(predictionMap_.rbegin()->first,updateMap_.rbegin()->first);
     if(front_.t_<=nextSafeTime && validFront_ && front_.t_>safe_.t_){
       safe_.state_ = front_.state_;
       safe_.cov_ = front_.cov_;
     }
-    update(safe_.state_,safe_.cov_,nextSafeTime);
+    update(safe_,nextSafeTime);
     clean(nextSafeTime);
   }
-  void update(mtState& state, mtCovMat& cov,const double& tEnd){
+  void update(FilterState<State>& filterState,const double& tEnd){
     typename std::map<double,PredictionBase<mtState>>::iterator itPredictionMeas;
-    typename std::map<double,PredictionBase<mtState>>::iterator itUpdateMeas; // Todo adapt
-    itPredictionMeas = predictionMeasMap_.upper_bound(state.t_);
-    itUpdateMeas = updateMeasMap_.upper_bound(state.t_);
-    double tNext = state.t_;
-    PredictionBase<mtState>* usedPredictionMeas;
-    while(state.t_<tEnd){
+    typename std::map<double,UpdateBase<mtState>>::iterator itUpdateMeas;
+    itPredictionMeas = predictionMap_.upper_bound(filterState.t_);
+    itUpdateMeas = updateMap_.upper_bound(filterState.t_);
+    double tNext = filterState.t_;
+    PredictionBase<mtState>* mpUsedPrediction;
+    while(filterState.t_<tEnd){
       bool isFullUpdate = false;
       tNext = tEnd;
-      if(itPredictionMeas!=predictionMeasMap_.end()){
+      if(itPredictionMeas!=predictionMap_.end()){
         if(itPredictionMeas->first<tNext){
           tNext = itPredictionMeas->first;
         }
+        mpUsedPrediction = itPredictionMeas->second;
+      } else {
+        mpUsedPrediction = mpDefaultPrediction_;
       }
-      if(itUpdateMeas!=updateMeasMap_.end()){
+      if(itUpdateMeas!=updateMap_.end()){
         if(itUpdateMeas->first<=tNext){
           tNext = itUpdateMeas->first;
           isFullUpdate = true;
         }
       }
-//      if(itPredictionMeas != predictionMeasMap_.end()){
-        usedPredictionMeas = itPredictionMeas->second;
-//      } else {
-//        usedPredictionMeas = defaultPredictionMeas_;
-//      }
-      if(isFullUpdate){
-//        predictAndUpdate(&usedPredictionMeas,&itUpdateMeas->second,tNext-t_);
+      if(mpUsedPrediction!=nullptr){
+        mpUsedPrediction->predictEKF(filterState.state_,filterState.cov_,tNext-filterState.t_);
       } else {
-        usedPredictionMeas->predictEKF(state,cov,tNext);
+        LWF::PredictionDefault<State>::predictEKF(filterState.state_,filterState.cov_,tNext-filterState.t_);
       }
-      itPredictionMeas = predictionMeasMap_.upper_bound(state.t_);
-      itUpdateMeas = updateMeasMap_.upper_bound(state.t_);
+      filterState.t_ = tNext;
+      itUpdateMeas->updateEKF(filterState.state_,filterState.cov_);
+      itPredictionMeas = predictionMap_.upper_bound(filterState.t_);
+      itUpdateMeas = updateMap_.upper_bound(filterState.t_);
     }
   }
   void clean(const double& t){
-    while(!predictionMeasMap_.empty() && predictionMeasMap_.begin()->first<=t){
-      predictionMeasMap_.erase(predictionMeasMap_.begin());
+    while(!predictionMap_.empty() && predictionMap_.begin()->first<=t){
+      delete predictionMap_.begin()->second; // TODO: Careful: assumes ownership
+      predictionMap_.erase(predictionMap_.begin());
     }
-    while(!updateMeasMap_.empty() && updateMeasMap_.begin()->first<=t){
-      updateMeasMap_.erase(updateMeasMap_.begin());
+    while(!updateMap_.empty() && updateMap_.begin()->first<=t){
+      delete updateMap_.begin()->second; // TODO: Careful: assumes ownership
+      updateMap_.erase(updateMap_.begin());
     }
+  }
+  void addPrediction(PredictionBase<mtState>* mpPrediction, const double& t){
+    assert(t>safe_.t_);
+    predictionMap_[t] = mpPrediction; // TODO: Careful: takes over ownership
+    if(front_.t_>=t) validFront_ = false;
+  }
+  void addUpdateMeas(UpdateBase<mtState>* mpUpdate, const double& t){
+    assert(t>safe_.t_);
+    updateMap_[t] = mpUpdate; // TODO: Careful: takes over ownership
+    if(front_.t_>=t) validFront_ = false;
   }
 };
 

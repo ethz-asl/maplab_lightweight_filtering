@@ -169,6 +169,10 @@ class VectorState{
     assert(i<D_);
     return vector_(i);
   };
+  VectorState& operator=(const Eigen::Matrix<double,D_,1>& vec){
+    vector_ = vec;
+    return *this;
+  };
 };
 
 }

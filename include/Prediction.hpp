@@ -1,5 +1,5 @@
 /*
- * PredictionModel.hpp
+ * Prediction.hpp
  *
  *  Created on: Feb 9, 2014
  *      Author: Bloeschm
@@ -26,6 +26,21 @@ class PredictionBase{
   virtual int predictUKF(mtState& state, mtCovMat& cov, const double t) = 0;
 };
 
+template<typename State>
+class PredictionDefault: public PredictionBase<State>{
+ public:
+  typedef State mtState;
+  typedef typename mtState::CovMat mtCovMat;
+  PredictionDefault(){};
+  ~PredictionDefault(){};
+  static int predictEKF(mtState& state, mtCovMat& cov, const double t){
+    return 0;
+  }
+  static int predictUKF(mtState& state, mtCovMat& cov, const double t){
+    return 0;
+  }
+};
+
 template<typename State, typename Meas, typename Noise>
 class Prediction: public PredictionBase<State>, ModelBase<State,State,Meas,Noise>{
  public:
@@ -37,8 +52,11 @@ class Prediction: public PredictionBase<State>, ModelBase<State,State,Meas,Noise
   typename ModelBase<State,State,Meas,Noise>::mtJacNoise Fn_;
   typename mtNoise::CovMat prenoiP_;
   mtMeas meas_;
-  Prediction(){};
+  Prediction(){
+    prenoiP_.setIdentity();
+  };
   Prediction(const mtMeas& meas){
+    prenoiP_.setIdentity();
     setMeasurement(meas);
   };
   virtual ~Prediction(){};

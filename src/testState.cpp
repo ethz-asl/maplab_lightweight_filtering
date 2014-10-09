@@ -27,8 +27,18 @@ TEST_F(VectorStateTest, constructors) {
   }
 }
 
+// Test operator= annd [] accessor
+TEST_F(VectorStateTest, opertorAss) {
+  testVectorState1_.setIdentity();
+  testVectorState1_ = testVector1_;
+  for(int i=0;i<D_;i++){
+    ASSERT_EQ(testVectorState1_[i],testVector1_(i));
+  }
+}
+
 // Test setIdentity
 TEST_F(VectorStateTest, setIdentity) {
+  testVectorState1_ = testVector1_;
   testVectorState1_.setIdentity();
   for(int i=0;i<D_;i++){
     ASSERT_EQ(testVectorState1_[i],0.0);
@@ -37,7 +47,7 @@ TEST_F(VectorStateTest, setIdentity) {
 
 // Test plus and minus
 TEST_F(VectorStateTest, plusAndMinus) {
-  testVectorState1_.vector_ = testVector1_;
+  testVectorState1_ = testVector1_;
   difVec_ = testVector2_;
   testVectorState1_.boxPlus(difVec_,testVectorState2_);
   for(int i=0;i<D_;i++){
@@ -195,16 +205,20 @@ TEST_F(StateSVQTest, accessors) {
     testState1_.quaternionList[i] = testQuat1_[i];
   }
   for(int i=0;i<S_;i++){
-    testState1_.s(i) = testScalar1_[i];
+    ASSERT_TRUE(testState1_.s(i) == testScalar1_[i]);
   }
   for(int i=0;i<V_;i++){
-    testState1_.v(i)(0) = testVector1_[i](0);
-    testState1_.v(i)(1) = testVector1_[i](1);
-    testState1_.v(i)(2) = testVector1_[i](2);
+    ASSERT_TRUE(testState1_.v(i)(0) == testVector1_[i](0));
+    ASSERT_TRUE(testState1_.v(i)(1) == testVector1_[i](1));
+    ASSERT_TRUE(testState1_.v(i)(2) == testVector1_[i](2));
   }
   for(int i=0;i<Q_;i++){
     ASSERT_TRUE(testState1_.q(i).isNear(testQuat1_[i],1e-6));
   }
+}
+
+  // Test accessors
+TEST_F(StateSVQTest, getId) {
   for(int i=0;i<S_;i++){
     ASSERT_TRUE(testState1_.getId(testState1_.s(i)) == i);
   }

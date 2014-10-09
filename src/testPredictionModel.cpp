@@ -1,4 +1,5 @@
 #include "Prediction.hpp"
+#include "Update.hpp"
 #include "State.hpp"
 #include "FilterBase.hpp"
 #include "gtest/gtest.h"
