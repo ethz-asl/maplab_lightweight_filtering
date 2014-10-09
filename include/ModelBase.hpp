@@ -31,7 +31,10 @@ class ModelBase{
     noise.setIdentity();
     return eval(input,meas,noise,dt);
   }
-  virtual mtOutput eval(const mtInput& input, const mtMeas& meas, const mtNoise noise, const double dt) const = 0;
+  virtual mtOutput eval(const mtInput& input, const mtMeas& meas, const mtNoise noise, const double dt) const{
+    mtOutput output;
+    return output;
+  }
   virtual mtJacInput jacInput(const mtInput& input, const mtMeas& meas, const double dt) const{
     mtJacInput J;
     J.setZero();
@@ -47,11 +50,11 @@ class ModelBase{
     mtInput inputDisturbed;
     mtOutput outputReference = eval(input,meas,dt);
     typename mtInput::CovMat I;
-    typename mtInput::DiffVec dif;
+    typename mtOutput::DiffVec dif;
     I.setIdentity();
     for(unsigned int i=0;i<mtInput::D_;i++){
       input.boxPlus(d*I.col(i),inputDisturbed);
-      eval(&inputDisturbed,meas,dt).boxMinus(outputReference,dif);
+      eval(inputDisturbed,meas,dt).boxMinus(outputReference,dif);
       F.col(i) = dif/d;
     }
     return F;
@@ -63,7 +66,7 @@ class ModelBase{
     mtNoise noiseDisturbed;
     mtOutput outputReference = eval(input,meas,noise,dt);
     typename mtNoise::CovMat I;
-    typename mtNoise::DiffVec dif;
+    typename mtOutput::DiffVec dif;
     I.setIdentity();
     for(unsigned int i=0;i<mtNoise::D_;i++){
       noise.boxPlus(d*I.col(i),noiseDisturbed);

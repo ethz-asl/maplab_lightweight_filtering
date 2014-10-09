@@ -59,6 +59,17 @@ TEST_F(VectorStateTest, plusAndMinus) {
   }
 }
 
+// Test block
+TEST_F(VectorStateTest, block) {
+  testVectorState1_ = testVector1_;
+  ASSERT_EQ(testVectorState1_.block<2>(0)(0),testVector1_(0));
+  ASSERT_EQ(testVectorState1_.block<2>(0)(1),testVector1_(1));
+  ASSERT_EQ(testVectorState1_.block<2>(1)(0),testVector1_(1));
+  ASSERT_EQ(testVectorState1_.block<2>(1)(1),testVector1_(2));
+  ASSERT_EQ(testVectorState1_.block<2>(2)(0),testVector1_(2));
+  ASSERT_EQ(testVectorState1_.block<2>(2)(1),testVector1_(3));
+}
+
 // The fixture for testing class StateSVQ
 class StateSVQTest : public ::testing::Test {
  protected:

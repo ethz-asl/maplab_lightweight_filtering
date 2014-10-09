@@ -43,7 +43,7 @@ class FilterBase{
   PredictionBase<mtState>* mpDefaultPrediction_;
 
   std::map<double,PredictionBase<mtState>*> predictionMap_;
-  std::map<double,UpdateBase<mtState>*> updateMap_; //TODO: adapt
+  std::map<double,UpdateBase<mtState>*> updateMap_;
   FilterBase(){
     validFront_ = false;
     mpDefaultPrediction_ = nullptr;

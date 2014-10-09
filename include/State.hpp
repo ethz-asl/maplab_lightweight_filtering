@@ -173,7 +173,36 @@ class VectorState{
     vector_ = vec;
     return *this;
   };
+  template<unsigned int M>
+  Eigen::Matrix<double,M,1> block(unsigned int i) const{
+    assert(M+i<=N);
+    return vector_.block<M,1>(i,0);
+  }
 };
+
+static Eigen::Matrix3d Lmat (Eigen::Vector3d a) {
+  double aNorm = a.norm();
+  double factor1 = 0;
+  double factor2 = 0;
+  Eigen::Matrix3d ak;
+  Eigen::Matrix3d ak2;
+  Eigen::Matrix3d G_k;
+
+  // Get sqew matrices
+  ak = kindr::linear_algebra::getSkewMatrixFromVector(a);
+  ak2 = ak*ak;
+
+  // Compute factors
+  if(aNorm >= 1e-10){
+    factor1 = (1 - cos(aNorm))/pow(aNorm,2);
+    factor2 = (aNorm-sin(aNorm))/pow(aNorm,3);
+  } else {
+    factor1 = 1/2;
+    factor2 = 1/6;
+  }
+
+  return Eigen::Matrix3d::Identity()-factor1*ak+factor2*ak2;
+}
 
 }
 
