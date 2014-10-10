@@ -19,7 +19,7 @@ template<typename State>
 class UpdateBase{
  public:
   typedef State mtState;
-  typedef typename mtState::CovMat mtCovMat;
+  typedef typename mtState::mtCovMat mtCovMat;
   UpdateBase(){};
   virtual ~UpdateBase(){};
   virtual int updateEKF(mtState& state, mtCovMat& cov, const double t) = 0;
@@ -30,20 +30,20 @@ template<typename Innovation, typename State, typename Meas, typename Noise>
 class Update: public UpdateBase<State>, ModelBase<Innovation,State,Meas,Noise>{
  public:
   typedef State mtState;
-  typedef typename mtState::CovMat mtCovMat;
+  typedef typename mtState::mtCovMat mtCovMat;
   typedef Innovation mtInnovation;
   typedef Meas mtMeas;
   typedef Noise mtNoise;
   typename ModelBase<Innovation,State,Meas,Noise>::mtJacInput H_;
   typename ModelBase<Innovation,State,Meas,Noise>::mtJacNoise Hn_;
-  typename mtNoise::CovMat updnoiP_;
+  typename mtNoise::mtCovMat updnoiP_;
   mtMeas meas_;
   mtInnovation y_;
-  typename mtInnovation::CovMat Py_;
-  typename mtInnovation::CovMat Pyinv_;
-  typename mtInnovation::DiffVec innVector_;
+  typename mtInnovation::mtCovMat Py_;
+  typename mtInnovation::mtCovMat Pyinv_;
+  typename mtInnovation::mtDiffVec innVector_;
   const mtInnovation yIdentity_;
-  typename mtState::DiffVec updateVec_;
+  typename mtState::mtDiffVec updateVec_;
   Eigen::Matrix<double,mtState::D_,mtInnovation::D_> K_;
   Update(){
     updateVec_.setIdentity();

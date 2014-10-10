@@ -23,8 +23,8 @@ class StateSVQ{
   static const unsigned int V_ = V;
   static const unsigned int Q_ = Q;
   static const unsigned int D_ = S_+(V_+Q_)*3;
-  typedef Eigen::Matrix<double,D_,1> DiffVec;
-  typedef Eigen::Matrix<double,D_,D_> CovMat;
+  typedef Eigen::Matrix<double,D_,1> mtDiffVec;
+  typedef Eigen::Matrix<double,D_,D_> mtCovMat;
   std::unordered_map<const void*,unsigned int> IdMap_;
   StateSVQ(){
     setIdentity();
@@ -33,7 +33,7 @@ class StateSVQ{
   double scalarList[S_];
   Eigen::Vector3d vectorList[V_];
   rot::RotationQuaternionPD quaternionList[Q_];
-  void boxPlus(const DiffVec& vecIn, StateSVQ<S_,V_,Q_>& stateOut) const{
+  void boxPlus(const mtDiffVec& vecIn, StateSVQ<S_,V_,Q_>& stateOut) const{
     unsigned int index = 0;
     for(unsigned int i=0;i<S_;i++){
       stateOut.scalarList[i] = scalarList[i]+vecIn(index);
@@ -48,7 +48,7 @@ class StateSVQ{
       index += 3;
     }
   }
-  void boxMinus(const StateSVQ<S_,V_,Q_>& stateIn, DiffVec& vecOut) const{
+  void boxMinus(const StateSVQ<S_,V_,Q_>& stateIn, mtDiffVec& vecOut) const{
     unsigned int index = 0;
     for(unsigned int i=0;i<S_;i++){
       vecOut(index) = scalarList[i]-stateIn.scalarList[i];
@@ -137,22 +137,36 @@ class StateSVQ{
       IdMap_[static_cast<const void*>(&q(i))] = S_+3*V_+3*i;
     }
   };
+  StateSVQ<S,V,Q>& operator=(const StateSVQ<S,V,Q>& state){
+    for(unsigned int i=0;i<S_;i++){
+      s(i) = state.s(i);
+    }
+    for(unsigned int i=0;i<V_;i++){
+      v(i) = state.v(i);
+    }
+    for(unsigned int i=0;i<Q_;i++){
+      q(i) = state.q(i);
+    }
+    return *this;
+  }
 };
 
 template<unsigned int N>
 class VectorState{
  public:
   static const unsigned int D_ = N;
-  typedef Eigen::Matrix<double,D_,1> DiffVec;
-  typedef Eigen::Matrix<double,D_,D_> CovMat;
+  typedef Eigen::Matrix<double,D_,1> mtDiffVec;
+  typedef Eigen::Matrix<double,D_,D_> mtCovMat;
   VectorState(){
     vector_.setZero();
+    createVarLookup();
   };
   Eigen::Matrix<double,D_,1> vector_;
-  void boxPlus(const DiffVec& vecIn, VectorState<N>& stateOut) const{
+  std::unordered_map<const void*,unsigned int> IdMap_;
+  void boxPlus(const mtDiffVec& vecIn, VectorState<N>& stateOut) const{
     stateOut.vector_ = vector_+vecIn;
   }
-  void boxMinus(const VectorState<N>& stateIn, DiffVec& vecOut) const{
+  void boxMinus(const VectorState<N>& stateIn, mtDiffVec& vecOut) const{
     vecOut = vector_-stateIn.vector_;
   }
   void print() const{
@@ -169,15 +183,40 @@ class VectorState{
     assert(i<D_);
     return vector_(i);
   };
-  VectorState& operator=(const Eigen::Matrix<double,D_,1>& vec){
+  VectorState<N>& operator=(const Eigen::Matrix<double,D_,1>& vec){
     vector_ = vec;
     return *this;
   };
+  VectorState<N>& operator=(const VectorState<N>& state){
+    vector_ = state.vector_;
+    return *this;
+  };
   template<unsigned int M>
-  Eigen::Matrix<double,M,1> block(unsigned int i) const{
+  Eigen::Block<Eigen::Matrix<double,D_,1>,M,1> block(unsigned int i){
     assert(M+i<=N);
     return vector_.block<M,1>(i,0);
   }
+  template<unsigned int M>
+  const Eigen::Block<const Eigen::Matrix<double,D_,1>,M,1> block(unsigned int i) const{
+    assert(M+i<=N);
+    return vector_.block<M,1>(i,0);
+  }
+  unsigned int getId(const double& var) const{
+    return IdMap_.at(static_cast<const void*>(&var));
+  };
+  template<int M>
+  unsigned int getId(const Eigen::Block<const Eigen::Matrix<double,D_,1>,M,1> var) const{
+    return IdMap_.at(static_cast<const void*>(&var(0)));
+  };
+  template<int M>
+  unsigned int getId(Eigen::Block<Eigen::Matrix<double,D_,1>,M,1> var) const{
+    return IdMap_.at(static_cast<const void*>(&var(0)));
+  };
+  void createVarLookup(){
+    for(unsigned int i=0;i<D_;i++){
+      IdMap_[static_cast<const void*>(&vector_(i))] = i;
+    }
+  };
 };
 
 static Eigen::Matrix3d Lmat (Eigen::Vector3d a) {

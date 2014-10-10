@@ -14,7 +14,7 @@ class VectorStateTest : public ::testing::Test {
   static const unsigned int D_ = 4;
   LWF::VectorState<D_> testVectorState1_;
   LWF::VectorState<D_> testVectorState2_;
-  LWF::VectorState<D_>::DiffVec difVec_;
+  LWF::VectorState<D_>::mtDiffVec difVec_;
   Eigen::Matrix<double,D_,1> testVector1_;
   Eigen::Matrix<double,D_,1> testVector2_;
 };
@@ -70,6 +70,19 @@ TEST_F(VectorStateTest, block) {
   ASSERT_EQ(testVectorState1_.block<2>(2)(1),testVector1_(3));
 }
 
+// Test getId
+TEST_F(VectorStateTest, getId) {
+  for(int i=0;i<D_;i++){
+    ASSERT_TRUE(testVectorState1_.getId(testVectorState1_[i]) == i);
+  }
+  ASSERT_TRUE(testVectorState1_.getId(testVectorState1_.block<2>(0)) == 0);
+  ASSERT_TRUE(testVectorState1_.getId(testVectorState1_.block<2>(1)) == 1);
+  ASSERT_TRUE(testVectorState1_.getId(testVectorState1_.block<2>(2)) == 2);
+  ASSERT_TRUE(testVectorState1_.getId(testVectorState1_.block<3>(0)) == 0);
+  ASSERT_TRUE(testVectorState1_.getId(testVectorState1_.block<3>(1)) == 1);
+  ASSERT_TRUE(testVectorState1_.getId(testVectorState1_.block<4>(0)) == 0);
+}
+
 // The fixture for testing class StateSVQ
 class StateSVQTest : public ::testing::Test {
  protected:
@@ -101,7 +114,7 @@ class StateSVQTest : public ::testing::Test {
   static const unsigned int Q_ = 2;
   LWF::StateSVQ<S_,V_,Q_> testState1_;
   LWF::StateSVQ<S_,V_,Q_> testState2_;
-  LWF::StateSVQ<S_,V_,Q_>::DiffVec difVec_;
+  LWF::StateSVQ<S_,V_,Q_>::mtDiffVec difVec_;
   double testScalar1_[S_];
   double testScalar2_[S_];
   Eigen::Vector3d testVector1_[V_];
@@ -228,7 +241,7 @@ TEST_F(StateSVQTest, accessors) {
   }
 }
 
-  // Test accessors
+// Test getId
 TEST_F(StateSVQTest, getId) {
   for(int i=0;i<S_;i++){
     ASSERT_TRUE(testState1_.getId(testState1_.s(i)) == i);

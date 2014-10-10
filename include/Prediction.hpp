@@ -19,7 +19,7 @@ template<typename State>
 class PredictionBase{
  public:
   typedef State mtState;
-  typedef typename mtState::CovMat mtCovMat;
+  typedef typename mtState::mtCovMat mtCovMat;
   PredictionBase(){};
   virtual ~PredictionBase(){};
   virtual int predictEKF(mtState& state, mtCovMat& cov, const double t) = 0;
@@ -30,7 +30,7 @@ template<typename State>
 class PredictionDefault: public PredictionBase<State>{
  public:
   typedef State mtState;
-  typedef typename mtState::CovMat mtCovMat;
+  typedef typename mtState::mtCovMat mtCovMat;
   PredictionDefault(){};
   ~PredictionDefault(){};
   static int predictEKF(mtState& state, mtCovMat& cov, const double t){
@@ -42,15 +42,15 @@ class PredictionDefault: public PredictionBase<State>{
 };
 
 template<typename State, typename Meas, typename Noise>
-class Prediction: public PredictionBase<State>, ModelBase<State,State,Meas,Noise>{
+class Prediction: public PredictionBase<State>, public ModelBase<State,State,Meas,Noise>{
  public:
   typedef State mtState;
-  typedef typename mtState::CovMat mtCovMat;
+  typedef typename mtState::mtCovMat mtCovMat;
   typedef Meas mtMeas;
   typedef Noise mtNoise;
   typename ModelBase<State,State,Meas,Noise>::mtJacInput F_;
   typename ModelBase<State,State,Meas,Noise>::mtJacNoise Fn_;
-  typename mtNoise::CovMat prenoiP_;
+  typename mtNoise::mtCovMat prenoiP_;
   mtMeas meas_;
   Prediction(){
     prenoiP_.setIdentity();

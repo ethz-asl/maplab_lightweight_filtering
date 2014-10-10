@@ -78,6 +78,9 @@ TEST_F(ModelBaseTest, FDjacobians) {
   ModelExample::mtJacInput F;
   F = model_.jacInputFD(testInput_,testMeas_,0.1,0.0000001);
   ASSERT_NEAR((F-model_.jacInput(testInput_,testMeas_,0.1)).norm(),0.0,1e-5);
+  ModelExample::mtJacNoise Fn;
+  Fn = model_.jacNoiseFD(testInput_,testMeas_,0.1,0.0000001);
+  ASSERT_NEAR((Fn-model_.jacNoise(testInput_,testMeas_,0.1)).norm(),0.0,1e-5);
 }
 
 int main(int argc, char **argv) {

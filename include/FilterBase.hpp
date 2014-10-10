@@ -20,7 +20,7 @@ template<typename State>
 class FilterState{
  public:
   typedef State mtState;
-  typedef typename mtState::CovMat mtCovMat;
+  typedef typename mtState::mtCovMat mtCovMat;
   static const unsigned int D_ = mtState::D_;
   mtCovMat cov_;
   mtState state_;
@@ -35,7 +35,7 @@ template<typename State>
 class FilterBase{
  public:
   typedef State mtState;
-  typedef typename mtState::CovMat mtCovMat;
+  typedef typename mtState::mtCovMat mtCovMat;
   static const unsigned int D_ = mtState::D_;
   FilterState<State> safe_;
   FilterState<State> front_;
