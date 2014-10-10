@@ -22,20 +22,20 @@ class UpdateBase{
   typedef typename mtState::mtCovMat mtCovMat;
   UpdateBase(){};
   virtual ~UpdateBase(){};
-  virtual int updateEKF(mtState& state, mtCovMat& cov, const double t) = 0;
-  virtual int updateUKF(mtState& state, mtCovMat& cov, const double t) = 0;
+  virtual int updateEKF(mtState& state, mtCovMat& cov) = 0;
+  virtual int updateUKF(mtState& state, mtCovMat& cov) = 0;
 };
 
 template<typename Innovation, typename State, typename Meas, typename Noise>
-class Update: public UpdateBase<State>, ModelBase<Innovation,State,Meas,Noise>{
+class Update: public UpdateBase<State>, public ModelBase<State,Innovation,Meas,Noise>{
  public:
   typedef State mtState;
   typedef typename mtState::mtCovMat mtCovMat;
   typedef Innovation mtInnovation;
   typedef Meas mtMeas;
   typedef Noise mtNoise;
-  typename ModelBase<Innovation,State,Meas,Noise>::mtJacInput H_;
-  typename ModelBase<Innovation,State,Meas,Noise>::mtJacNoise Hn_;
+  typename ModelBase<State,Innovation,Meas,Noise>::mtJacInput H_;
+  typename ModelBase<State,Innovation,Meas,Noise>::mtJacNoise Hn_;
   typename mtNoise::mtCovMat updnoiP_;
   mtMeas meas_;
   mtInnovation y_;
@@ -47,9 +47,11 @@ class Update: public UpdateBase<State>, ModelBase<Innovation,State,Meas,Noise>{
   Eigen::Matrix<double,mtState::D_,mtInnovation::D_> K_;
   Update(){
     updateVec_.setIdentity();
+    updnoiP_.setIdentity();
   };
   Update(const mtMeas& meas){
     updateVec_.setIdentity();
+    updnoiP_.setIdentity();
     setMeasurement(meas);
   };
   virtual ~Update(){};
@@ -63,7 +65,7 @@ class Update: public UpdateBase<State>, ModelBase<Innovation,State,Meas,Noise>{
 
     // Update
     Py_ = H_*cov*H_.transpose() + Hn_*updnoiP_*Hn_.transpose();
-    y_.boxminus(yIdentity_,innVector_);
+    y_.boxMinus(yIdentity_,innVector_);
     Pyinv_.setIdentity();
     Py_.llt().solveInPlace(Pyinv_);
 
@@ -71,7 +73,7 @@ class Update: public UpdateBase<State>, ModelBase<Innovation,State,Meas,Noise>{
     K_ = cov*H_.transpose()*Pyinv_;
     cov = cov - K_*Py_*K_.transpose();
     updateVec_ = -K_*innVector_;
-    state.boxplus(updateVec_,state);
+    state.boxPlus(updateVec_,state);
     state.fix();
     return 0;
   }
