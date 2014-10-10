@@ -38,9 +38,10 @@ class FilterBase{
   typedef typename mtState::mtCovMat mtCovMat;
   static const unsigned int D_ = mtState::D_;
   FilterState<State> safe_;
-  FilterState<State> front_;
+  FilterState<State> front_; // TODO
+  FilterState<State> init_; // TODO
   bool validFront_;
-  PredictionBase<mtState>* mpDefaultPrediction_;
+  PredictionBase<mtState>* mpDefaultPrediction_; // TODO
 
   std::map<double,PredictionBase<mtState>*> predictionMap_;
   std::map<double,UpdateBase<mtState>*> updateMap_;
@@ -53,8 +54,7 @@ class FilterBase{
     if(predictionMap_.empty() || updateMap_.empty()) return;
     double nextSafeTime = std::min(predictionMap_.rbegin()->first,updateMap_.rbegin()->first);
     if(front_.t_<=nextSafeTime && validFront_ && front_.t_>safe_.t_){
-      safe_.state_ = front_.state_;
-      safe_.cov_ = front_.cov_;
+      safe_ = front_;
     }
     update(safe_,nextSafeTime);
     clean(nextSafeTime);
@@ -65,9 +65,10 @@ class FilterBase{
     itPredictionMeas = predictionMap_.upper_bound(filterState.t_);
     itUpdateMeas = updateMap_.upper_bound(filterState.t_);
     double tNext = filterState.t_;
+    bool makeUpdate = false;
     PredictionBase<mtState>* mpUsedPrediction;
     while(filterState.t_<tEnd){
-      bool isFullUpdate = false;
+      makeUpdate = false;
       tNext = tEnd;
       if(itPredictionMeas!=predictionMap_.end()){
         if(itPredictionMeas->first<tNext){
@@ -77,19 +78,17 @@ class FilterBase{
       } else {
         mpUsedPrediction = mpDefaultPrediction_;
       }
-      if(itUpdateMeas!=updateMap_.end()){
-        if(itUpdateMeas->first<=tNext){
-          tNext = itUpdateMeas->first;
-          isFullUpdate = true;
-        }
+      if(itUpdateMeas!=updateMap_.end() && itUpdateMeas->first<=tNext){
+        tNext = itUpdateMeas->first;
+        makeUpdate = true;
       }
       if(mpUsedPrediction!=nullptr){
         mpUsedPrediction->predictEKF(filterState.state_,filterState.cov_,tNext-filterState.t_);
-      } else {
-        LWF::PredictionDefault<State>::predictEKF(filterState.state_,filterState.cov_,tNext-filterState.t_);
       }
       filterState.t_ = tNext;
-      itUpdateMeas->updateEKF(filterState.state_,filterState.cov_);
+      if(makeUpdate){
+        itUpdateMeas->updateEKF(filterState.state_,filterState.cov_);
+      }
       itPredictionMeas = predictionMap_.upper_bound(filterState.t_);
       itUpdateMeas = updateMap_.upper_bound(filterState.t_);
     }

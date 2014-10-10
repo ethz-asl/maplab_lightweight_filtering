@@ -33,6 +33,9 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/gtest/")
 	add_executable(testModelBase src/testModelBase.cpp)
 	target_link_libraries(testModelBase gtest_main gtest pthread )
 	add_test(testModelBase testModelBase)
+	add_executable(testFilterBase src/testFilterBase.cpp)
+	target_link_libraries(testFilterBase gtest_main gtest pthread )
+	add_test(testFilterBase testFilterBase)
 endif()
 
 # Generate FindLWF.cmake file
