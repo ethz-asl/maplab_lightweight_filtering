@@ -182,7 +182,7 @@ TEST_F(UpdateModelTest, addMeasurement) {
   ASSERT_NEAR(updateDiff.norm(),0.0,1e-6);
 }
 
-// Test updateSafe (Only for 1 update type (wait time set to zero for the other)
+// Test updateSafe (Only for 1 update type (wait time set to zero for the other)), co-test getSafeTime()
 TEST_F(UpdateModelTest, updateSafe) {
   PredictionExample* mpPrediction1 = new PredictionExample(testPredictionMeas_);
   UpdateExample* mpUpdate1 = new UpdateExample(testUpdateMeas_);
@@ -190,18 +190,27 @@ TEST_F(UpdateModelTest, updateSafe) {
   UpdateExample* mpUpdate2 = new UpdateExample(testUpdateMeas_);
   PredictionExample* mpPrediction3 = new PredictionExample(testPredictionMeas_);
   UpdateExample* mpUpdate3 = new UpdateExample(testUpdateMeas_);
+  double safeTime = 0.0;
   testFilter_.addPrediction(mpPrediction1,0.1);
   testFilter_.addUpdate(mpUpdate1,0.1);
+  ASSERT_TRUE(testFilter_.getSafeTime(safeTime));
+  ASSERT_EQ(safeTime,0.1);
   testFilter_.updateSafe();
   ASSERT_EQ(testFilter_.safe_.t_,0.1);
   testFilter_.addUpdate(mpUpdate2,0.2);
+  ASSERT_TRUE(!testFilter_.getSafeTime(safeTime));
+  ASSERT_EQ(safeTime,0.1);
   testFilter_.updateSafe();
   ASSERT_EQ(testFilter_.safe_.t_,0.1);
   testFilter_.addPrediction(mpPrediction2,0.2);
   testFilter_.addPrediction(mpPrediction3,0.3);
+  ASSERT_TRUE(testFilter_.getSafeTime(safeTime));
+  ASSERT_EQ(safeTime,0.2);
   testFilter_.updateSafe();
   ASSERT_EQ(testFilter_.safe_.t_,0.2);
   testFilter_.addUpdate(mpUpdate3,0.3);
+  ASSERT_TRUE(testFilter_.getSafeTime(safeTime));
+  ASSERT_EQ(safeTime,0.3);
   testFilter_.updateSafe();
   ASSERT_EQ(testFilter_.safe_.t_,0.3);
 }

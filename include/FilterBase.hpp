@@ -16,14 +16,22 @@
 
 namespace LWF{
 
-template<typename State>
+class AuxillaryData{
+ public:
+  AuxillaryData(){};
+  ~AuxillaryData(){};
+};
+
+template<typename State, typename Auxillary = AuxillaryData>
 class FilterState{
  public:
   typedef State mtState;
   typedef typename mtState::mtCovMat mtCovMat;
   static const unsigned int D_ = mtState::D_;
+  typedef Auxillary mtAuxillary;
   mtCovMat cov_;
   mtState state_;
+  mtAuxillary aux_;
   double t_;
   FilterState(){
     t_ = 0.0;
@@ -41,8 +49,8 @@ class FilterBase{
   static const unsigned int D_ = mtState::D_;
   static const unsigned int nUT_ = nUpdType;
   FilterState<State> safe_;
-  FilterState<State> front_; // TODO
-  FilterState<State> init_; // TODO
+  FilterState<State> front_;
+  FilterState<State> init_;
   bool validFront_;
   PredictionBase<mtState>* mpDefaultPrediction_; // TODO
 
@@ -57,6 +65,11 @@ class FilterBase{
     }
   };
   virtual ~FilterBase(){};
+  void resetFilter(){
+    safe_ = init_;
+    front_ = init_;
+    validFront_ = false;
+  }
   bool getSafeTime(double& safeTime){
     double maxPredictionTime;
     // Get maximal time where prediction is available
