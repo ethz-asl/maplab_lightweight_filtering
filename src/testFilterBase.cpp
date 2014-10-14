@@ -141,12 +141,13 @@ class UpdateModelTest : public ::testing::Test {
     testUpdateMeas_.q(0) = rot::RotationQuaternionPD(3.0/sqrt(15.0),-1.0/sqrt(15.0),1.0/sqrt(15.0),2.0/sqrt(15.0));
     testPredictionMeas_.v(0) = Eigen::Vector3d(-5,2,17.3);
     testPredictionMeas_.v(1) = Eigen::Vector3d(15.7,0.45,-2.3);
+    testFilter_.maxWaitTime[1] = 0.0;
   }
   virtual ~UpdateModelTest() {
   }
   UpdateExample testUpdate_;
   PredictionExample testPrediction_;
-  LWF::FilterBase<State> testFilter_;
+  LWF::FilterBase<State,2> testFilter_;
   State testState_;
   UpdateMeas testUpdateMeas_;
   PredictionMeas testPredictionMeas_;
@@ -155,27 +156,34 @@ class UpdateModelTest : public ::testing::Test {
 
 // Test constructors
 TEST_F(UpdateModelTest, constructors) {
-  LWF::FilterBase<State> testFilter;
+  LWF::FilterBase<State,2> testFilter;
   ASSERT_TRUE(testFilter.validFront_==false);
   ASSERT_TRUE(testFilter.mpDefaultPrediction_==nullptr);
+  for(unsigned int i=0;i<testFilter.nUT_;i++){
+    ASSERT_TRUE(testFilter.maxWaitTime[i]==1.0);
+  }
 }
 
 // Test measurement adder
 TEST_F(UpdateModelTest, addMeasurement) {
   PredictionExample* mpPrediction = new PredictionExample(testPredictionMeas_);
   UpdateExample* mpUpdate = new UpdateExample(testUpdateMeas_);
+  UpdateExample* mpUpdate2 = new UpdateExample(testUpdateMeas_);
   testFilter_.addPrediction(mpPrediction,0.2);
   testFilter_.addUpdate(mpUpdate,0.3);
+  testFilter_.addUpdate(mpUpdate2,0.4,1);
   PredictionExample::mtMeas::mtDiffVec predictionDiff;
   static_cast<PredictionExample*>(testFilter_.predictionMap_[0.2])->meas_.boxMinus(testPredictionMeas_,predictionDiff);
   ASSERT_NEAR(predictionDiff.norm(),0.0,1e-6);
   UpdateExample::mtMeas::mtDiffVec updateDiff;
   static_cast<UpdateExample*>(testFilter_.updateMap_[0][0.3])->meas_.boxMinus(testUpdateMeas_,updateDiff);
   ASSERT_NEAR(updateDiff.norm(),0.0,1e-6);
+  static_cast<UpdateExample*>(testFilter_.updateMap_[1][0.4])->meas_.boxMinus(testUpdateMeas_,updateDiff);
+  ASSERT_NEAR(updateDiff.norm(),0.0,1e-6);
 }
 
-// Test updateEKF
-TEST_F(UpdateModelTest, updateEKF) {
+// Test updateSafe (Only for 1 update type (wait time set to zero for the other)
+TEST_F(UpdateModelTest, updateSafe) {
   PredictionExample* mpPrediction1 = new PredictionExample(testPredictionMeas_);
   UpdateExample* mpUpdate1 = new UpdateExample(testUpdateMeas_);
   PredictionExample* mpPrediction2 = new PredictionExample(testPredictionMeas_);
@@ -196,6 +204,57 @@ TEST_F(UpdateModelTest, updateEKF) {
   testFilter_.addUpdate(mpUpdate3,0.3);
   testFilter_.updateSafe();
   ASSERT_EQ(testFilter_.safe_.t_,0.3);
+}
+
+// Test updateFront
+TEST_F(UpdateModelTest, updateFront) {
+  PredictionExample* mpPrediction1 = new PredictionExample(testPredictionMeas_);
+  UpdateExample* mpUpdate1 = new UpdateExample(testUpdateMeas_);
+  PredictionExample* mpPrediction2 = new PredictionExample(testPredictionMeas_);
+  UpdateExample* mpUpdate2 = new UpdateExample(testUpdateMeas_);
+  PredictionExample* mpPrediction3 = new PredictionExample(testPredictionMeas_);
+  UpdateExample* mpUpdate3 = new UpdateExample(testUpdateMeas_);
+  testFilter_.addPrediction(mpPrediction1,0.1);
+  testFilter_.addUpdate(mpUpdate1,0.1);
+  testFilter_.updateFront(0.5);
+  ASSERT_EQ(testFilter_.safe_.t_,0.1);
+  ASSERT_EQ(testFilter_.front_.t_,0.5);
+  testFilter_.addUpdate(mpUpdate2,0.2);
+  testFilter_.updateFront(0.2);
+  ASSERT_EQ(testFilter_.safe_.t_,0.1);
+  ASSERT_EQ(testFilter_.front_.t_,0.2);
+  testFilter_.addPrediction(mpPrediction2,0.2);
+  testFilter_.addPrediction(mpPrediction3,0.3);
+  testFilter_.updateFront(0.3);
+  ASSERT_EQ(testFilter_.safe_.t_,0.2);
+  ASSERT_EQ(testFilter_.front_.t_,0.3);
+  testFilter_.addUpdate(mpUpdate3,0.3);
+  testFilter_.updateFront(0.3);
+  ASSERT_EQ(testFilter_.safe_.t_,0.3);
+  ASSERT_EQ(testFilter_.front_.t_,0.3);
+}
+
+// Test cleaning
+TEST_F(UpdateModelTest, cleaning) {
+  PredictionExample* mpPrediction1 = new PredictionExample(testPredictionMeas_);
+  UpdateExample* mpUpdate1 = new UpdateExample(testUpdateMeas_);
+  PredictionExample* mpPrediction2 = new PredictionExample(testPredictionMeas_);
+  UpdateExample* mpUpdate2 = new UpdateExample(testUpdateMeas_);
+  PredictionExample* mpPrediction3 = new PredictionExample(testPredictionMeas_);
+  UpdateExample* mpUpdate3 = new UpdateExample(testUpdateMeas_);
+  testFilter_.addPrediction(mpPrediction1,0.1);
+  testFilter_.addUpdate(mpUpdate1,0.1);
+  testFilter_.addUpdate(mpUpdate2,0.2);
+  testFilter_.addPrediction(mpPrediction2,0.2);
+  testFilter_.addPrediction(mpPrediction3,0.3);
+  testFilter_.addUpdate(mpUpdate3,0.3,1);
+  ASSERT_EQ(testFilter_.predictionMap_.size(),3);
+  ASSERT_EQ(testFilter_.updateMap_[0].size(),2);
+  ASSERT_EQ(testFilter_.updateMap_[1].size(),1);
+  testFilter_.clean(0.2);
+  ASSERT_EQ(testFilter_.predictionMap_.size(),1);
+  ASSERT_EQ(testFilter_.updateMap_[0].size(),0);
+  ASSERT_EQ(testFilter_.updateMap_[1].size(),1);
 }
 
 int main(int argc, char **argv) {

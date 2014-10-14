@@ -39,6 +39,7 @@ class FilterBase{
   typedef State mtState;
   typedef typename mtState::mtCovMat mtCovMat;
   static const unsigned int D_ = mtState::D_;
+  static const unsigned int nUT_ = nUpdType;
   FilterState<State> safe_;
   FilterState<State> front_; // TODO
   FilterState<State> init_; // TODO
@@ -46,13 +47,13 @@ class FilterBase{
   PredictionBase<mtState>* mpDefaultPrediction_; // TODO
 
   std::map<double,PredictionBase<mtState>*> predictionMap_;
-  std::map<double,UpdateBase<mtState>*> updateMap_[nUpdType];
-  double maxWaitTime[nUpdType];
+  std::map<double,UpdateBase<mtState>*> updateMap_[nUT_];
+  double maxWaitTime[nUT_];
   FilterBase(){
     validFront_ = false;
     mpDefaultPrediction_ = nullptr;
-    for(unsigned int i = 0; i<nUpdType;i++){
-      maxWaitTime[i] = 0.5;
+    for(unsigned int i = 0; i<nUT_;i++){
+      maxWaitTime[i] = 1.0;
     }
   };
   virtual ~FilterBase(){};
@@ -67,7 +68,7 @@ class FilterBase{
     safeTime = maxPredictionTime;
     // Check if we have to wait for update measurements
     double updateTime;
-    for(unsigned int i=0;i<nUpdType;i++){
+    for(unsigned int i=0;i<nUT_;i++){
       if(!updateMap_[i].empty()){
         updateTime = updateMap_[i].rbegin()->first;
       } else {
@@ -92,11 +93,18 @@ class FilterBase{
     update(safe_,nextSafeTime);
     clean(nextSafeTime);
   }
+  void updateFront(const double& tEnd){
+    updateSafe();
+    if(!validFront_ || front_.t_<=safe_.t_){
+      front_ = safe_;
+    }
+    update(front_,tEnd);
+  }
   void update(FilterState<State>& filterState,const double& tEnd){
     typename std::map<double,PredictionBase<mtState>*>::iterator itPredictionMeas;
-    typename std::map<double,UpdateBase<mtState>*>::iterator itUpdateMeas[nUpdType];
+    typename std::map<double,UpdateBase<mtState>*>::iterator itUpdateMeas[nUT_];
     itPredictionMeas = predictionMap_.upper_bound(filterState.t_);
-    for(unsigned int i=0;i<nUpdType;i++){
+    for(unsigned int i=0;i<nUT_;i++){
       itUpdateMeas[i] = updateMap_[i].upper_bound(filterState.t_);
     }
     double tNext = filterState.t_;
@@ -111,7 +119,7 @@ class FilterBase{
       } else {
         mpUsedPrediction = mpDefaultPrediction_;
       }
-      for(unsigned int i=0;i<nUpdType;i++){
+      for(unsigned int i=0;i<nUT_;i++){
         if(itUpdateMeas[i]!=updateMap_[i].end() && itUpdateMeas[i]->first<=tNext){
           tNext = itUpdateMeas[i]->first;
         }
@@ -120,13 +128,13 @@ class FilterBase{
         mpUsedPrediction->predictEKF(filterState.state_,filterState.cov_,tNext-filterState.t_);
       }
       filterState.t_ = tNext;
-      for(unsigned int i=0;i<nUpdType;i++){
+      for(unsigned int i=0;i<nUT_;i++){
         if(itUpdateMeas[i]!=updateMap_[i].end() && itUpdateMeas[i]->first<=tNext){
           itUpdateMeas[i]->second->updateEKF(filterState.state_,filterState.cov_);
         }
       }
       itPredictionMeas = predictionMap_.upper_bound(filterState.t_);
-      for(unsigned int i=0;i<nUpdType;i++){
+      for(unsigned int i=0;i<nUT_;i++){
         itUpdateMeas[i] = updateMap_[i].upper_bound(filterState.t_);
       }
     }
@@ -136,7 +144,7 @@ class FilterBase{
       delete predictionMap_.begin()->second; // TODO: Careful: assumes ownership
       predictionMap_.erase(predictionMap_.begin());
     }
-    for(unsigned int i=0;i<nUpdType;i++){
+    for(unsigned int i=0;i<nUT_;i++){
       while(!updateMap_[i].empty() && updateMap_[i].begin()->first<=t){
         delete updateMap_[i].begin()->second; // TODO: Careful: assumes ownership
         updateMap_[i].erase(updateMap_[i].begin());
@@ -149,7 +157,7 @@ class FilterBase{
     if(front_.t_>=t) validFront_ = false;
   }
   void addUpdate(UpdateBase<mtState>* mpUpdate, const double& t,unsigned int type = 0){
-    assert(type<nUpdType);
+    assert(type<nUT_);
     assert(t>safe_.t_);
     updateMap_[type][t] = mpUpdate; // TODO: Careful: takes over ownership
     if(front_.t_>=t) validFront_ = false;
