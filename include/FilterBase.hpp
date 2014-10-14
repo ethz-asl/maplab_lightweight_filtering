@@ -52,7 +52,7 @@ class FilterBase{
   FilterState<State> front_;
   FilterState<State> init_;
   bool validFront_;
-  PredictionBase<mtState>* mpDefaultPrediction_; // TODO
+  PredictionBase<mtState>* mpDefaultPrediction_;
 
   std::map<double,PredictionBase<mtState>*> predictionMap_;
   std::map<double,UpdateBase<mtState>*> updateMap_[nUT_];
@@ -64,11 +64,30 @@ class FilterBase{
       maxWaitTime[i] = 1.0;
     }
   };
-  virtual ~FilterBase(){};
+  virtual ~FilterBase(){
+    delete mpDefaultPrediction_;
+    while(!predictionMap_.empty()){
+      delete predictionMap_.begin()->second;
+      predictionMap_.erase(predictionMap_.begin());
+    }
+    for(unsigned int i=0;i<nUT_;i++){
+      while(!updateMap_[i].empty()){
+        delete updateMap_[i].begin()->second;
+        updateMap_[i].erase(updateMap_[i].begin());
+      }
+    }
+  };
   void resetFilter(){
     safe_ = init_;
     front_ = init_;
     validFront_ = false;
+  }
+  void setDefaultPrediction(PredictionBase<mtState>* mpPrediction){
+    mpDefaultPrediction_ = mpPrediction; // TODO: Careful: takes over ownership
+  }
+  void removeDefaultPrediction(){
+    delete mpDefaultPrediction_;
+    mpDefaultPrediction_ = nullptr;
   }
   bool getSafeTime(double& safeTime){
     double maxPredictionTime;
