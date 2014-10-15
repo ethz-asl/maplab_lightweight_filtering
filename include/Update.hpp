@@ -21,10 +21,21 @@ class UpdateBase{
  public:
   typedef State mtState;
   typedef typename mtState::mtCovMat mtCovMat;
-  UpdateBase(){};
+  UpdateBase(bool isCoupledToPrediction = false): isCoupledToPrediction_(isCoupledToPrediction){};
   virtual ~UpdateBase(){};
-  virtual int updateEKF(mtState& state, mtCovMat& cov) = 0;
-  virtual int updateUKF(mtState& state, mtCovMat& cov) = 0;
+  virtual int updateEKF(mtState& state, mtCovMat& cov){
+    return -1;
+  }
+  virtual int predictAndUpdateEKF(mtState& state, mtCovMat& cov, PredictionBase<State>* mpPredictionBase, double dt){
+    return -1;
+  }
+  virtual int updateUKF(mtState& state, mtCovMat& cov){
+    return -1;
+  }
+  virtual int predictAndUpdateUKF(mtState& state, mtCovMat& cov, PredictionBase<State>* mpPredictionBase, double dt){
+    return -1;
+  }
+  const bool isCoupledToPrediction_;
 };
 
 template<typename Innovation, typename State, typename Meas, typename Noise>
@@ -98,6 +109,8 @@ class PredictionUpdate: public UpdateBase<State>, public ModelBase<State,Innovat
   typename Prediction::mtJacInput F_;
   typename Prediction::mtJacNoise Fn_;
   typename mtNoise::mtCovMat updnoiP_;
+  Eigen::Matrix<double,mtPredictionMeas::D_,mtMeas::D_> preupdnoiP_;
+  Eigen::Matrix<double,mtState::D_,mtInnovation::D_> C_;
   mtMeas meas_;
   mtInnovation y_;
   typename mtInnovation::mtCovMat Py_;
@@ -106,15 +119,15 @@ class PredictionUpdate: public UpdateBase<State>, public ModelBase<State,Innovat
   const mtInnovation yIdentity_;
   typename mtState::mtDiffVec updateVec_;
   Eigen::Matrix<double,mtState::D_,mtInnovation::D_> K_;
-  Prediction* mpPrediction_;
-  PredictionUpdate(){
+  PredictionUpdate():UpdateBase<State>(true){
     updateVec_.setIdentity();
     updnoiP_.setIdentity();
-    mpPrediction_ = nullptr;
+    preupdnoiP_.setZero();
   };
-  PredictionUpdate(const mtMeas& meas){
+  PredictionUpdate(const mtMeas& meas):UpdateBase<State>(true){
     updateVec_.setIdentity();
     updnoiP_.setIdentity();
+    preupdnoiP_.setZero();
     setMeasurement(meas);
   };
   virtual ~PredictionUpdate(){};
@@ -123,32 +136,33 @@ class PredictionUpdate: public UpdateBase<State>, public ModelBase<State,Innovat
   };
   int predictAndUpdateEKF(mtState& state, mtCovMat& cov, PredictionBase<State>* mpPredictionBase, double dt){
     // Predict
-    mpPrediction_ = static_cast<Prediction>(mpPredictionBase); // TODO: Dangerous
-    F_ = mpPrediction_->jacInput(state,mpPrediction_->meas_,dt);
-    Fn_ = mpPrediction_->jacNoise(state,mpPrediction_->meas_,dt);
-    state = mpPrediction_->eval(state,mpPrediction_->meas_,dt);
+    Prediction* mpPrediction = static_cast<Prediction>(mpPredictionBase); // TODO: Dangerous
+    F_ = mpPrediction->jacInput(state,mpPrediction->meas_,dt);
+    Fn_ = mpPrediction->jacNoise(state,mpPrediction->meas_,dt);
+    state = mpPrediction->eval(state,mpPrediction->meas_,dt);
     state.fix();
-    cov = F_*cov*F_.transpose() + Fn_*mpPrediction_->prenoiP_*Fn_.transpose();
+    cov = F_*cov*F_.transpose() + Fn_*mpPrediction->prenoiP_*Fn_.transpose();
 
     // Update
     H_ = this->jacInput(state,meas_);
     Hn_ = this->jacNoise(state,meas_);
+    C_ = Fn_*preupdnoiP_*Hn_.transpose();
     y_ = this->eval(state,meas_);
-    Py_ = H_*cov*H_.transpose() + Hn_*updnoiP_*Hn_.transpose();
+    Py_ = H_*cov*H_.transpose() + Hn_*updnoiP_*Hn_.transpose() + H_*C_ + C_.transpose()*H_.transpose();
     y_.boxMinus(yIdentity_,innVector_);
     Pyinv_.setIdentity();
     Py_.llt().solveInPlace(Pyinv_);
 
     // Kalman Update
-    K_ = cov*H_.transpose()*Pyinv_;
+    K_ = (cov*H_.transpose()+C_)*Pyinv_;
     cov = cov - K_*Py_*K_.transpose();
     updateVec_ = -K_*innVector_;
     state.boxPlus(updateVec_,state);
     state.fix();
     return 0;
   }
-  int predictAndUpdateUKF(mtState& state, mtCovMat& cov, double dt){
-    return predictAndUpdateEKF(state,cov,dt);
+  int predictAndUpdateUKF(mtState& state, mtCovMat& cov, PredictionBase<State>* mpPredictionBase, double dt){
+    return predictAndUpdateEKF(state,cov,mpPredictionBase,dt);
   }
 };
 

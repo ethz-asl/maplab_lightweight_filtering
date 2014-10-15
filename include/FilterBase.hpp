@@ -133,41 +133,52 @@ class FilterBase{
     update(front_,tEnd);
   }
   void update(FilterState<State>& filterState,const double& tEnd){
-    typename std::map<double,PredictionBase<mtState>*>::iterator itPredictionMeas;
-    typename std::map<double,UpdateBase<mtState>*>::iterator itUpdateMeas[nUT_];
-    itPredictionMeas = predictionMap_.upper_bound(filterState.t_);
+    typename std::map<double,PredictionBase<mtState>*>::iterator itPrediction;
+    typename std::map<double,UpdateBase<mtState>*>::iterator itUpdate[nUT_];
+    itPrediction = predictionMap_.upper_bound(filterState.t_);
     for(unsigned int i=0;i<nUT_;i++){
-      itUpdateMeas[i] = updateMap_[i].upper_bound(filterState.t_);
+      itUpdate[i] = updateMap_[i].upper_bound(filterState.t_);
     }
     double tNext = filterState.t_;
+    int availableCoupledPrediction = -1;
     PredictionBase<mtState>* mpUsedPrediction;
     while(filterState.t_<tEnd){
       tNext = tEnd;
-      if(itPredictionMeas!=predictionMap_.end()){
-        if(itPredictionMeas->first<tNext){
-          tNext = itPredictionMeas->first;
+      if(itPrediction!=predictionMap_.end()){
+        if(itPrediction->first<tNext){
+          tNext = itPrediction->first;
         }
-        mpUsedPrediction = itPredictionMeas->second;
+        mpUsedPrediction = itPrediction->second;
       } else {
         mpUsedPrediction = mpDefaultPrediction_;
       }
       for(unsigned int i=0;i<nUT_;i++){
-        if(itUpdateMeas[i]!=updateMap_[i].end() && itUpdateMeas[i]->first<=tNext){
-          tNext = itUpdateMeas[i]->first;
+        if(itUpdate[i]!=updateMap_[i].end() && itUpdate[i]->first<=tNext){
+          if(itUpdate[i]->first<tNext){
+            tNext = itUpdate[i]->first;
+            availableCoupledPrediction = -1;
+          }
+          if(itUpdate[i]->second->isCoupledToPrediction_){
+            if(availableCoupledPrediction==-1) availableCoupledPrediction = i;
+            else std::cout << "ERROR: multiple coupled updates";
+          }
         }
       }
       if(mpUsedPrediction!=nullptr){
-        mpUsedPrediction->predictEKF(filterState.state_,filterState.cov_,tNext-filterState.t_);
+        if(availableCoupledPrediction==-1){
+          if(mpUsedPrediction->predictEKF(filterState.state_,filterState.cov_,tNext-filterState.t_)!=0) std::cout << "ERROR in predictEKF";
+        }
+        else if(itUpdate[availableCoupledPrediction]->second->predictAndUpdateEKF(filterState.state_,filterState.cov_,mpUsedPrediction,tNext-filterState.t_)!=0) std::cout << "ERROR in predictAndUpdateEKF";
       }
       filterState.t_ = tNext;
       for(unsigned int i=0;i<nUT_;i++){
-        if(itUpdateMeas[i]!=updateMap_[i].end() && itUpdateMeas[i]->first<=tNext){
-          itUpdateMeas[i]->second->updateEKF(filterState.state_,filterState.cov_);
+        if(itUpdate[i]!=updateMap_[i].end() && itUpdate[i]->first<=tNext && i!=availableCoupledPrediction){
+          if(itUpdate[i]->second->updateEKF(filterState.state_,filterState.cov_)!=0) std::cout << "ERROR in updateEKF";
         }
       }
-      itPredictionMeas = predictionMap_.upper_bound(filterState.t_);
+      itPrediction = predictionMap_.upper_bound(filterState.t_);
       for(unsigned int i=0;i<nUT_;i++){
-        itUpdateMeas[i] = updateMap_[i].upper_bound(filterState.t_);
+        itUpdate[i] = updateMap_[i].upper_bound(filterState.t_);
       }
     }
   }
