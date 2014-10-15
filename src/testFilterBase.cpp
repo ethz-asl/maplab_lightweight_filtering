@@ -46,13 +46,13 @@ class UpdateExample: public LWF::Update<Innovation,State,UpdateMeas,UpdateNoise>
   UpdateExample(){};
   UpdateExample(const mtMeas& meas): LWF::Update<Innovation,State,UpdateMeas,UpdateNoise>(meas){};
   ~UpdateExample(){};
-  mtInnovation eval(const mtState& state, const mtMeas& meas, const mtNoise noise, const double dt = 0.0) const{
+  mtInnovation eval(const mtState& state, const mtMeas& meas, const mtNoise noise, double dt = 0.0) const{
     mtInnovation inn;
     inn.v(0) = state.q(0).rotate(state.v(0))-meas.v(0)+noise.block<3>(0);
     inn.q(0) = (state.q(0)*meas.q(0).inverted()).boxPlus(noise.block<3>(3));
     return inn;
   }
-  mtJacInput jacInput(const mtState& state, const mtMeas& meas, const double dt = 0.0) const{
+  mtJacInput jacInput(const mtState& state, const mtMeas& meas, double dt = 0.0) const{
     mtJacInput J;
     mtInnovation inn;
     J.setZero();
@@ -61,7 +61,7 @@ class UpdateExample: public LWF::Update<Innovation,State,UpdateMeas,UpdateNoise>
     J.template block<3,3>(inn.getId(inn.q(0)),state.getId(state.q(0))) = Eigen::Matrix3d::Identity();
     return J;
   }
-  mtJacNoise jacNoise(const mtState& state, const mtMeas& meas, const double dt = 0.0) const{
+  mtJacNoise jacNoise(const mtState& state, const mtMeas& meas, double dt = 0.0) const{
     mtJacNoise J;
     mtInnovation inn;
     J.setZero();
@@ -80,7 +80,7 @@ class PredictionExample: public LWF::Prediction<State,PredictionMeas,PredictionN
   PredictionExample(){};
   PredictionExample(const mtMeas& meas): LWF::Prediction<State,PredictionMeas,PredictionNoise>(meas){};
   ~PredictionExample(){};
-  mtState eval(const mtState& state, const mtMeas& meas, const mtNoise noise, const double dt) const{
+  mtState eval(const mtState& state, const mtMeas& meas, const mtNoise noise, double dt) const{
     mtState output;
     Eigen::Vector3d g_(0,0,-9.81);
     Eigen::Vector3d dOmega = -dt*(meas.v(1)-state.v(3)+noise.block<3>(6)/sqrt(dt));
@@ -94,7 +94,7 @@ class PredictionExample: public LWF::Prediction<State,PredictionMeas,PredictionN
     output.v(3) = state.v(3)+noise.block<3>(12)*sqrt(dt);
     return output;
   }
-  mtJacInput jacInput(const mtState& state, const mtMeas& meas, const double dt) const{
+  mtJacInput jacInput(const mtState& state, const mtMeas& meas, double dt) const{
     mtJacInput J;
     Eigen::Vector3d g_(0,0,-9.81);
     Eigen::Vector3d dOmega = -dt*(meas.v(1)-state.v(3));
@@ -112,7 +112,7 @@ class PredictionExample: public LWF::Prediction<State,PredictionMeas,PredictionN
     J.template block<3,3>(state.getId(state.q(0)),state.getId(state.q(0))) = Eigen::Matrix3d::Identity();
     return J;
   }
-  mtJacNoise jacNoise(const mtState& state, const mtMeas& meas, const double dt) const{
+  mtJacNoise jacNoise(const mtState& state, const mtMeas& meas, double dt) const{
     mtJacNoise J;
     Eigen::Vector3d g_(0,0,-9.81);
     Eigen::Vector3d dOmega = -dt*(meas.v(1)-state.v(3));

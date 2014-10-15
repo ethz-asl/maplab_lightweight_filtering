@@ -16,13 +16,13 @@
 
 namespace LWF{
 
-class AuxillaryData{
+class DefaultAuxillary{
  public:
-  AuxillaryData(){};
-  ~AuxillaryData(){};
+  DefaultAuxillary(){};
+  ~DefaultAuxillary(){};
 };
 
-template<typename State, typename Auxillary = AuxillaryData>
+template<typename State, typename Auxillary = DefaultAuxillary>
 class FilterState{
  public:
   typedef State mtState;

@@ -26,21 +26,21 @@ class ModelBase{
   typedef Eigen::Matrix<double,mtNoise::D_,1> mtNoiseVector;
   ModelBase(){};
   virtual ~ModelBase(){};
-  virtual mtOutput eval(const mtInput& input, const mtMeas& meas, const double dt = 0.0) const{
+  virtual mtOutput eval(const mtInput& input, const mtMeas& meas, double dt = 0.0) const{
     mtNoise noise;
     noise.setIdentity();
     return eval(input,meas,noise,dt);
   }
-  virtual mtOutput eval(const mtInput& input, const mtMeas& meas, const mtNoise noise, const double dt = 0.0) const{
+  virtual mtOutput eval(const mtInput& input, const mtMeas& meas, const mtNoise noise, double dt = 0.0) const{
     mtOutput output;
     return output;
   }
-  virtual mtJacInput jacInput(const mtInput& input, const mtMeas& meas, const double dt = 0.0) const{
+  virtual mtJacInput jacInput(const mtInput& input, const mtMeas& meas, double dt = 0.0) const{
     mtJacInput J;
     J.setZero();
     return J;
   }
-  virtual mtJacNoise jacNoise(const mtInput& input, const mtMeas& meas, const double dt = 0.0) const{
+  virtual mtJacNoise jacNoise(const mtInput& input, const mtMeas& meas, double dt = 0.0) const{
     mtJacNoise J;
     J.setZero();
     return J;

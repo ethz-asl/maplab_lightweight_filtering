@@ -48,7 +48,7 @@ class Prediction: public PredictionBase<State>, public ModelBase<State,State,Mea
   void setMeasurement(const mtMeas& meas){
     meas_ = meas;
   };
-  int predictEKF(mtState& state, mtCovMat& cov, const double dt){
+  int predictEKF(mtState& state, mtCovMat& cov, double dt){
     F_ = this->jacInput(state,meas_,dt);
     Fn_ = this->jacNoise(state,meas_,dt);
     state = this->eval(state,meas_,dt);
@@ -56,7 +56,7 @@ class Prediction: public PredictionBase<State>, public ModelBase<State,State,Mea
     cov = F_*cov*F_.transpose() + Fn_*prenoiP_*Fn_.transpose();
     return 0;
   }
-  int predictUKF(mtState& state, mtCovMat& cov, const double dt){
+  int predictUKF(mtState& state, mtCovMat& cov, double dt){
     return predictEKF(state,cov,dt);
   }
 };

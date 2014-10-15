@@ -121,7 +121,7 @@ class PredictionUpdate: public UpdateBase<State>, public ModelBase<State,Innovat
   void setMeasurement(const mtMeas& meas){
     meas_ = meas;
   };
-  int predictAndUpdateEKF(mtState& state, mtCovMat& cov, PredictionBase<State>* mpPredictionBase, const double dt){ // TODO: change dt to reference (everywhere)
+  int predictAndUpdateEKF(mtState& state, mtCovMat& cov, PredictionBase<State>* mpPredictionBase, double dt){
     // Predict
     mpPrediction_ = static_cast<Prediction>(mpPredictionBase); // TODO: Dangerous
     F_ = mpPrediction_->jacInput(state,mpPrediction_->meas_,dt);
@@ -147,7 +147,7 @@ class PredictionUpdate: public UpdateBase<State>, public ModelBase<State,Innovat
     state.fix();
     return 0;
   }
-  int predictAndUpdateUKF(mtState& state, mtCovMat& cov, const double dt){
+  int predictAndUpdateUKF(mtState& state, mtCovMat& cov, double dt){
     return predictAndUpdateEKF(state,cov,dt);
   }
 };

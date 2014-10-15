@@ -27,14 +27,14 @@ class ModelExample: public LWF::ModelBase<Input,Output,Meas,Noise>{
  public:
   ModelExample(){};
   ~ModelExample(){};
-  Output eval(const Input& input, const Meas& meas, const Noise noise, const double dt) const{
+  Output eval(const Input& input, const Meas& meas, const Noise noise, double dt) const{
     Output output;
     output.v(0) = (input.q(0).inverted()*input.q(1)).rotate(input.v(1))-input.v(0)+noise.template block<3>(0)-meas.v(0);
     rot::RotationQuaternionPD dQ = dQ.exponentialMap(noise.template block<3>(3));
     output.q(0) = meas.q(0).inverted()*dQ*input.q(1).inverted()*input.q(0);
     return output;
   }
-  mtJacInput jacInput(const Input& input, const Meas& meas, const double dt) const{
+  mtJacInput jacInput(const Input& input, const Meas& meas, double dt) const{
     Output output;
     mtJacInput J;
     J.setZero();
@@ -46,7 +46,7 @@ class ModelExample: public LWF::ModelBase<Input,Output,Meas,Noise>{
     J.block<3,3>(output.getId(output.q(0)),input.getId(input.q(1))) = -rot::RotationMatrixPD(meas.q(0).inverted()*input.q(1).inverted()).matrix();
     return J;
   }
-  mtJacNoise jacNoise(const Input& input, const Meas& meas, const double dt) const{
+  mtJacNoise jacNoise(const Input& input, const Meas& meas, double dt) const{
     Output output;
     mtJacNoise J;
     J.setZero();
