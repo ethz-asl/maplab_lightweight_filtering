@@ -99,9 +99,9 @@ class PredictionModelTest : public ::testing::Test {
 // Test constructors
 TEST_F(PredictionModelTest, constructors) {
   PredictionExample testPrediction;
-  ASSERT_EQ((testPrediction.prenoiP_-PredictionExample::mtNoise::mtCovMat::Identity()).norm(),0.0);
+  ASSERT_EQ((testPrediction.prenoiP_-PredictionExample::mtNoise::mtCovMat::Identity()*0.0001).norm(),0.0);
   PredictionExample testPrediction2(testMeas_);
-  ASSERT_EQ((testPrediction2.prenoiP_-PredictionExample::mtNoise::mtCovMat::Identity()).norm(),0.0);
+  ASSERT_EQ((testPrediction2.prenoiP_-PredictionExample::mtNoise::mtCovMat::Identity()*0.0001).norm(),0.0);
   PredictionExample::mtMeas::mtDiffVec dif;
   testPrediction2.meas_.boxMinus(testMeas_,dif);
   ASSERT_NEAR(dif.norm(),0.0,1e-6);
@@ -144,10 +144,8 @@ TEST_F(PredictionModelTest, predictEKF) {
 // Test comparePredict
 TEST_F(PredictionModelTest, comparePredict) {
   testPrediction_.setMeasurement(testMeas_);
-  PredictionExample::mtState::mtCovMat cov1;
-  PredictionExample::mtState::mtCovMat cov2;
-  cov1.setIdentity();
-  cov2.setIdentity();
+  PredictionExample::mtState::mtCovMat cov1 = PredictionExample::mtState::mtCovMat::Identity()*0.000001;
+  PredictionExample::mtState::mtCovMat cov2 = PredictionExample::mtState::mtCovMat::Identity()*0.000001;
   PredictionExample::mtState state1 = testState_;
   PredictionExample::mtState state2 = testState_;
   testPrediction_.predictEKF(state1,cov1,dt_);
