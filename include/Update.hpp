@@ -159,17 +159,32 @@ class PredictionUpdate: public UpdateBase<State>, public ModelBase<State,Innovat
   const mtInnovation yIdentity_;
   typename mtState::mtDiffVec updateVec_;
   Eigen::Matrix<double,mtState::D_,mtInnovation::D_> K_;
+  Eigen::Matrix<double,mtState::D_,mtInnovation::D_> Pxy_;
+  SigmaPoints<mtState,2*mtState::D_+1,2*(mtState::D_+mtNoise::D_+mtPredictionNoise::D_)+1,0> stateSigmaPoints_;
+  SigmaPoints<mtState,2*(mtState::D_+mtPredictionNoise::D_)+1,2*(mtState::D_+mtNoise::D_+mtPredictionNoise::D_)+1,0> stateSigmaPointsPre_;
+  SigmaPoints<mtNoise,2*mtNoise::D_+1,2*(mtState::D_+mtNoise::D_+mtPredictionNoise::D_)+1,2*(mtState::D_+mtPredictionNoise::D_)> stateSigmaPointsNoiUpd_;
+  SigmaPoints<mtInnovation,2*(mtState::D_+mtNoise::D_+mtPredictionNoise::D_)+1,2*(mtState::D_+mtNoise::D_+mtPredictionNoise::D_)+1,0> innSigmaPoints_;
+  SigmaPoints<LWF::VectorState<mtState::D_>,2*mtState::D_+1,2*mtState::D_+1,0> updateVecSP_;
+  SigmaPoints<mtState,2*mtState::D_+1,2*mtState::D_+1,0> posterior_;
   PredictionUpdate():UpdateBase<State>(true){
-    updateVec_.setIdentity();
-    updnoiP_.setIdentity();
-    preupdnoiP_.setZero();
+    resetUpdate();
   };
   PredictionUpdate(const mtMeas& meas):UpdateBase<State>(true){
-    updateVec_.setIdentity();
-    updnoiP_.setIdentity();
-    preupdnoiP_.setZero();
+    resetUpdate();
     setMeasurement(meas);
   };
+  void resetUpdate(){
+    updateVec_.setIdentity();
+    updnoiP_ = mtNoise::mtCovMat::Identity()*0.0001;
+    preupdnoiP_.setZero();
+    stateSigmaPoints_.computeParameter(1e-3,2.0,0.0);
+    stateSigmaPointsPre_.computeParameter(1e-3,2.0,0.0);
+    stateSigmaPointsNoiUpd_.computeParameter(1e-3,2.0,0.0);
+    innSigmaPoints_.computeParameter(1e-3,2.0,0.0);
+    updateVecSP_.computeParameter(1e-3,2.0,0.0);
+    posterior_.computeParameter(1e-3,2.0,0.0);
+    stateSigmaPointsNoiUpd_.computeFromZeroMeanGaussian(updnoiP_);
+  }
   virtual ~PredictionUpdate(){};
   void setMeasurement(const mtMeas& meas){
     meas_ = meas;
@@ -202,7 +217,45 @@ class PredictionUpdate: public UpdateBase<State>, public ModelBase<State,Innovat
     return 0;
   }
   int predictAndUpdateUKF(mtState& state, mtCovMat& cov, PredictionBase<State>* mpPredictionBase, double dt){
-    return predictAndUpdateEKF(state,cov,mpPredictionBase,dt);
+    // Predict
+    Prediction* mpPrediction = static_cast<Prediction>(mpPredictionBase); // TODO: Dangerous
+    stateSigmaPoints_.computeFromGaussian(state,cov);
+
+    // Prediction
+    for(unsigned int i=0;i<stateSigmaPointsPre_.N_;i++){ // Only for first N (rest is zero and not defined for mpPrediction->stateSigmaPointsNoi_)
+      stateSigmaPointsPre_(i) = mpPrediction->eval(stateSigmaPoints_(i),meas_,mpPrediction->stateSigmaPointsNoi_(i),dt);
+    }
+
+    // Calculate mean and variance
+    state = stateSigmaPointsPre_.getMean();
+    state.fix();
+    cov = stateSigmaPointsPre_.getCovarianceMatrix(state);
+
+    // TODO: handle correlated noise and test!
+    // Update
+    for(unsigned int i=0;i<innSigmaPoints_.L_;i++){
+      innSigmaPoints_(i) = this->eval(stateSigmaPointsPre_(i),meas_,stateSigmaPointsNoiUpd_(i));
+    }
+    y_ = innSigmaPoints_.getMean();
+    Py_ = innSigmaPoints_.getCovarianceMatrix(y_);
+    Pxy_ = (innSigmaPoints_.getCovarianceMatrix(stateSigmaPointsPre_)).transpose();
+    y_.boxMinus(yIdentity_,innVector_);
+    Pyinv_.setIdentity();
+    Py_.llt().solveInPlace(Pyinv_); // alternative way to calculate the inverse
+
+    // Kalman Update
+    K_ = Pxy_*Pyinv_;
+    cov = cov - K_*Py_*K_.transpose();
+    updateVec_ = -K_*innVector_;
+
+    // Adapt for proper linearization point
+    updateVecSP_.computeFromZeroMeanGaussian(cov);
+    for(unsigned int i=0;i<2*mtState::D_+1;i++){
+      state.boxPlus(updateVec_+updateVecSP_(i).vector_,posterior_(i));
+    }
+    state = posterior_.getMean();
+    cov = posterior_.getCovarianceMatrix(state);
+    return 0;
   }
 };
 
