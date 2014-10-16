@@ -42,13 +42,13 @@ class Prediction: public PredictionBase<State>, public ModelBase<State,State,Mea
   SigmaPoints<mtNoise,2*mtNoise::D_+1,2*(mtState::D_+mtNoise::D_)+1,2*mtState::D_> stateSigmaPointsNoi_;
   SigmaPoints<mtState,2*(mtState::D_+mtNoise::D_)+1,2*(mtState::D_+mtNoise::D_)+1,0> stateSigmaPointsPre_;
   Prediction(){
-    ResetPrediction();
+    resetPrediction();
   };
   Prediction(const mtMeas& meas){
-    ResetPrediction();
+    resetPrediction();
     setMeasurement(meas);
   };
-  void ResetPrediction(){
+  void resetPrediction(){
     prenoiP_ = mtNoise::mtCovMat::Identity()*0.0001;
     stateSigmaPoints_.computeParameter(1e-3,2.0,0.0);
     stateSigmaPointsNoi_.computeParameter(1e-3,2.0,0.0);

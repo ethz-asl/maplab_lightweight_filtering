@@ -82,9 +82,9 @@ class UpdateModelTest : public ::testing::Test {
 // Test constructors
 TEST_F(UpdateModelTest, constructors) {
   UpdateExample testUpdate;
-  ASSERT_EQ((testUpdate.updnoiP_-UpdateExample::mtNoise::mtCovMat::Identity()).norm(),0.0);
+  ASSERT_EQ((testUpdate.updnoiP_-UpdateExample::mtNoise::mtCovMat::Identity()*0.0001).norm(),0.0);
   UpdateExample testUpdate2(testMeas_);
-  ASSERT_EQ((testUpdate2.updnoiP_-UpdateExample::mtNoise::mtCovMat::Identity()).norm(),0.0);
+  ASSERT_EQ((testUpdate2.updnoiP_-UpdateExample::mtNoise::mtCovMat::Identity()*0.0001).norm(),0.0);
   UpdateExample::mtMeas::mtDiffVec dif;
   testUpdate2.meas_.boxMinus(testMeas_,dif);
   ASSERT_NEAR(dif.norm(),0.0,1e-6);
@@ -141,6 +141,24 @@ TEST_F(UpdateModelTest, updateEKF) {
   state.boxMinus(stateUpdated,dif);
   ASSERT_NEAR(dif.norm(),0.0,1e-6);
   ASSERT_NEAR((cov-updateCov).norm(),0.0,1e-6);
+}
+
+// Test compareUpdate
+TEST_F(UpdateModelTest, compareUpdate) {
+  testUpdate_.setMeasurement(testMeas_);
+  UpdateExample::mtState::mtCovMat cov1 = UpdateExample::mtState::mtCovMat::Identity()*0.000001;
+  UpdateExample::mtState::mtCovMat cov2 = UpdateExample::mtState::mtCovMat::Identity()*0.000001;
+  UpdateExample::mtState state1 = testState_;
+  UpdateExample::mtState state2 = testState_;
+  state2.print();
+  testUpdate_.updateEKF(state1,cov1);
+  testUpdate_.updateUKF(state2,cov2);
+  state1.print();
+  state2.print();
+  UpdateExample::mtState::mtDiffVec dif;
+  state1.boxMinus(state2,dif);
+  ASSERT_NEAR(dif.norm(),0.0,1e-6);
+  ASSERT_NEAR((cov1-cov2).norm(),0.0,1e-6);
 }
 
 int main(int argc, char **argv) {

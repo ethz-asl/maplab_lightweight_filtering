@@ -57,15 +57,25 @@ class Update: public UpdateBase<State>, public ModelBase<State,Innovation,Meas,N
   const mtInnovation yIdentity_;
   typename mtState::mtDiffVec updateVec_;
   Eigen::Matrix<double,mtState::D_,mtInnovation::D_> K_;
+  Eigen::Matrix<double,mtState::D_,mtInnovation::D_> Pxy_;
+  SigmaPoints<mtState,2*mtState::D_+1,2*(mtState::D_+mtNoise::D_)+1,0> stateSigmaPoints_;
+  SigmaPoints<mtNoise,2*mtNoise::D_+1,2*(mtState::D_+mtNoise::D_)+1,2*mtState::D_> stateSigmaPointsNoi_;
+  SigmaPoints<mtInnovation,2*(mtState::D_+mtNoise::D_)+1,2*(mtState::D_+mtNoise::D_)+1,0> innSigmaPoints_;
   Update(){
-    updateVec_.setIdentity();
-    updnoiP_.setIdentity();
+    resetUpdate();
   };
   Update(const mtMeas& meas){
-    updateVec_.setIdentity();
-    updnoiP_.setIdentity();
+    resetUpdate();
     setMeasurement(meas);
   };
+  void resetUpdate(){
+    updateVec_.setIdentity();
+    updnoiP_ = mtNoise::mtCovMat::Identity()*0.0001;
+    stateSigmaPoints_.computeParameter(1e-3,2.0,0.0);
+    stateSigmaPointsNoi_.computeParameter(1e-3,2.0,0.0);
+    innSigmaPoints_.computeParameter(1e-3,2.0,0.0);
+    stateSigmaPointsNoi_.computeFromZeroMeanGaussian(updnoiP_);
+  }
   virtual ~Update(){};
   void setMeasurement(const mtMeas& meas){
     meas_ = meas;
@@ -90,7 +100,38 @@ class Update: public UpdateBase<State>, public ModelBase<State,Innovation,Meas,N
     return 0;
   }
   int updateUKF(mtState& state, mtCovMat& cov){
-    return updateEKF(state,cov);
+    stateSigmaPoints_.computeFromGaussian(state,cov);
+
+    // Update
+    for(unsigned int i=0;i<stateSigmaPoints_.L_;i++){
+      innSigmaPoints_(i) = this->eval(stateSigmaPoints_(i),meas_,stateSigmaPointsNoi_(i));
+    }
+    y_ = innSigmaPoints_.getMean();
+    Py_ = innSigmaPoints_.getCovarianceMatrix(y_);
+    Pxy_ = (innSigmaPoints_.getCovarianceMatrix(stateSigmaPoints_)).transpose();
+    y_.boxMinus(yIdentity_,innVector_);
+    Pyinv_.setIdentity();
+    Py_.llt().solveInPlace(Pyinv_); // alternative way to calculate the inverse
+
+    // Kalman Update
+    K_ = Pxy_*Pyinv_;
+    cov = cov - K_*Py_*K_.transpose();
+    updateVec_ = -K_*innVector_;
+
+
+    state.boxPlus(updateVec_,state);
+    state.fix();
+
+//    // Adapt for proper linearization point
+//    SigmaPoints<VectorState<D_>> updateVecSP(2*D_+1,2*D_+1,0);
+//    updateVecSP.computeFromZeroMeanGaussian(stateP_);
+//    SigmaPoints<mtState> posterior(2*D_+1,2*D_+1,0);
+//    for(unsigned int i=0;i<2*D_+1;i++){
+//      state_.boxplus(updateVec_+updateVecSP(i).vector_,posterior(i));
+//    }
+//    state_ = posterior.getMean();
+//    stateP_ = posterior.getCovarianceMatrix(state_);
+    return 0;
   }
 };
 
