@@ -30,6 +30,18 @@ class StateSVQ{
     setIdentity();
     createVarLookup();
   };
+  StateSVQ(const StateSVQ<S,V,Q>& other){
+    for(unsigned int i=0;i<S_;i++){
+      s(i) = other.s(i);
+    }
+    for(unsigned int i=0;i<V_;i++){
+      v(i) = other.v(i);
+    }
+    for(unsigned int i=0;i<Q_;i++){
+      q(i) = other.q(i);
+    };
+    createVarLookup();
+  }
   double scalarList[S_];
   Eigen::Vector3d vectorList[V_];
   rot::RotationQuaternionPD quaternionList[Q_];
@@ -149,6 +161,10 @@ class StateSVQ{
     }
     return *this;
   }
+  static StateSVQ<S,V,Q> Identity(){
+    StateSVQ<S,V,Q> identity;
+    return identity;
+  }
 };
 
 template<unsigned int N>
@@ -159,6 +175,10 @@ class VectorState{
   typedef Eigen::Matrix<double,D_,D_> mtCovMat;
   VectorState(){
     vector_.setZero();
+    createVarLookup();
+  };
+  VectorState(const VectorState<N>& other){
+    vector_ = other.vector_;
     createVarLookup();
   };
   Eigen::Matrix<double,D_,1> vector_;
@@ -217,6 +237,10 @@ class VectorState{
       IdMap_[static_cast<const void*>(&vector_(i))] = i;
     }
   };
+  static VectorState<N> Identity(){
+    VectorState<N> identity;
+    return identity;
+  }
 };
 
 static Eigen::Matrix3d Lmat (Eigen::Vector3d a) {

@@ -8,145 +8,130 @@
 #ifndef SIGMAPOINTS_HPP_
 #define SIGMAPOINTS_HPP_
 
-#include "State.hpp"
 #include <Eigen/Dense>
+#include <iostream>
 #include <vector>
 
-namespace LightWeightUKF{
+namespace LWF{
 
-template<typename State>
+template<typename State, unsigned int N, unsigned int L, unsigned int O>
 class SigmaPoints{
  public:
-  unsigned int N_ = 0;
-  unsigned int L_ = 0;
-  unsigned int offset_ = 0;
+  typedef State mtState;
+  static const unsigned int N_ = N;
+  static const unsigned int L_ = L;
+  static const unsigned int O_ = O;
   double wm_ = 1.0;
   double wc_ = 1.0;
   double wc0_ = 1.0;
   double gamma_ = 1.0;
-  std::vector<State> sigmaPoints_;
-  SigmaPoints(){};
-  SigmaPoints(unsigned int N, unsigned int L, unsigned int offset){
-    resize(N,L,offset);
-    const double alpha = 1e-3;
-    const double beta = 2.0;
-    const double kappa = 0.0;
-    const unsigned int D = (L-1)/2;
+  mtState sigmaPoints_[N];
+  SigmaPoints(){
+    assert(N_+O_<=L_);
+  };
+  mtState getMean() const{
+    typename mtState::mtDiffVec vec;
+    typename mtState::mtDiffVec vecTemp;
+    vec.setZero();
+    for(unsigned int i=1;i<N_;i++){
+      sigmaPoints_[i].boxMinus(sigmaPoints_[0],vecTemp);
+      vec = vec + wm_*vecTemp;
+    }
+    mtState mean;
+    sigmaPoints_[0].boxPlus(vec,mean);
+    return mean;
+  };
+  typename mtState::mtCovMat getCovarianceMatrix() const{
+    mtState mean = getMean();
+    return getCovarianceMatrix(mean);
+  };
+  typename mtState::mtCovMat getCovarianceMatrix(const mtState& mean) const{
+    typename mtState::mtCovMat C;
+    typename mtState::mtDiffVec vec;
+    sigmaPoints_[0].boxMinus(mean,vec);
+    C = vec*vec.transpose()*(wc0_+ wc_*(L_-N_));
+    for(unsigned int i=1;i<N_;i++){
+      sigmaPoints_[i].boxMinus(mean,vec);
+      C += vec*vec.transpose()*wc_;
+    }
+    return C;
+  };
+  template<typename State2, unsigned int N2, unsigned int O2>
+  Eigen::Matrix<double,mtState::D_,State2::D_> getCovarianceMatrix(const SigmaPoints<State2,N2,L_,O2>& sigmaPoints2) const{
+    mtState mean1 = getMean();
+    State2 mean2 = sigmaPoints2.getMean();
+    return getCovarianceMatrix(sigmaPoints2,mean1,mean2);
+  };
+  template<typename State2, unsigned int N2, unsigned int O2>
+  Eigen::Matrix<double,mtState::D_,State2::D_> getCovarianceMatrix(const SigmaPoints<State2,N2,L_,O2>& sigmaPoints2, const mtState& mean1, const State2& mean2) const{
+    Eigen::Matrix<double,mtState::D_,State2::D_> C;
+    typename mtState::mtDiffVec vec1;
+    typename State2::mtDiffVec vec2;
+    (*this)(0).boxMinus(mean1,vec1);
+    sigmaPoints2(0).boxMinus(mean2,vec2);
+    C = vec1*vec2.transpose()*wc0_;
+    for(unsigned int i=1;i<L_;i++){
+      (*this)(i).boxMinus(mean1,vec1);
+      sigmaPoints2(i).boxMinus(mean2,vec2);
+      C += vec1*vec2.transpose()*wc_;
+    }
+    return C;
+  };
+  void computeFromGaussian(const mtState mean, const typename mtState::mtCovMat &P){
+    assert(N_==2*mtState::D_+1);
+    Eigen::LLT<typename mtState::mtCovMat> lltOfP(P);
+    typename mtState::mtCovMat S = lltOfP.matrixL();
+    if(lltOfP.info()==Eigen::NumericalIssue) std::cout << "Numerical issues while computing Cholesky Matrix" << std::endl;
+
+    sigmaPoints_[0] = mean;
+    for(unsigned int i=0;i<mtState::D_;i++){
+      mean.boxPlus(S.col(i)*gamma_,sigmaPoints_[i+1]);
+      mean.boxPlus(-S.col(i)*gamma_,sigmaPoints_[i+1+mtState::D_]);
+    }
+  };
+  void computeFromGaussian(const mtState mean, const typename mtState::mtCovMat &P, const typename mtState::mtCovMat &Q){
+    assert(N_==2*mtState::D_+1);
+    Eigen::LLT<typename mtState::mtCovMat> lltOfP(Q.transpose()*P*Q);
+    typename mtState::mtCovMat S = Q*lltOfP.matrixL();
+    if(lltOfP.info()==Eigen::NumericalIssue) std::cout << "Numerical issues while computing Cholesky Matrix" << std::endl;
+
+    sigmaPoints_[0] = mean;
+    for(unsigned int i=0;i<mtState::D_;i++){
+      mean.boxPlus(S.col(i)*gamma_,sigmaPoints_[i+1]);
+      mean.boxPlus(-S.col(i)*gamma_,sigmaPoints_[i+1+mtState::D_]);
+    }
+  };
+  void computeFromZeroMeanGaussian(const typename mtState::mtCovMat &P){
+    mtState identity;		// is initialized to 0 by default constructors
+    computeFromGaussian(identity,P);
+  };
+  const mtState& operator()(unsigned int i) const{
+    assert(i<L_);
+    if(i<O_){
+      return sigmaPoints_[0];
+    } else if(i<O_+N_){
+      return sigmaPoints_[i-O_];
+    } else {
+      return sigmaPoints_[0];
+    }
+  };
+  mtState& operator()(unsigned int i) {
+    assert(i<L_);
+    if(i<O_){
+      return sigmaPoints_[0];
+    } else if(i<O_+N_){
+      return sigmaPoints_[i-O_];
+    } else {
+      return sigmaPoints_[0];
+    }
+  };
+  void computeParameter(double alpha,double beta,double kappa){
+    const unsigned int D = (L_-1)/2;
     const double lambda = alpha*alpha*(D+kappa)-D;
     gamma_ = sqrt(lambda + D);
     wm_ = 1/(2*(D+lambda));
     wc_ = wm_;
     wc0_ = lambda/(D+lambda)+(1-alpha*alpha+beta);
-  };
-  void resize(unsigned int N, unsigned int L, unsigned int offset){
-    assert(N+offset<=L);
-    sigmaPoints_.resize(N);
-    N_ = N;
-    L_ = L;
-    offset_ = offset;
-  };
-  State getMean() const{
-    typename State::DiffVec vec;
-    typename State::DiffVec vecTemp;
-    vec.setZero();
-    for(unsigned int i=1;i<N_;i++){
-      sigmaPoints_[i].boxminus(sigmaPoints_[0],vecTemp);
-      vec = vec + wm_*vecTemp;
-    }
-    State mean;
-    sigmaPoints_[0].boxplus(vec,mean);
-    return mean;
-  };
-  typename State::CovMat getCovarianceMatrix() const{
-    State mean = getMean();
-    return getCovarianceMatrix(mean);
-  };
-  typename State::CovMat getCovarianceMatrix(const State& mean) const{
-    typename State::CovMat C;
-    typename State::DiffVec vec;
-    sigmaPoints_[0].boxminus(mean,vec);
-    C = vec*vec.transpose()*(wc0_+ wc_*(L_-N_));
-    for(unsigned int i=1;i<N_;i++){
-      sigmaPoints_[i].boxminus(mean,vec);
-      C += vec*vec.transpose()*wc_;
-    }
-    return C;
-  };
-  template<typename State2>
-  Eigen::Matrix<double,State::D_,State2::D_> getCovarianceMatrix(const SigmaPoints<State2>& sigmaPoints2) const{
-    State mean1 = getMean();
-    State2 mean2 = sigmaPoints2.getMean();
-    return getCovarianceMatrix(sigmaPoints2,mean1,mean2);
-  };
-  template<typename State2>
-  Eigen::Matrix<double,State::D_,State2::D_> getCovarianceMatrix(const SigmaPoints<State2>& sigmaPoints2, const State& mean1, const State2& mean2) const{
-    assert(L_==sigmaPoints2.L_);
-    Eigen::Matrix<double,State::D_,State2::D_> C;
-    typename State::DiffVec vec1;
-    typename State2::DiffVec vec2;
-    (*this)(0).boxminus(mean1,vec1);
-    sigmaPoints2(0).boxminus(mean2,vec2);
-    C = vec1*vec2.transpose()*wc0_;
-    for(unsigned int i=1;i<L_||i<sigmaPoints2.N_;i++){
-      (*this)(i).boxminus(mean1,vec1);
-      sigmaPoints2(i).boxminus(mean2,vec2);
-      C += vec1*vec2.transpose()*wc_;
-    }
-    return C;
-  };
-  void computeFromGaussian(const State mean, const typename State::CovMat &P){
-    assert(N_==2*State::D_+1);
-    Eigen::LLT<typename State::CovMat> lltOfP(P);
-    typename State::CovMat S = lltOfP.matrixL();
-    if(lltOfP.info()==Eigen::NumericalIssue) std::cout << "Numerical issues while computing Cholesky Matrix" << std::endl;
-
-    sigmaPoints_[0] = mean;
-    for(unsigned int i=0;i<State::D_;i++){
-      mean.boxplus(S.col(i)*gamma_,sigmaPoints_[i+1]);
-      mean.boxplus(-S.col(i)*gamma_,sigmaPoints_[i+1+State::D_]);
-    }
-  };
-  void computeFromGaussian(const State mean, const typename State::CovMat &P, const typename State::CovMat &Q){
-    assert(N_==2*State::D_+1);
-    Eigen::LLT<typename State::CovMat> lltOfP(Q.transpose()*P*Q);
-    typename State::CovMat S = Q*lltOfP.matrixL();
-    if(lltOfP.info()==Eigen::NumericalIssue) std::cout << "Numerical issues while computing Cholesky Matrix" << std::endl;
-
-    sigmaPoints_[0] = mean;
-    for(unsigned int i=0;i<State::D_;i++){
-      mean.boxplus(S.col(i)*gamma_,sigmaPoints_[i+1]);
-      mean.boxplus(-S.col(i)*gamma_,sigmaPoints_[i+1+State::D_]);
-    }
-  };
-  void computeFromZeroMeanGaussian(const typename State::CovMat &P){
-    State identity;		// is initialized to 0 by default constructors
-    computeFromGaussian(identity,P);
-  };
-  const State& operator()(unsigned int i) const{
-    assert(i<L_);
-    if(i<offset_){
-      return sigmaPoints_[0];
-    } else if(i<offset_+N_){
-      return sigmaPoints_[i-offset_];
-    } else {
-      return sigmaPoints_[0];
-    }
-  };
-  State& operator()(unsigned int i) {
-    assert(i<L_);
-    if(i<offset_){
-      return sigmaPoints_[0];
-    } else if(i<offset_+N_){
-      return sigmaPoints_[i-offset_];
-    } else {
-      return sigmaPoints_[0];
-    }
-  };
-  void setParameter(double wm,double wc,double wc0,double gamma){
-    wm_ = wm;
-    wc_ = wc;
-    wc0_ = wc0;
-    gamma_ = gamma;
   };
 };
 
