@@ -152,8 +152,8 @@ TEST_F(PredictionModelTest, comparePredict) {
   testPrediction_.predictUKF(state2,cov2,dt_);
   PredictionExample::mtState::mtDiffVec dif;
   state1.boxMinus(state2,dif);
-  ASSERT_NEAR(dif.norm(),0.0,1e-6);
-  ASSERT_NEAR((cov1-cov2).norm(),0.0,1e-6);
+  ASSERT_NEAR(dif.norm(),0.0,1e-6); // Careful, will differ depending on the magnitude of the covariance
+  ASSERT_NEAR((cov1-cov2).norm(),0.0,1e-6); // Careful, will differ depending on the magnitude of the covariance
 }
 
 int main(int argc, char **argv) {

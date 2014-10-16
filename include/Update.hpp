@@ -13,6 +13,7 @@
 #include "kindr/rotations/RotationEigen.hpp"
 #include "ModelBase.hpp"
 #include "Prediction.hpp"
+#include "State.hpp"
 
 namespace LWF{
 
@@ -61,6 +62,8 @@ class Update: public UpdateBase<State>, public ModelBase<State,Innovation,Meas,N
   SigmaPoints<mtState,2*mtState::D_+1,2*(mtState::D_+mtNoise::D_)+1,0> stateSigmaPoints_;
   SigmaPoints<mtNoise,2*mtNoise::D_+1,2*(mtState::D_+mtNoise::D_)+1,2*mtState::D_> stateSigmaPointsNoi_;
   SigmaPoints<mtInnovation,2*(mtState::D_+mtNoise::D_)+1,2*(mtState::D_+mtNoise::D_)+1,0> innSigmaPoints_;
+  SigmaPoints<LWF::VectorState<mtState::D_>,2*mtState::D_+1,2*mtState::D_+1,0> updateVecSP_;
+  SigmaPoints<mtState,2*mtState::D_+1,2*mtState::D_+1,0> posterior_;
   Update(){
     resetUpdate();
   };
@@ -74,6 +77,8 @@ class Update: public UpdateBase<State>, public ModelBase<State,Innovation,Meas,N
     stateSigmaPoints_.computeParameter(1e-3,2.0,0.0);
     stateSigmaPointsNoi_.computeParameter(1e-3,2.0,0.0);
     innSigmaPoints_.computeParameter(1e-3,2.0,0.0);
+    updateVecSP_.computeParameter(1e-3,2.0,0.0);
+    posterior_.computeParameter(1e-3,2.0,0.0);
     stateSigmaPointsNoi_.computeFromZeroMeanGaussian(updnoiP_);
   }
   virtual ~Update(){};
@@ -118,19 +123,13 @@ class Update: public UpdateBase<State>, public ModelBase<State,Innovation,Meas,N
     cov = cov - K_*Py_*K_.transpose();
     updateVec_ = -K_*innVector_;
 
-
-    state.boxPlus(updateVec_,state);
-    state.fix();
-
-//    // Adapt for proper linearization point
-//    SigmaPoints<VectorState<D_>> updateVecSP(2*D_+1,2*D_+1,0);
-//    updateVecSP.computeFromZeroMeanGaussian(stateP_);
-//    SigmaPoints<mtState> posterior(2*D_+1,2*D_+1,0);
-//    for(unsigned int i=0;i<2*D_+1;i++){
-//      state_.boxplus(updateVec_+updateVecSP(i).vector_,posterior(i));
-//    }
-//    state_ = posterior.getMean();
-//    stateP_ = posterior.getCovarianceMatrix(state_);
+    // Adapt for proper linearization point
+    updateVecSP_.computeFromZeroMeanGaussian(cov);
+    for(unsigned int i=0;i<2*mtState::D_+1;i++){
+      state.boxPlus(updateVec_+updateVecSP_(i).vector_,posterior_(i));
+    }
+    state = posterior_.getMean();
+    cov = posterior_.getCovarianceMatrix(state);
     return 0;
   }
 };

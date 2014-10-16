@@ -150,15 +150,12 @@ TEST_F(UpdateModelTest, compareUpdate) {
   UpdateExample::mtState::mtCovMat cov2 = UpdateExample::mtState::mtCovMat::Identity()*0.000001;
   UpdateExample::mtState state1 = testState_;
   UpdateExample::mtState state2 = testState_;
-  state2.print();
   testUpdate_.updateEKF(state1,cov1);
   testUpdate_.updateUKF(state2,cov2);
-  state1.print();
-  state2.print();
   UpdateExample::mtState::mtDiffVec dif;
   state1.boxMinus(state2,dif);
-  ASSERT_NEAR(dif.norm(),0.0,1e-6);
-  ASSERT_NEAR((cov1-cov2).norm(),0.0,1e-6);
+  ASSERT_NEAR(dif.norm(),0.0,1e-6); // Careful, will differ depending on the magnitude of the covariance
+  ASSERT_NEAR((cov1-cov2).norm(),0.0,1e-5); // Careful, will differ depending on the magnitude of the covariance
 }
 
 int main(int argc, char **argv) {
