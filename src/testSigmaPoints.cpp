@@ -1,4 +1,5 @@
 #include "SigmaPoints.hpp"
+#include "State.hpp"
 #include "gtest/gtest.h"
 #include <assert.h>
 
@@ -6,15 +7,8 @@
 class SigmaPointTest : public ::testing::Test {
  protected:
   SigmaPointTest() {
-    assert(V_>=Q_-1);
-    unsigned int L = mtState::D_;
-    double lambda = 1e-6*(L)-L;
-    double gamma = sqrt(lambda + L);
-    double wm = 1/(2*(L+lambda));
-    double wc = wm;
-    double wc0 = lambda/(L+lambda)+(1-1e-6+2);
-    sigmaPoints_.resize(2*L+1,2*L+1,0);
-    sigmaPoints_.setParameter(wm,wc,wc0,gamma);
+    sigmaPoints_.computeParameter(1e-3,2.0,0.0);
+    sigmaPointsVector_.computeParameter(1e-3,2.0,0.0);
     mean_.s(0) = 4.5;
     for(int i=1;i<S_;i++){
       mean_.s(i) = mean_.s(i-1) + i*i*46.2;
@@ -38,58 +32,41 @@ class SigmaPointTest : public ::testing::Test {
       }
     }
   }
-  virtual ~SigmaPointTest() {
+  ~SigmaPointTest() {
   }
   static const unsigned int S_ = 4;
   static const unsigned int V_ = 3;
   static const unsigned int Q_ = 2;
-  const unsigned int N_ = 2;
-  const unsigned int L_ = 6;
-  const unsigned int offset_ = 2;
-  typedef LightWeightUKF::State<S_,V_,Q_> mtState;
-  typedef mtState::DiffVec mtDiffVec;
-  typedef mtState::CovMat mtCovMat;
-  LightWeightUKF::SigmaPoints<mtState> sigmaPoints_;
+  static const unsigned int N_ = 2*(S_+3*(V_+Q_))+1;
+  static const unsigned int O_ = 2;
+  static const unsigned int L_ = N_+O_+2;
+  typedef LWF::StateSVQ<S_,V_,Q_> mtState;
+  typedef LWF::StateSVQ<0,1,0> mtStateVector;
+  typedef mtState::mtDiffVec mtDiffVec;
+  typedef mtState::mtCovMat mtCovMat;
+  LWF::SigmaPoints<mtState,N_,L_,O_> sigmaPoints_;
+  LWF::SigmaPoints<mtStateVector,L_,L_,0> sigmaPointsVector_;
   mtState mean_;
   mtCovMat P_;
-
-  typedef LightWeightUKF::State<0,1,0> mtStateVector;
 };
 
 // Test constructors
 TEST_F(SigmaPointTest, constructors) {
-  LightWeightUKF::SigmaPoints<mtState> sigmaPoints;
-  ASSERT_TRUE(sigmaPoints.sigmaPoints_.empty());
-  ASSERT_EQ(sigmaPoints.N_,0);
-  ASSERT_EQ(sigmaPoints.L_,0);
-  ASSERT_EQ(sigmaPoints.offset_,0);
-
-  LightWeightUKF::SigmaPoints<mtState> sigmaPoints2(N_,L_,offset_);
-  ASSERT_EQ(sigmaPoints2.sigmaPoints_.size(),sigmaPoints2.N_);
-  ASSERT_EQ(sigmaPoints2.N_,N_);
-  ASSERT_EQ(sigmaPoints2.L_,L_);
-  ASSERT_EQ(sigmaPoints2.offset_,offset_);
+  LWF::SigmaPoints<mtState,N_,L_,O_> sigmaPoints;
+  ASSERT_TRUE(sigmaPoints.N_==N_);
+  ASSERT_TRUE(sigmaPoints.L_==L_);
+  ASSERT_TRUE(sigmaPoints.O_==O_);
 }
 
-// Test resize
-TEST_F(SigmaPointTest, resize) {
-  sigmaPoints_.resize(N_,L_,offset_);
-  ASSERT_EQ(sigmaPoints_.sigmaPoints_.size(),sigmaPoints_.N_);
-  ASSERT_EQ(sigmaPoints_.N_,N_);
-  ASSERT_EQ(sigmaPoints_.L_,L_);
-  ASSERT_EQ(sigmaPoints_.offset_,offset_);
-}
-
-// Test setParameter
-TEST_F(SigmaPointTest, setParameter) {
-  LightWeightUKF::SigmaPoints<mtState> sigmaPoints;
-  unsigned int L = mtState::D_;
-  double lambda = 1e-6*(L)-L;
-  double gamma = sqrt(lambda + L);
-  double wm = 1/(2*(L+lambda));
+// Test computeParameter
+TEST_F(SigmaPointTest, computeParameter) {
+  sigmaPoints_.computeParameter(1e-3,2.0,0.0);
+  const unsigned int D = (L_-1)/2;
+  double lambda = 1e-6*(D)-D;
+  double gamma = sqrt(lambda + D);
+  double wm = 1/(2*(D+lambda));
   double wc = wm;
-  double wc0 = lambda/(L+lambda)+(1-1e-6+2);
-  sigmaPoints.setParameter(wm,wc,wc0,gamma);
+  double wc0 = lambda/(D+lambda)+(1-1e-6+2);
   ASSERT_EQ(sigmaPoints_.wm_,wm);
   ASSERT_EQ(sigmaPoints_.wc_,wc);
   ASSERT_EQ(sigmaPoints_.wc0_,wc0);
@@ -104,31 +81,24 @@ TEST_F(SigmaPointTest, computeFromGaussianPlusPlus) {
   // Check mean is same
   mtState mean = sigmaPoints_.getMean();
   mtDiffVec vec;
-  mean.boxminus(mean_,vec);
+  mean.boxMinus(mean_,vec);
   ASSERT_NEAR(vec.norm(),0.0,1e-8);
 
   // Check covariance is same
   mtCovMat P = sigmaPoints_.getCovarianceMatrix(mean);
-  for(int i=0;i<mtState::D_;i++){
-    for(int j=0;j<mtState::D_;j++){
-      ASSERT_NEAR(P_(i,j),P(i,j),1e-8);
-    }
-  }
+  ASSERT_NEAR((P-P_).norm(),0.0,1e-8);
 
   // computeFromZeroMeanGaussian
   sigmaPoints_.computeFromZeroMeanGaussian(P_);
 
   // Check mean is same
   mean = sigmaPoints_.getMean();
-  ASSERT_TRUE(mean.isNearIdentity(1e-8));
+  mean.boxMinus(mtState::Identity(),vec);
+  ASSERT_NEAR(vec.norm(),0.0,1e-8);
 
   // Check covariance is same
   P = sigmaPoints_.getCovarianceMatrix(mean);
-  for(int i=0;i<mtState::D_;i++){
-    for(int j=0;j<mtState::D_;j++){
-      ASSERT_NEAR(P_(i,j),P(i,j),1e-8);
-    }
-  }
+  ASSERT_NEAR((P-P_).norm(),0.0,1e-8);
 }
 
 // Test getMean, getCovariance2
@@ -136,16 +106,12 @@ TEST_F(SigmaPointTest, getCovariance2) {
   // computeFromGaussian
   sigmaPoints_.computeFromGaussian(mean_,P_);
 
-  unsigned int L = mtState::D_*2+1;
-  LightWeightUKF::SigmaPoints<mtStateVector> sigmaPointsVector(L,L,0);
-  sigmaPointsVector.setParameter(sigmaPoints_.wm_,sigmaPoints_.wc_,sigmaPoints_.wc0_,sigmaPoints_.gamma_);
-
   // Apply simple linear transformation
-  for(int i=0;i<L;i++){
-    sigmaPointsVector(i).v(0) = sigmaPoints_(i).v(0)*2.45+Eigen::Vector3d::Ones()*sigmaPoints_(i).s(0)*0.51;
+  for(int i=0;i<L_;i++){
+    sigmaPointsVector_(i).v(0) = sigmaPoints_(i).v(0)*2.45+Eigen::Vector3d::Ones()*sigmaPoints_(i).s(0)*0.51;
   }
 
-  Eigen::Matrix<double,mtStateVector::D_,mtState::D_> M = sigmaPointsVector.getCovarianceMatrix(sigmaPoints_);
+  Eigen::Matrix<double,mtStateVector::D_,mtState::D_> M = sigmaPointsVector_.getCovarianceMatrix(sigmaPoints_);
   Eigen::Matrix<double,mtStateVector::D_,mtState::D_> H; // Jacobian of linear transformation
   H.setZero();
   H.block(0,S_,3,3) = Eigen::Matrix3d::Identity()*2.45;

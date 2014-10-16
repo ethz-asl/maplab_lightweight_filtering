@@ -12,6 +12,7 @@
 #include <iostream>
 #include "kindr/rotations/RotationEigen.hpp"
 #include "ModelBase.hpp"
+#include "SigmaPoints.hpp"
 
 namespace LWF{
 
@@ -37,13 +38,23 @@ class Prediction: public PredictionBase<State>, public ModelBase<State,State,Mea
   typename ModelBase<State,State,Meas,Noise>::mtJacNoise Fn_;
   typename mtNoise::mtCovMat prenoiP_;
   mtMeas meas_;
+  SigmaPoints<mtState,2*mtState::D_+1,2*(mtState::D_+mtNoise::D_)+1,0> stateSigmaPoints_;
+  SigmaPoints<mtNoise,2*mtNoise::D_+1,2*(mtState::D_+mtNoise::D_)+1,2*mtState::D_> stateSigmaPointsNoi_;
+  SigmaPoints<mtState,2*(mtState::D_+mtNoise::D_)+1,2*(mtState::D_+mtNoise::D_)+1,0> stateSigmaPointsPre_;
   Prediction(){
-    prenoiP_.setIdentity();
+    ResetPrediction();
   };
   Prediction(const mtMeas& meas){
-    prenoiP_.setIdentity();
+    ResetPrediction();
     setMeasurement(meas);
   };
+  void ResetPrediction(){
+    prenoiP_ = mtNoise::mtCovMat::Identity()*0.0001;
+    stateSigmaPoints_.computeParameter(1e-3,2.0,0.0);
+    stateSigmaPointsNoi_.computeParameter(1e-3,2.0,0.0);
+    stateSigmaPointsPre_.computeParameter(1e-3,2.0,0.0);
+    stateSigmaPointsNoi_.computeFromZeroMeanGaussian(prenoiP_);
+  }
   virtual ~Prediction(){};
   void setMeasurement(const mtMeas& meas){
     meas_ = meas;
@@ -57,7 +68,18 @@ class Prediction: public PredictionBase<State>, public ModelBase<State,State,Mea
     return 0;
   }
   int predictUKF(mtState& state, mtCovMat& cov, double dt){
-    return predictEKF(state,cov,dt);
+    stateSigmaPoints_.computeFromGaussian(state,cov);
+
+    // Prediction
+    for(unsigned int i=0;i<stateSigmaPoints_.L_;i++){
+      stateSigmaPointsPre_(i) = this->eval(stateSigmaPoints_(i),meas_,stateSigmaPointsNoi_(i),dt);
+    }
+
+    // Calculate mean and variance
+    state = stateSigmaPointsPre_.getMean();
+    state.fix();
+    cov = stateSigmaPointsPre_.getCovarianceMatrix(state);
+    return 0;
   }
 };
 

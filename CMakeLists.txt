@@ -3,7 +3,7 @@ project(lightweight_filtering)
 add_definitions(-std=c++11)
 
 ##################### Set some variables #####################
-SET(CMAKE_BUILD_TYPE "Release")
+SET(CMAKE_BUILD_TYPE "Debug")
 message(STATUS "cmake root folder:" ${CMAKE_ROOT})
 
 ##################### Find, include, and compile library #####################
@@ -36,6 +36,9 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/gtest/")
 	add_executable(testFilterBase src/testFilterBase.cpp)
 	target_link_libraries(testFilterBase gtest_main gtest pthread )
 	add_test(testFilterBase testFilterBase)
+	add_executable(testSigmaPoints src/testSigmaPoints.cpp)
+	target_link_libraries(testSigmaPoints gtest_main gtest pthread )
+	add_test(testSigmaPoints testSigmaPoints)
 endif()
 
 # Generate FindLWF.cmake file

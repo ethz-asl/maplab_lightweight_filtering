@@ -141,6 +141,24 @@ TEST_F(PredictionModelTest, predictEKF) {
   ASSERT_NEAR((cov-predictedCov).norm(),0.0,1e-6);
 }
 
+// Test comparePredict
+TEST_F(PredictionModelTest, comparePredict) {
+  testPrediction_.setMeasurement(testMeas_);
+  PredictionExample::mtState::mtCovMat cov1;
+  PredictionExample::mtState::mtCovMat cov2;
+  cov1.setIdentity();
+  cov2.setIdentity();
+  PredictionExample::mtState state1 = testState_;
+  PredictionExample::mtState state2 = testState_;
+  testPrediction_.predictEKF(state1,cov1,dt_);
+  testPrediction_.predictUKF(state2,cov2,dt_);
+  PredictionExample::mtState::mtDiffVec dif;
+  PredictionExample::mtNoise noise;
+  state1.boxMinus(state2,dif);
+  ASSERT_NEAR(dif.norm(),0.0,1e-6);
+  ASSERT_NEAR((cov1-cov2).norm(),0.0,1e-6);
+}
+
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
