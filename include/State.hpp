@@ -243,6 +243,59 @@ class VectorState{
   }
 };
 
+template<typename State1, typename State2>
+class PairState{
+ public:
+  static const unsigned int D_ = State1::D_+State2::D_;
+  typedef Eigen::Matrix<double,D_,1> mtDiffVec;
+  typedef Eigen::Matrix<double,D_,D_> mtCovMat;
+  PairState(){
+  };
+  PairState(const PairState<State1,State2>& other){
+    state1_ = other.state1_;
+    state2_ = other.state2_;
+  };
+  State1 state1_;
+  State2 state2_;
+  void boxPlus(const mtDiffVec& vecIn, PairState<State1,State2>& stateOut) const{
+    state1_.boxPlus(vecIn.block<State1::D_,1>(0,0),stateOut.state1_);
+    state2_.boxPlus(vecIn.block<State2::D_,1>(State1::D_,0),stateOut.state2_);
+  }
+  void boxMinus(const PairState<State1,State2>& stateIn, mtDiffVec& vecOut) const{
+    state1_.boxMinus(stateIn.state1_,vecOut.block<State1::D_,1>(0,0));
+    state2_.boxMinus(stateIn.state2_,vecOut.block<State2::D_,1>(State1::D_,0));
+  }
+  void print() const{
+    state1_.print();
+    state2_.print();
+  }
+  void setIdentity(){
+    state1_.setIdentity();
+    state2_.setidentity();
+  }
+  const State1& first() const{
+    return state1_;
+  };
+  State1 first(){
+    return state1_;
+  };
+  const State1& second() const{
+    return state2_;
+  };
+  State1 second(){
+    return state2_;
+  };
+  PairState<State1,State2>& operator=(const PairState<State1,State2>& state){
+    state1_ = state.state1_;
+    state2_ = state.state2_;
+    return *this;
+  };
+  static PairState<State1,State2> Identity(){
+    PairState<State1,State2> identity;
+    return identity;
+  }
+};
+
 static Eigen::Matrix3d Lmat (Eigen::Vector3d a) {
   double aNorm = a.norm();
   double factor1 = 0;
