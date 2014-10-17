@@ -163,7 +163,7 @@ class PredictionUpdate: public UpdateBase<State>, public ModelBase<State,Innovat
   Eigen::Matrix<double,mtState::D_,mtInnovation::D_> Pxy_;
   SigmaPoints<mtState,2*mtState::D_+1,2*(mtState::D_+mtNoise::D_+mtPredictionNoise::D_)+1,0> stateSigmaPoints_;
   SigmaPoints<mtState,2*(mtState::D_+mtNoise::D_+mtPredictionNoise::D_)+1,2*(mtState::D_+mtNoise::D_+mtPredictionNoise::D_)+1,0> stateSigmaPointsPre_;
-  SigmaPoints<PairState<mtPredictionNoise,mtNoise>,2*(mtState::D_+mtNoise::D_+mtPredictionNoise::D_)+1,2*(mtState::D_+mtNoise::D_+mtPredictionNoise::D_)+1,0> stateSigmaPointsNoi_;
+  SigmaPoints<PairState<mtPredictionNoise,mtNoise>,2*(mtNoise::D_+mtPredictionNoise::D_)+1,2*(mtState::D_+mtNoise::D_+mtPredictionNoise::D_)+1,2*(mtState::D_)> stateSigmaPointsNoi_;
   SigmaPoints<mtInnovation,2*(mtState::D_+mtNoise::D_+mtPredictionNoise::D_)+1,2*(mtState::D_+mtNoise::D_+mtPredictionNoise::D_)+1,0> innSigmaPoints_;
   SigmaPoints<LWF::VectorState<mtState::D_>,2*mtState::D_+1,2*mtState::D_+1,0> updateVecSP_;
   SigmaPoints<mtState,2*mtState::D_+1,2*mtState::D_+1,0> posterior_;
@@ -192,7 +192,7 @@ class PredictionUpdate: public UpdateBase<State>, public ModelBase<State,Innovat
   };
   int predictAndUpdateEKF(mtState& state, mtCovMat& cov, PredictionBase<State>* mpPredictionBase, double dt){
     // Predict
-    Prediction* mpPrediction = static_cast<Prediction>(mpPredictionBase); // TODO: Dangerous
+    Prediction* mpPrediction = static_cast<Prediction*>(mpPredictionBase); // TODO: Dangerous
     F_ = mpPrediction->jacInput(state,mpPrediction->meas_,dt);
     Fn_ = mpPrediction->jacNoise(state,mpPrediction->meas_,dt);
     state = mpPrediction->eval(state,mpPrediction->meas_,dt);
@@ -219,17 +219,17 @@ class PredictionUpdate: public UpdateBase<State>, public ModelBase<State,Innovat
   }
   int predictAndUpdateUKF(mtState& state, mtCovMat& cov, PredictionBase<State>* mpPredictionBase, double dt){
     // Predict
-    Prediction* mpPrediction = static_cast<Prediction>(mpPredictionBase); // TODO: Dangerous
-    noiP_.block<mtPredictionNoise::D_,mtPredictionNoise::D_>(0,0) = mpPrediction->prenoiP_;
-    noiP_.block<mtPredictionNoise::D_,mtNoise::D_>(0,mtPredictionNoise::D_) = preupdnoiP_;
-    noiP_.block<mtNoise::D_,mtPredictionNoise::D_>(mtPredictionNoise::D_,0) = preupdnoiP_.transpose();
-    noiP_.block<mtNoise::D_,mtNoise::D_>(mtPredictionNoise::D_,mtPredictionNoise::D_) = updnoiP_;
+    Prediction* mpPrediction = static_cast<Prediction*>(mpPredictionBase); // TODO: Dangerous
+    noiP_.template block<mtPredictionNoise::D_,mtPredictionNoise::D_>(0,0) = mpPrediction->prenoiP_;
+    noiP_.template block<mtPredictionNoise::D_,mtNoise::D_>(0,mtPredictionNoise::D_) = preupdnoiP_;
+    noiP_.template block<mtNoise::D_,mtPredictionNoise::D_>(mtPredictionNoise::D_,0) = preupdnoiP_.transpose();
+    noiP_.template block<mtNoise::D_,mtNoise::D_>(mtPredictionNoise::D_,mtPredictionNoise::D_) = updnoiP_;
     stateSigmaPointsNoi_.computeFromZeroMeanGaussian(noiP_);
     stateSigmaPoints_.computeFromGaussian(state,cov);
 
     // Prediction
     for(unsigned int i=0;i<stateSigmaPointsPre_.L_;i++){
-      stateSigmaPointsPre_(i) = mpPrediction->eval(stateSigmaPoints_(i),meas_,stateSigmaPointsNoi_(i).first(),dt);
+      stateSigmaPointsPre_(i) = mpPrediction->eval(stateSigmaPoints_(i),mpPrediction->meas_,stateSigmaPointsNoi_(i).first(),dt);
     }
 
     // Calculate mean and variance

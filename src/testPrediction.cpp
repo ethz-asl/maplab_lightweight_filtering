@@ -21,6 +21,7 @@ class Noise: public LWF::VectorState<15>{
 
 class PredictionExample: public LWF::Prediction<State,Meas,Noise>{
  public:
+  using LWF::Prediction<State,Meas,Noise>::eval;
   typedef State mtState;
   typedef typename mtState::mtCovMat mtCovMat;
   typedef Meas mtMeas;
@@ -135,8 +136,7 @@ TEST_F(PredictionModelTest, predictEKF) {
   state = testState_;
   testPrediction_.predictEKF(state,cov,dt_);
   PredictionExample::mtState::mtDiffVec dif;
-  PredictionExample::mtNoise noise;
-  state.boxMinus(testPrediction_.eval(testState_,testMeas_,noise,dt_),dif);
+  state.boxMinus(testPrediction_.eval(testState_,testMeas_,dt_),dif);
   ASSERT_NEAR(dif.norm(),0.0,1e-6);
   ASSERT_NEAR((cov-predictedCov).norm(),0.0,1e-6);
 }

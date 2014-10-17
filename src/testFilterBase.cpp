@@ -38,6 +38,7 @@ class PredictionMeas: public LWF::StateSVQ<0,2,0>{
 
 class UpdateExample: public LWF::Update<Innovation,State,UpdateMeas,UpdateNoise>{
  public:
+  using LWF::Update<Innovation,State,UpdateMeas,UpdateNoise>::eval;
   typedef State mtState;
   typedef typename mtState::mtCovMat mtCovMat;
   typedef UpdateMeas mtMeas;
@@ -73,6 +74,7 @@ class UpdateExample: public LWF::Update<Innovation,State,UpdateMeas,UpdateNoise>
 
 class PredictionExample: public LWF::Prediction<State,PredictionMeas,PredictionNoise>{
  public:
+  using LWF::Prediction<State,PredictionMeas,PredictionNoise>::eval;
   typedef State mtState;
   typedef typename mtState::mtCovMat mtCovMat;
   typedef PredictionMeas mtMeas;
