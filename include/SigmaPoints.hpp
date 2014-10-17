@@ -80,7 +80,6 @@ class SigmaPoints{
   void computeFromGaussian(const mtState mean, const typename mtState::mtCovMat &P){
     assert(N_==2*mtState::D_+1);
     Eigen::LDLT<typename mtState::mtCovMat> ldltOfP(P);
-//    typename mtState::mtCovMat ldltP = ldltOfP.transpositionsP();
     typename mtState::mtCovMat ldltL = ldltOfP.matrixL();
     typename mtState::mtCovMat ldltD = ldltOfP.vectorD().asDiagonal();
     for(unsigned int i=0;i<mtState::D_;i++){
@@ -95,8 +94,6 @@ class SigmaPoints{
       }
     }
     if(ldltOfP.info()==Eigen::NumericalIssue) std::cout << "Numerical issues while computing Cholesky Matrix" << std::endl;
-
-
     typename mtState::mtCovMat S = ldltOfP.transpositionsP().transpose()*ldltL*ldltD;
 
     sigmaPoints_[0] = mean;
@@ -106,17 +103,30 @@ class SigmaPoints{
     }
   };
   void computeFromGaussian(const mtState mean, const typename mtState::mtCovMat &P, const typename mtState::mtCovMat &Q){
-    // TODO: adapt to above
-//    assert(N_==2*mtState::D_+1);
-//    Eigen::LLT<typename mtState::mtCovMat> lltOfP(Q.transpose()*P*Q);
-//    typename mtState::mtCovMat S = Q*lltOfP.matrixL();
-//    if(lltOfP.info()==Eigen::NumericalIssue) std::cout << "Numerical issues while computing Cholesky Matrix" << std::endl;
-//
-//    sigmaPoints_[0] = mean;
-//    for(unsigned int i=0;i<mtState::D_;i++){
-//      mean.boxPlus(S.col(i)*gamma_,sigmaPoints_[i+1]);
-//      mean.boxPlus(-S.col(i)*gamma_,sigmaPoints_[i+1+mtState::D_]);
-//    }
+    assert(N_==2*mtState::D_+1);
+    // The square root of a matrix is not unique, here is a way to influence it by means of an orthonormal matrix Q
+    Eigen::LDLT<typename mtState::mtCovMat> ldltOfP(Q.transpose()*P*Q); //
+    typename mtState::mtCovMat ldltL = ldltOfP.matrixL();
+    typename mtState::mtCovMat ldltD = ldltOfP.vectorD().asDiagonal();
+    for(unsigned int i=0;i<mtState::D_;i++){
+      if(ldltD(i,i)>0){
+        ldltD(i,i) = std::sqrt(ldltD(i,i));
+      } else if(ldltD(i,i)==0) {
+        ldltD(i,i) = 0.0;
+        std::cout << "CAUTION: Covariance matrix is only positive SEMIdefinite" << std::endl;
+      } else {
+        ldltD(i,i) = 0.0;
+        std::cout << "ERROR: Covariance matrix is not positive semidefinite" << std::endl;
+      }
+    }
+    if(ldltOfP.info()==Eigen::NumericalIssue) std::cout << "Numerical issues while computing Cholesky Matrix" << std::endl;
+    typename mtState::mtCovMat S = Q*ldltOfP.transpositionsP().transpose()*ldltL*ldltD;
+
+    sigmaPoints_[0] = mean;
+    for(unsigned int i=0;i<mtState::D_;i++){
+      mean.boxPlus(S.col(i)*gamma_,sigmaPoints_[i+1]);
+      mean.boxPlus(-S.col(i)*gamma_,sigmaPoints_[i+1+mtState::D_]);
+    }
   };
   void computeFromZeroMeanGaussian(const typename mtState::mtCovMat &P){
     mtState identity;		// is initialized to 0 by default constructors
