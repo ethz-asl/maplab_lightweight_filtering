@@ -99,6 +99,17 @@ TEST_F(SigmaPointTest, computeFromGaussianPlusPlus) {
   // Check covariance is same
   P = sigmaPoints_.getCovarianceMatrix(mean);
   ASSERT_NEAR((P-P_).norm(),0.0,1e-8);
+
+  // Test with semidefinite matrix
+  mtCovMat Psemi = P_;
+  Psemi.col(1) = Psemi.col(0);
+  Psemi.row(1) = Psemi.row(0);
+  sigmaPoints_.computeFromGaussian(mean_,Psemi);
+  mean = sigmaPoints_.getMean();
+  mean.boxMinus(mean_,vec);
+  ASSERT_NEAR(vec.norm(),0.0,1e-8);
+  P = sigmaPoints_.getCovarianceMatrix(mean);
+  ASSERT_NEAR((P-Psemi).norm(),0.0,1e-8);
 }
 
 // Test getMean, getCovariance2
