@@ -295,35 +295,28 @@ class PairState{
   }
 };
 
-template<typename State, typename Aux>
-class AugmentedState{
+template<typename State, typename Aux> // Takes care of passing auxilliary data through boxplus, copy constructor and assignement
+class AugmentedState: public State{
  public:
-  static const unsigned int D_ = State::D_;
-  typedef Eigen::Matrix<double,D_,1> mtDiffVec;
-  typedef Eigen::Matrix<double,D_,D_> mtCovMat;
+  typedef typename State::mtDiffVec mtDiffVec;
   AugmentedState(){};
-  AugmentedState(const AugmentedState<State,Aux>& other){
-    state_ = other.state_;
+  AugmentedState(const AugmentedState<State,Aux>& other): State(other){
     aux_ = other.aux_;
   };
-  State state_;
   Aux aux_;
   void boxPlus(const mtDiffVec& vecIn, AugmentedState<State,Aux>& stateOut) const{
-    state_.boxPlus(vecIn,stateOut.state_);
+    State::boxPlus(vecIn,stateOut);
     stateOut.aux_ = aux_;
   }
-  void boxMinus(const AugmentedState<State,Aux>& stateIn, mtDiffVec& vecOut) const{
-    state_.boxMinus(stateIn.state_,vecOut);
-  }
-  void print() const{
-    state_.print();
-  }
-  void setIdentity(){
-    state_.setIdentity();
-  }
-  AugmentedState<State,Aux>& operator=(const AugmentedState<State,Aux>& state){
-    state_ = state.state_;
-    aux_ = state.aux_;
+  const Aux& aux() const{
+    return aux_;
+  };
+  Aux& aux(){
+    return aux_;
+  };
+  AugmentedState<State,Aux>& operator=(const AugmentedState<State,Aux>& other){
+    State::operator=(other);
+    aux_ = other.aux_;
     return *this;
   };
   static AugmentedState<State,Aux> Identity(){

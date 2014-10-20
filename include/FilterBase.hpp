@@ -16,22 +16,14 @@
 
 namespace LWF{
 
-class DefaultAuxillary{
- public:
-  DefaultAuxillary(){};
-  ~DefaultAuxillary(){};
-};
-
-template<typename State, typename Auxillary = DefaultAuxillary>
+template<typename State>
 class FilterState{
  public:
   typedef State mtState;
   typedef typename mtState::mtCovMat mtCovMat;
   static const unsigned int D_ = mtState::D_;
-  typedef Auxillary mtAuxillary;
   mtCovMat cov_;
   mtState state_;
-  mtAuxillary aux_;
   double t_;
   FilterState(){
     t_ = 0.0;
@@ -46,40 +38,42 @@ class FilterState{
 // public:
 //  // Clean,getNextUpdateTime,maxWaitTime,update,predictAndUpdate
 //};
-//
-//template<typename Prediction>
-//class PredictionManager{
-// public:
-//  typedef typename Prediction::mtState mtState;
-//  typedef typename Prediction::mtCovMat mtCovMat;
-//  typedef typename Prediction::mtMeas mtMeas;
-//  std::map<double,mtMeas> predictionMeasMap_;
-//  Prediction prediction_;
-//  PredictionManager(){};
-//  ~PredictionManager(){};
-//  void addMeas(const mtMeas& meas, const double& t){
-////    assert(t>safe_.t_); // TODO
-////    if(front_.t_>=t) validFront_ = false;
-//    predictionMeasMap_[t] = meas;
-//  }
-//  void clean(double t){
-//    while(!predictionMeasMap_.empty() && predictionMeasMap_.begin()->first<=t){
-//      predictionMeasMap_.erase(predictionMeasMap_.begin());
-//    }
-//  }
-//  bool maxPredictionTime(double& maxPredictionTime){
-//    if(!predictionMeasMap_.empty()){
-//      maxPredictionTime = predictionMeasMap_.rbegin()->first;
-//      return true;
-//    } else {
-//      return false;
-//    }
-//  }
-//  int predict(mtState& state, mtCovMat& cov, double currentTime, ){
-//    prediction_.setMeasurement(meas)
-//    return prediction_.predictEKF;
-//  }
-//};
+
+template<typename Prediction>
+class PredictionManager{
+ public:
+  typedef typename Prediction::mtState mtState;
+  typedef typename Prediction::mtCovMat mtCovMat;
+  typedef typename Prediction::mtMeas mtMeas;
+  std::map<double,mtMeas> predictionMeasMap_;
+  Prediction prediction_;
+  PredictionManager(){};
+  ~PredictionManager(){};
+  void addMeas(const mtMeas& meas, const double& t){
+//    assert(t>safe_.t_); // TODO
+//    if(front_.t_>=t) validFront_ = false;
+    predictionMeasMap_[t] = meas;
+  }
+  void clean(double t){
+    while(!predictionMeasMap_.empty() && predictionMeasMap_.begin()->first<=t){
+      predictionMeasMap_.erase(predictionMeasMap_.begin());
+    }
+  }
+  bool maxPredictionTime(double& maxPredictionTime){
+    if(!predictionMeasMap_.empty()){
+      maxPredictionTime = predictionMeasMap_.rbegin()->first;
+      return true;
+    } else {
+      return false;
+    }
+  }
+  int predict(FilterState<mtState> filterState, double predictionTime){
+    typename std::map<double,mtMeas>::iterator itMeas;
+    itMeas = predictionMeasMap_.upper_bound(filterState.t_);
+    prediction_.setMeasurement(itMeas->second); // Todo default, iterate
+    return prediction_.predictEKF;
+  }
+};
 
 template<typename State, unsigned int nUpdType = 1>
 class FilterBase{
