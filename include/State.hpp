@@ -249,8 +249,7 @@ class PairState{
   static const unsigned int D_ = State1::D_+State2::D_;
   typedef Eigen::Matrix<double,D_,1> mtDiffVec;
   typedef Eigen::Matrix<double,D_,D_> mtCovMat;
-  PairState(){
-  };
+  PairState(){};
   PairState(const PairState<State1,State2>& other){
     state1_ = other.state1_;
     state2_ = other.state2_;
@@ -292,6 +291,43 @@ class PairState{
   };
   static PairState<State1,State2> Identity(){
     PairState<State1,State2> identity;
+    return identity;
+  }
+};
+
+template<typename State, typename Aux>
+class AugmentedState{
+ public:
+  static const unsigned int D_ = State::D_;
+  typedef Eigen::Matrix<double,D_,1> mtDiffVec;
+  typedef Eigen::Matrix<double,D_,D_> mtCovMat;
+  AugmentedState(){};
+  AugmentedState(const AugmentedState<State,Aux>& other){
+    state_ = other.state_;
+    aux_ = other.aux_;
+  };
+  State state_;
+  Aux aux_;
+  void boxPlus(const mtDiffVec& vecIn, AugmentedState<State,Aux>& stateOut) const{
+    state_.boxPlus(vecIn,stateOut.state_);
+    stateOut.aux_ = aux_;
+  }
+  void boxMinus(const AugmentedState<State,Aux>& stateIn, mtDiffVec& vecOut) const{
+    state_.boxMinus(stateIn.state_,vecOut);
+  }
+  void print() const{
+    state_.print();
+  }
+  void setIdentity(){
+    state_.setIdentity();
+  }
+  AugmentedState<State,Aux>& operator=(const AugmentedState<State,Aux>& state){
+    state_ = state.state_;
+    aux_ = state.aux_;
+    return *this;
+  };
+  static AugmentedState<State,Aux> Identity(){
+    AugmentedState<State,Aux> identity;
     return identity;
   }
 };
