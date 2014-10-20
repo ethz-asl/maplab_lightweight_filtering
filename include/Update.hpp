@@ -17,30 +17,8 @@
 
 namespace LWF{
 
-template<typename State>
-class UpdateBase{
- public:
-  typedef State mtState;
-  typedef typename mtState::mtCovMat mtCovMat;
-  UpdateBase(bool isCoupledToPrediction = false): isCoupledToPrediction_(isCoupledToPrediction){};
-  virtual ~UpdateBase(){};
-  virtual int updateEKF(mtState& state, mtCovMat& cov){
-    return -1;
-  }
-  virtual int predictAndUpdateEKF(mtState& state, mtCovMat& cov, PredictionBase<State>* mpPredictionBase, double dt){
-    return -1;
-  }
-  virtual int updateUKF(mtState& state, mtCovMat& cov){
-    return -1;
-  }
-  virtual int predictAndUpdateUKF(mtState& state, mtCovMat& cov, PredictionBase<State>* mpPredictionBase, double dt){
-    return -1;
-  }
-  const bool isCoupledToPrediction_;
-};
-
 template<typename Innovation, typename State, typename Meas, typename Noise>
-class Update: public UpdateBase<State>, public ModelBase<State,Innovation,Meas,Noise>{
+class Update: public ModelBase<State,Innovation,Meas,Noise>{
  public:
   typedef State mtState;
   typedef typename mtState::mtCovMat mtCovMat;
@@ -50,7 +28,6 @@ class Update: public UpdateBase<State>, public ModelBase<State,Innovation,Meas,N
   typename ModelBase<State,Innovation,Meas,Noise>::mtJacInput H_;
   typename ModelBase<State,Innovation,Meas,Noise>::mtJacNoise Hn_;
   typename mtNoise::mtCovMat updnoiP_;
-  mtMeas meas_;
   mtInnovation y_;
   typename mtInnovation::mtCovMat Py_;
   typename mtInnovation::mtCovMat Pyinv_;
@@ -67,10 +44,6 @@ class Update: public UpdateBase<State>, public ModelBase<State,Innovation,Meas,N
   Update(){
     resetUpdate();
   };
-  Update(const mtMeas& meas){
-    resetUpdate();
-    setMeasurement(meas);
-  };
   void resetUpdate(){
     updateVec_.setIdentity();
     updnoiP_ = mtNoise::mtCovMat::Identity()*0.0001;
@@ -82,13 +55,10 @@ class Update: public UpdateBase<State>, public ModelBase<State,Innovation,Meas,N
     stateSigmaPointsNoi_.computeFromZeroMeanGaussian(updnoiP_);
   }
   virtual ~Update(){};
-  void setMeasurement(const mtMeas& meas){
-    meas_ = meas;
-  };
-  int updateEKF(mtState& state, mtCovMat& cov){
-    H_ = this->jacInput(state,meas_);
-    Hn_ = this->jacNoise(state,meas_);
-    y_ = this->eval(state,meas_);
+  int updateEKF(mtState& state, mtCovMat& cov, const mtMeas& meas){
+    H_ = this->jacInput(state,meas);
+    Hn_ = this->jacNoise(state,meas);
+    y_ = this->eval(state,meas);
 
     // Update
     Py_ = H_*cov*H_.transpose() + Hn_*updnoiP_*Hn_.transpose();
@@ -104,12 +74,12 @@ class Update: public UpdateBase<State>, public ModelBase<State,Innovation,Meas,N
     state.fix();
     return 0;
   }
-  int updateUKF(mtState& state, mtCovMat& cov){
+  int updateUKF(mtState& state, mtCovMat& cov, const mtMeas& meas){
     stateSigmaPoints_.computeFromGaussian(state,cov);
 
     // Update
     for(unsigned int i=0;i<stateSigmaPoints_.L_;i++){
-      innSigmaPoints_(i) = this->eval(stateSigmaPoints_(i),meas_,stateSigmaPointsNoi_(i));
+      innSigmaPoints_(i) = this->eval(stateSigmaPoints_(i),meas,stateSigmaPointsNoi_(i));
     }
     y_ = innSigmaPoints_.getMean();
     Py_ = innSigmaPoints_.getCovarianceMatrix(y_);
@@ -135,7 +105,7 @@ class Update: public UpdateBase<State>, public ModelBase<State,Innovation,Meas,N
 };
 
 template<typename Innovation, typename State, typename Meas, typename Noise, typename Prediction>
-class PredictionUpdate: public UpdateBase<State>, public ModelBase<State,Innovation,Meas,Noise>{
+class PredictionUpdate: public ModelBase<State,Innovation,Meas,Noise>{
  public:
   typedef State mtState;
   typedef typename mtState::mtCovMat mtCovMat;
@@ -152,7 +122,6 @@ class PredictionUpdate: public UpdateBase<State>, public ModelBase<State,Innovat
   Eigen::Matrix<double,mtPredictionNoise::D_,mtNoise::D_> preupdnoiP_;
   Eigen::Matrix<double,mtPredictionNoise::D_+mtNoise::D_,mtPredictionNoise::D_+mtNoise::D_> noiP_;
   Eigen::Matrix<double,mtState::D_,mtInnovation::D_> C_;
-  mtMeas meas_;
   mtInnovation y_;
   typename mtInnovation::mtCovMat Py_;
   typename mtInnovation::mtCovMat Pyinv_;
@@ -167,12 +136,8 @@ class PredictionUpdate: public UpdateBase<State>, public ModelBase<State,Innovat
   SigmaPoints<mtInnovation,2*(mtState::D_+mtNoise::D_+mtPredictionNoise::D_)+1,2*(mtState::D_+mtNoise::D_+mtPredictionNoise::D_)+1,0> innSigmaPoints_;
   SigmaPoints<LWF::VectorState<mtState::D_>,2*mtState::D_+1,2*mtState::D_+1,0> updateVecSP_;
   SigmaPoints<mtState,2*mtState::D_+1,2*mtState::D_+1,0> posterior_;
-  PredictionUpdate():UpdateBase<State>(true){
+  PredictionUpdate(){
     resetUpdate();
-  };
-  PredictionUpdate(const mtMeas& meas):UpdateBase<State>(true){
-    resetUpdate();
-    setMeasurement(meas);
   };
   void resetUpdate(){
     updateVec_.setIdentity();
@@ -187,23 +152,19 @@ class PredictionUpdate: public UpdateBase<State>, public ModelBase<State,Innovat
     posterior_.computeParameter(1e-3,2.0,0.0);
   }
   virtual ~PredictionUpdate(){};
-  void setMeasurement(const mtMeas& meas){
-    meas_ = meas;
-  };
-  int predictAndUpdateEKF(mtState& state, mtCovMat& cov, PredictionBase<State>* mpPredictionBase, double dt){
+  int predictAndUpdateEKF(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction prediction, const mtPredictionMeas& predictionMeas, double dt){
     // Predict
-    Prediction* mpPrediction = static_cast<Prediction*>(mpPredictionBase); // TODO: Dangerous
-    F_ = mpPrediction->jacInput(state,mpPrediction->meas_,dt);
-    Fn_ = mpPrediction->jacNoise(state,mpPrediction->meas_,dt);
-    state = mpPrediction->eval(state,mpPrediction->meas_,dt);
+    F_ = prediction.jacInput(state,predictionMeas,dt);
+    Fn_ = prediction.jacNoise(state,predictionMeas,dt);
+    state = prediction.eval(state,predictionMeas,dt);
     state.fix();
-    cov = F_*cov*F_.transpose() + Fn_*mpPrediction->prenoiP_*Fn_.transpose();
+    cov = F_*cov*F_.transpose() + Fn_*prediction.prenoiP_*Fn_.transpose();
 
     // Update
-    H_ = this->jacInput(state,meas_);
-    Hn_ = this->jacNoise(state,meas_);
+    H_ = this->jacInput(state,meas);
+    Hn_ = this->jacNoise(state,meas);
     C_ = Fn_*preupdnoiP_*Hn_.transpose();
-    y_ = this->eval(state,meas_);
+    y_ = this->eval(state,meas);
     Py_ = H_*cov*H_.transpose() + Hn_*updnoiP_*Hn_.transpose() + H_*C_ + C_.transpose()*H_.transpose();
     y_.boxMinus(yIdentity_,innVector_);
     Pyinv_.setIdentity();
@@ -217,10 +178,9 @@ class PredictionUpdate: public UpdateBase<State>, public ModelBase<State,Innovat
     state.fix();
     return 0;
   }
-  int predictAndUpdateUKF(mtState& state, mtCovMat& cov, PredictionBase<State>* mpPredictionBase, double dt){
+  int predictAndUpdateUKF(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction prediction, const mtPredictionMeas& predictionMeas, double dt){
     // Predict
-    Prediction* mpPrediction = static_cast<Prediction*>(mpPredictionBase); // TODO: Dangerous
-    noiP_.template block<mtPredictionNoise::D_,mtPredictionNoise::D_>(0,0) = mpPrediction->prenoiP_;
+    noiP_.template block<mtPredictionNoise::D_,mtPredictionNoise::D_>(0,0) = prediction.prenoiP_;
     noiP_.template block<mtPredictionNoise::D_,mtNoise::D_>(0,mtPredictionNoise::D_) = preupdnoiP_;
     noiP_.template block<mtNoise::D_,mtPredictionNoise::D_>(mtPredictionNoise::D_,0) = preupdnoiP_.transpose();
     noiP_.template block<mtNoise::D_,mtNoise::D_>(mtPredictionNoise::D_,mtPredictionNoise::D_) = updnoiP_;
@@ -229,7 +189,7 @@ class PredictionUpdate: public UpdateBase<State>, public ModelBase<State,Innovat
 
     // Prediction
     for(unsigned int i=0;i<stateSigmaPointsPre_.L_;i++){
-      stateSigmaPointsPre_(i) = mpPrediction->eval(stateSigmaPoints_(i),mpPrediction->meas_,stateSigmaPointsNoi_(i).first(),dt);
+      stateSigmaPointsPre_(i) = prediction.eval(stateSigmaPoints_(i),predictionMeas,stateSigmaPointsNoi_(i).first(),dt);
     }
 
     // Calculate mean and variance
@@ -240,7 +200,7 @@ class PredictionUpdate: public UpdateBase<State>, public ModelBase<State,Innovat
     // TODO: handle correlated noise and test!
     // Update
     for(unsigned int i=0;i<innSigmaPoints_.L_;i++){
-      innSigmaPoints_(i) = this->eval(stateSigmaPointsPre_(i),meas_,stateSigmaPointsNoi_(i).second());
+      innSigmaPoints_(i) = this->eval(stateSigmaPointsPre_(i),meas,stateSigmaPointsNoi_(i).second());
     }
     y_ = innSigmaPoints_.getMean();
     Py_ = innSigmaPoints_.getCovarianceMatrix(y_);

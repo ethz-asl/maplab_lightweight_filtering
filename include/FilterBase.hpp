@@ -33,13 +33,72 @@ class FilterState{
   virtual ~FilterState(){};
 };
 
-//template<typename State>
-//class UpdateManagerBase{
-// public:
-//  // Clean,getNextUpdateTime,maxWaitTime,update,predictAndUpdate
-//};
+template<typename State>
+class UpdateManagerBase{
+ public:
+  typedef State mtState;
+  typedef typename mtState::mtCovMat mtCovMat;
+  UpdateManagerBase(){
+    maxWaitTime_ = 1.0;
+  };
+  virtual ~UpdateManagerBase(){};
+  virtual bool getNextUpdateTime(double tCurrent, double& nextUpdateTime) = 0;
+  virtual void clean(double t) = 0;
+  virtual void constrainSafeUpdateTime(double maxPredictionTime, double& safeUpdateTime) = 0;
+  virtual void update(FilterState<mtState>& filterState) = 0;
+  double maxWaitTime_;
+};
 
-template<typename Prediction>
+template<typename Update>
+class UpdateManager: public UpdateManagerBase<typename Update::mtState>{
+ public:
+  using UpdateManagerBase<typename Update::mtState>::maxWaitTime_;
+  typedef typename Update::mtState mtState;
+  typedef typename Update::mtMeas mtMeas;
+  typedef typename mtState::mtCovMat mtCovMat;
+  std::map<double,mtMeas> updateMeasMap_;
+  Update update_;
+  typename std::map<double,mtMeas>::iterator itMeas_;
+  UpdateManager(){};
+  ~UpdateManager(){};
+  void addMeas(const mtMeas& meas, const double& t){
+//    assert(t>safe_.t_); // TODO
+//    if(front_.t_>=t) validFront_ = false;
+    updateMeasMap_[t] = meas;
+  }
+  void clean(double t){
+    while(!updateMeasMap_.empty() && updateMeasMap_.begin()->first<=t){
+      updateMeasMap_.erase(updateMeasMap_.begin());
+    }
+  }
+  bool getNextUpdateTime(double tCurrent, double& nextUpdateTime){
+    itMeas_ = updateMeasMap_.upper_bound(tCurrent);
+    if(itMeas_!=updateMeasMap_.end()){
+      nextUpdateTime = itMeas_->first;
+      return true;
+    } else {
+      return false;
+    }
+  }
+  void constrainSafeUpdateTime(double maxPredictionTime, double& safeUpdateTime){
+    double updateTime = maxPredictionTime-maxWaitTime_;
+    if(!updateMeasMap_.empty() && updateMeasMap_.rbegin()->first > updateTime){
+      updateTime = updateMeasMap_.rbegin()->first;
+    }
+    if(safeUpdateTime > updateTime){
+      safeUpdateTime = updateTime;
+    }
+  }
+  void update(FilterState<mtState>& filterState){
+    if(updateMeasMap_.count(filterState.t_)){
+      int r = update_.updateEKF(filterState.state_,filterState.cov_,updateMeasMap_[filterState.t_]);
+      if(r!=0) std::cout << "Error during update: " << r << std::endl;
+    }
+  }
+  // predictAndUpdate
+};
+
+template<typename Prediction, typename DefaultPrediction = Prediction>
 class PredictionManager{
  public:
   typedef typename Prediction::mtState mtState;
@@ -47,6 +106,8 @@ class PredictionManager{
   typedef typename Prediction::mtMeas mtMeas;
   std::map<double,mtMeas> predictionMeasMap_;
   Prediction prediction_;
+  DefaultPrediction defaultPrediction_;
+  typename std::map<double,mtMeas>::iterator itMeas_;
   PredictionManager(){};
   ~PredictionManager(){};
   void addMeas(const mtMeas& meas, const double& t){
@@ -59,7 +120,7 @@ class PredictionManager{
       predictionMeasMap_.erase(predictionMeasMap_.begin());
     }
   }
-  bool maxPredictionTime(double& maxPredictionTime){
+  bool getMaxPredictionTime(double& maxPredictionTime){
     if(!predictionMeasMap_.empty()){
       maxPredictionTime = predictionMeasMap_.rbegin()->first;
       return true;
@@ -67,85 +128,73 @@ class PredictionManager{
       return false;
     }
   }
-  int predict(FilterState<mtState> filterState, double predictionTime){
-    typename std::map<double,mtMeas>::iterator itMeas;
-    itMeas = predictionMeasMap_.upper_bound(filterState.t_);
-    prediction_.setMeasurement(itMeas->second); // Todo default, iterate
-    return prediction_.predictEKF;
+  void predict(FilterState<mtState>& filterState, double tNext){
+    while(filterState.t_<tNext){
+      itMeas_ = predictionMeasMap_.upper_bound(filterState.t_);
+      if(itMeas_ != predictionMeasMap_.end()){
+        int r = prediction_.predictEKF(filterState.state_,filterState.cov_,itMeas_->second,itMeas_->first-filterState.t_);
+        if(r!=0) std::cout << "Error during prediction: " << r << std::endl;
+        filterState.t_ = itMeas_->first;
+      } else {
+        mtMeas meas; // TODO = mtMeas::Identity();
+        int r = defaultPrediction_.predictEKF(filterState.state_,filterState.cov_,meas,tNext-filterState.t_);
+        if(r!=0) std::cout << "Error during prediction: " << r << std::endl;
+        filterState.t_ = tNext;
+      }
+    }
+  }
+  void predictAndUpdate(FilterState<mtState>& filterState, UpdateManagerBase<mtState>* updateManagerBase, double tNext){
+    while(filterState.t_<tNext){
+      itMeas_ = predictionMeasMap_.upper_bound(filterState.t_);
+      if(itMeas_ != predictionMeasMap_.end()){
+        int r = prediction_.predictEKF(filterState.state_,filterState.cov_,itMeas_->second,itMeas_->first-filterState.t_);
+        if(r!=0) std::cout << "Error during prediction: " << r << std::endl;
+        filterState.t_ = itMeas_->first;
+      } else { // Drop error and ignore update
+//        mtMeas meas; // TODO = mtMeas::Identity();
+//        int r = defaultPrediction_.predictEKF(filterState.state_,filterState.cov_,meas,tNext-filterState.t_);
+//        if(r!=0) std::cout << "Error during prediction: " << r << std::endl;
+//        filterState.t_ = tNext;
+      }
+    }
   }
 };
 
-template<typename State, unsigned int nUpdType = 1>
+template<typename Prediction, unsigned int nUpdType = 1>
 class FilterBase{
  public:
-  typedef State mtState;
+  typedef Prediction mtPrediction;
+  typedef typename mtPrediction::mtState mtState;
   typedef typename mtState::mtCovMat mtCovMat;
   static const unsigned int D_ = mtState::D_;
   static const unsigned int nUT_ = nUpdType;
-  FilterState<State> safe_;
-  FilterState<State> front_;
-  FilterState<State> init_;
+  FilterState<mtState> safe_;
+  FilterState<mtState> front_;
+  FilterState<mtState> init_;
   bool validFront_;
-  PredictionBase<mtState>* mpDefaultPrediction_;
-
-  std::map<double,PredictionBase<mtState>*> predictionMap_;
-  std::map<double,UpdateBase<mtState>*> updateMap_[nUT_];
-  double maxWaitTime[nUT_];
+  PredictionManager<mtPrediction> predictionManager_;
+  UpdateManagerBase<mtState>* updateManagerBase_[nUT_];
   FilterBase(){
     validFront_ = false;
-    mpDefaultPrediction_ = nullptr;
     for(unsigned int i = 0; i<nUT_;i++){
-      maxWaitTime[i] = 1.0;
+      updateManagerBase_[i] = nullptr;
     }
   };
-  virtual ~FilterBase(){
-    delete mpDefaultPrediction_;
-    while(!predictionMap_.empty()){
-      delete predictionMap_.begin()->second;
-      predictionMap_.erase(predictionMap_.begin());
-    }
-    for(unsigned int i=0;i<nUT_;i++){
-      while(!updateMap_[i].empty()){
-        delete updateMap_[i].begin()->second;
-        updateMap_[i].erase(updateMap_[i].begin());
-      }
-    }
-  };
+  virtual ~FilterBase(){};
   void resetFilter(){
     safe_ = init_;
     front_ = init_;
     validFront_ = false;
   }
-  void setDefaultPrediction(PredictionBase<mtState>* mpPrediction){
-    mpDefaultPrediction_ = mpPrediction; // TODO: Careful: takes over ownership
-  }
-  void removeDefaultPrediction(){
-    delete mpDefaultPrediction_;
-    mpDefaultPrediction_ = nullptr;
-  }
   bool getSafeTime(double& safeTime){
     double maxPredictionTime;
-    // Get maximal time where prediction is available
-    if(!predictionMap_.empty()){
-      maxPredictionTime = predictionMap_.rbegin()->first;
-    } else {
+    if(!predictionManager_.getMaxPredictionTime(maxPredictionTime)){
       return false;
     }
     safeTime = maxPredictionTime;
     // Check if we have to wait for update measurements
-    double updateTime;
     for(unsigned int i=0;i<nUT_;i++){
-      if(!updateMap_[i].empty()){
-        updateTime = updateMap_[i].rbegin()->first;
-      } else {
-        updateTime = safe_.t_;
-      }
-      if(updateTime < maxPredictionTime - maxWaitTime[i]){
-        updateTime = maxPredictionTime - maxWaitTime[i];
-      }
-      if(updateTime < safeTime){
-        safeTime = updateTime;
-      }
+      if(updateManagerBase_[i] != nullptr) updateManagerBase_[i]->constrainSafeUpdateTime(maxPredictionTime,safeTime);
     }
     if(safeTime <= safe_.t_) return false;
     return true;
@@ -166,78 +215,43 @@ class FilterBase{
     }
     update(front_,tEnd);
   }
-  void update(FilterState<State>& filterState,const double& tEnd){
-    typename std::map<double,PredictionBase<mtState>*>::iterator itPrediction;
-    typename std::map<double,UpdateBase<mtState>*>::iterator itUpdate[nUT_];
-    itPrediction = predictionMap_.upper_bound(filterState.t_);
-    for(unsigned int i=0;i<nUT_;i++){
-      itUpdate[i] = updateMap_[i].upper_bound(filterState.t_);
-    }
+  void update(FilterState<mtState>& filterState,const double& tEnd){
     double tNext = filterState.t_;
+    double tNextUpdate;
     int availableCoupledPrediction = -1;
-    PredictionBase<mtState>* mpUsedPrediction;
     while(filterState.t_<tEnd){
       tNext = tEnd;
-      if(itPrediction!=predictionMap_.end()){
-        if(itPrediction->first<tNext){
-          tNext = itPrediction->first;
+      for(unsigned int i=0;i<nUT_;i++){
+        if(updateManagerBase_[i] != nullptr){
+          if(updateManagerBase_[i]->getNextUpdateTime(tNext,tNextUpdate) && tNextUpdate <= tNext){
+            if(tNextUpdate<tNext){
+              tNext = tNextUpdate;
+              availableCoupledPrediction = -1;
+            }
+//            if(itUpdate[i]->second->isCoupledToPrediction_){ // TODO
+//              if(availableCoupledPrediction==-1) availableCoupledPrediction = i;
+//              else std::cout << "ERROR: multiple coupled updates";
+//            }
+          }
         }
-        mpUsedPrediction = itPrediction->second;
+      }
+      if(availableCoupledPrediction==-1){
+        predictionManager_.predict(filterState,tNext);
       } else {
-        mpUsedPrediction = mpDefaultPrediction_;
+        predictionManager_.predictAndUpdate(filterState,updateManagerBase_[availableCoupledPrediction],tNext);
       }
       for(unsigned int i=0;i<nUT_;i++){
-        if(itUpdate[i]!=updateMap_[i].end() && itUpdate[i]->first<=tNext){
-          if(itUpdate[i]->first<tNext){
-            tNext = itUpdate[i]->first;
-            availableCoupledPrediction = -1;
-          }
-          if(itUpdate[i]->second->isCoupledToPrediction_){
-            if(availableCoupledPrediction==-1) availableCoupledPrediction = i;
-            else std::cout << "ERROR: multiple coupled updates";
-          }
+        if(updateManagerBase_[i] != nullptr && i!=availableCoupledPrediction){
+          updateManagerBase_[i]->update(filterState);
         }
-      }
-      if(mpUsedPrediction!=nullptr){
-        if(availableCoupledPrediction==-1){
-          if(mpUsedPrediction->predictEKF(filterState.state_,filterState.cov_,tNext-filterState.t_)!=0) std::cout << "ERROR in predictEKF";
-        }
-        else if(itUpdate[availableCoupledPrediction]->second->predictAndUpdateEKF(filterState.state_,filterState.cov_,mpUsedPrediction,tNext-filterState.t_)!=0) std::cout << "ERROR in predictAndUpdateEKF";
-      }
-      filterState.t_ = tNext;
-      for(unsigned int i=0;i<nUT_;i++){
-        if(itUpdate[i]!=updateMap_[i].end() && itUpdate[i]->first<=tNext && i!=availableCoupledPrediction){
-          if(itUpdate[i]->second->updateEKF(filterState.state_,filterState.cov_)!=0) std::cout << "ERROR in updateEKF";
-        }
-      }
-      itPrediction = predictionMap_.upper_bound(filterState.t_);
-      for(unsigned int i=0;i<nUT_;i++){
-        itUpdate[i] = updateMap_[i].upper_bound(filterState.t_);
       }
     }
   }
   void clean(const double& t){
-    while(!predictionMap_.empty() && predictionMap_.begin()->first<=t){
-      delete predictionMap_.begin()->second; // TODO: Careful: assumes ownership
-      predictionMap_.erase(predictionMap_.begin());
-    }
+    predictionManager_.clean(t);
     for(unsigned int i=0;i<nUT_;i++){
-      while(!updateMap_[i].empty() && updateMap_[i].begin()->first<=t){
-        delete updateMap_[i].begin()->second; // TODO: Careful: assumes ownership
-        updateMap_[i].erase(updateMap_[i].begin());
-      }
+      if(updateManagerBase_[i] != nullptr) updateManagerBase_[i]->clean(t);
     }
-  }
-  void addPrediction(PredictionBase<mtState>* mpPrediction, const double& t){
-    assert(t>safe_.t_);
-    predictionMap_[t] = mpPrediction; // TODO: Careful: takes over ownership
-    if(front_.t_>=t) validFront_ = false;
-  }
-  void addUpdate(UpdateBase<mtState>* mpUpdate, const double& t,unsigned int type = 0){
-    assert(type<nUT_);
-    assert(t>safe_.t_);
-    updateMap_[type][t] = mpUpdate; // TODO: Careful: takes over ownership
-    if(front_.t_>=t) validFront_ = false;
   }
 };
 

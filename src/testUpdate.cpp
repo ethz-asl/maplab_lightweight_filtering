@@ -43,7 +43,6 @@ class UpdateExample: public LWF::Update<Innovation,State,UpdateMeas,UpdateNoise>
   typedef UpdateNoise mtNoise;
   typedef Innovation mtInnovation;
   UpdateExample(){};
-  UpdateExample(const mtMeas& meas): LWF::Update<Innovation,State,UpdateMeas,UpdateNoise>(meas){};
   ~UpdateExample(){};
   mtInnovation eval(const mtState& state, const mtMeas& meas, const mtNoise noise, double dt = 0.0) const{
     mtInnovation inn;
@@ -78,7 +77,6 @@ class PredictionExample: public LWF::Prediction<State,PredictionMeas,PredictionN
   typedef PredictionMeas mtMeas;
   typedef PredictionNoise mtNoise;
   PredictionExample(){};
-  PredictionExample(const mtMeas& meas): LWF::Prediction<State,PredictionMeas,PredictionNoise>(meas){};
   ~PredictionExample(){};
   mtState eval(const mtState& state, const mtMeas& meas, const mtNoise noise, double dt) const{
     mtState output;
@@ -137,7 +135,6 @@ class PredictAndUpdateExample: public LWF::PredictionUpdate<Innovation,State,Upd
   typedef UpdateNoise mtNoise;
   typedef Innovation mtInnovation;
   PredictAndUpdateExample(){};
-  PredictAndUpdateExample(const mtMeas& meas): LWF::PredictionUpdate<Innovation,State,UpdateMeas,UpdateNoise,PredictionExample>(meas){};
   ~PredictAndUpdateExample(){};
   mtInnovation eval(const mtState& state, const mtMeas& meas, const mtNoise noise, double dt = 0.0) const{
     mtInnovation inn;
@@ -193,11 +190,6 @@ class UpdateModelTest : public ::testing::Test {
 TEST_F(UpdateModelTest, constructors) {
   UpdateExample testUpdate;
   ASSERT_EQ((testUpdate.updnoiP_-UpdateExample::mtNoise::mtCovMat::Identity()*0.0001).norm(),0.0);
-  UpdateExample testUpdate2(testUpdateMeas_);
-  ASSERT_EQ((testUpdate2.updnoiP_-UpdateExample::mtNoise::mtCovMat::Identity()*0.0001).norm(),0.0);
-  UpdateExample::mtMeas::mtDiffVec dif;
-  testUpdate2.meas_.boxMinus(testUpdateMeas_,dif);
-  ASSERT_NEAR(dif.norm(),0.0,1e-6);
 }
 
 // Test finite difference Jacobians
@@ -208,24 +200,15 @@ TEST_F(UpdateModelTest, FDjacobians) {
   ASSERT_NEAR((Fn-testUpdate_.jacNoise(testState_,testUpdateMeas_,dt_)).norm(),0.0,1e-5);
 }
 
-// Test setMeasurement
-TEST_F(UpdateModelTest, setMeasurement) {
-  testUpdate_.setMeasurement(testUpdateMeas_);
-  UpdateExample::mtMeas::mtDiffVec dif;
-  testUpdate_.meas_.boxMinus(testUpdateMeas_,dif);
-  ASSERT_NEAR(dif.norm(),0.0,1e-6);
-}
-
 // Test updateEKF
 TEST_F(UpdateModelTest, updateEKF) {
-  testUpdate_.setMeasurement(testUpdateMeas_);
   UpdateExample::mtState::mtCovMat cov;
   UpdateExample::mtState::mtCovMat updateCov;
   cov.setIdentity();
   UpdateExample::mtJacInput H = testUpdate_.jacInput(testState_,testUpdateMeas_,dt_);
   UpdateExample::mtJacNoise Hn = testUpdate_.jacNoise(testState_,testUpdateMeas_,dt_);
 
-  UpdateExample::mtInnovation y = testUpdate_.eval(testState_,testUpdate_.meas_);
+  UpdateExample::mtInnovation y = testUpdate_.eval(testState_,testUpdateMeas_);
   UpdateExample::mtInnovation yIdentity;
   UpdateExample::mtInnovation::mtDiffVec innVector;
 
@@ -245,7 +228,7 @@ TEST_F(UpdateModelTest, updateEKF) {
   updateVec = -K*innVector;
   state.boxPlus(updateVec,stateUpdated);
 
-  testUpdate_.updateEKF(state,cov);
+  testUpdate_.updateEKF(state,cov,testUpdateMeas_);
   UpdateExample::mtState::mtDiffVec dif;
   state.boxMinus(stateUpdated,dif);
   ASSERT_NEAR(dif.norm(),0.0,1e-6);
@@ -254,13 +237,12 @@ TEST_F(UpdateModelTest, updateEKF) {
 
 // Test compareUpdate
 TEST_F(UpdateModelTest, compareUpdate) {
-  testUpdate_.setMeasurement(testUpdateMeas_);
   UpdateExample::mtState::mtCovMat cov1 = UpdateExample::mtState::mtCovMat::Identity()*0.000001;
   UpdateExample::mtState::mtCovMat cov2 = UpdateExample::mtState::mtCovMat::Identity()*0.000001;
   UpdateExample::mtState state1 = testState_;
   UpdateExample::mtState state2 = testState_;
-  testUpdate_.updateEKF(state1,cov1);
-  testUpdate_.updateUKF(state2,cov2);
+  testUpdate_.updateEKF(state1,cov1,testUpdateMeas_);
+  testUpdate_.updateUKF(state2,cov2,testUpdateMeas_);
   UpdateExample::mtState::mtDiffVec dif;
   state1.boxMinus(state2,dif);
   ASSERT_NEAR(dif.norm(),0.0,1e-6); // Careful, will differ depending on the magnitude of the covariance
@@ -269,16 +251,13 @@ TEST_F(UpdateModelTest, compareUpdate) {
 
 // Test predictAndUpdateEKF
 TEST_F(UpdateModelTest, predictAndUpdateEKF) {
-  testUpdate_.setMeasurement(testUpdateMeas_);
-  testPrediction_.setMeasurement(testPredictionMeas_);
-  testPredictAndUpdate_.setMeasurement(testUpdateMeas_);
   UpdateExample::mtState::mtCovMat cov1 = UpdateExample::mtState::mtCovMat::Identity()*0.000001;
   UpdateExample::mtState::mtCovMat cov2 = UpdateExample::mtState::mtCovMat::Identity()*0.000001;
   UpdateExample::mtState state1 = testState_;
   UpdateExample::mtState state2 = testState_;
-  testPrediction_.predictEKF(state1,cov1,dt_);
-  testUpdate_.updateEKF(state1,cov1);
-  testPredictAndUpdate_.predictAndUpdateEKF(state2,cov2,&testPrediction_,dt_);
+  testPrediction_.predictEKF(state1,cov1,testPredictionMeas_,dt_);
+  testUpdate_.updateEKF(state1,cov1,testUpdateMeas_);
+  testPredictAndUpdate_.predictAndUpdateEKF(state2,cov2,testUpdateMeas_,testPrediction_,testPredictionMeas_,dt_);
   UpdateExample::mtState::mtDiffVec dif;
   state1.boxMinus(state2,dif);
   ASSERT_NEAR(dif.norm(),0.0,1e-6); // Careful, will differ depending on the magnitude of the covariance
@@ -287,16 +266,13 @@ TEST_F(UpdateModelTest, predictAndUpdateEKF) {
 
 // Test predictAndUpdateUKF
 TEST_F(UpdateModelTest, predictAndUpdateUKF) {
-  testUpdate_.setMeasurement(testUpdateMeas_);
-  testPrediction_.setMeasurement(testPredictionMeas_);
-  testPredictAndUpdate_.setMeasurement(testUpdateMeas_);
   UpdateExample::mtState::mtCovMat cov1 = UpdateExample::mtState::mtCovMat::Identity()*0.000001;
   UpdateExample::mtState::mtCovMat cov2 = UpdateExample::mtState::mtCovMat::Identity()*0.000001;
   UpdateExample::mtState state1 = testState_;
   UpdateExample::mtState state2 = testState_;
-  testPrediction_.predictUKF(state1,cov1,dt_);
-  testUpdate_.updateUKF(state1,cov1);
-  testPredictAndUpdate_.predictAndUpdateUKF(state2,cov2,&testPrediction_,dt_);
+  testPrediction_.predictUKF(state1,cov1,testPredictionMeas_,dt_);
+  testUpdate_.updateUKF(state1,cov1,testUpdateMeas_);
+  testPredictAndUpdate_.predictAndUpdateUKF(state2,cov2,testUpdateMeas_,testPrediction_,testPredictionMeas_,dt_);
   state1.print();
   state2.print();
   UpdateExample::mtState::mtDiffVec dif;
