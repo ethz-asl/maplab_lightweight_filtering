@@ -17,6 +17,38 @@
 
 namespace LWF{
 
+template<typename Innovation>
+class UpdateOutlierDetection{
+ public:
+  UpdateOutlierDetection(int startIndex,int endIndex,double mahalanobisTh){
+    outlier_ = false;
+    startIndex_ = startIndex;
+    endIndex_ = endIndex;
+    N_ = endIndex_ - startIndex_ + 1;
+    mahalanobisTh_ = mahalanobisTh;
+    outlierCount_ = 0;
+  }
+  void check(const typename Innovation::mtDiffVec& innVector,const Eigen::Matrix<double,Innovation::D_,Innovation::D_>& Py){
+    const double d = ((innVector.block(startIndex_,0,N_,1)).transpose()*Py.block(startIndex_,startIndex_,N_,N_).inverse()*innVector.block(startIndex_,0,N_,1))(0,0);
+    outlier_ = d > mahalanobisTh_;
+    if(outlier_){
+      outlierCount_++;
+    } else {
+      outlierCount_ = 0;
+    }
+  }
+  void reset(){
+    outlier_ = false;
+    outlierCount_ = 0;
+  }
+  bool outlier_;
+  unsigned int startIndex_;
+  unsigned int endIndex_;
+  unsigned int N_;
+  double mahalanobisTh_;
+  unsigned int outlierCount_;
+};
+
 template<typename Innovation, typename State, typename Meas, typename Noise>
 class Update: public ModelBase<State,Innovation,Meas,Noise>{
  public:
@@ -41,6 +73,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>{
   SigmaPoints<mtInnovation,2*(mtState::D_+mtNoise::D_)+1,2*(mtState::D_+mtNoise::D_)+1,0> innSigmaPoints_;
   SigmaPoints<LWF::VectorState<mtState::D_>,2*mtState::D_+1,2*mtState::D_+1,0> updateVecSP_;
   SigmaPoints<mtState,2*mtState::D_+1,2*mtState::D_+1,0> posterior_;
+  std::vector<UpdateOutlierDetection<Innovation>> outlierDetectionVector_;
   Update(){
     resetUpdate();
   };
@@ -53,6 +86,9 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>{
     updateVecSP_.computeParameter(1e-3,2.0,0.0);
     posterior_.computeParameter(1e-3,2.0,0.0);
     stateSigmaPointsNoi_.computeFromZeroMeanGaussian(updnoiP_);
+    for(unsigned int i=0;i<outlierDetectionVector_.size();i++){
+      outlierDetectionVector_[i].reset();
+    }
   }
   virtual ~Update(){};
   int updateEKF(mtState& state, mtCovMat& cov, const mtMeas& meas){
@@ -63,6 +99,18 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>{
     // Update
     Py_ = H_*cov*H_.transpose() + Hn_*updnoiP_*Hn_.transpose();
     y_.boxMinus(yIdentity_,innVector_);
+
+    // Outlier detection
+    for(typename std::vector<UpdateOutlierDetection<Innovation>>::iterator it = outlierDetectionVector_.begin(); it != outlierDetectionVector_.end(); it++){
+      it->check(innVector_,Py_);
+      if(it->outlier_){
+        // innVector_.block(it->startIndex_,0,it->N_,1).setZero(); // TODO remove if tested
+        Py_.block(0,it->startIndex_,mtInnovation::D_,it->N_).setZero();
+        Py_.block(it->startIndex_,0,it->N_,mtInnovation::D_).setZero();
+        Py_.block(it->startIndex_,it->startIndex_,it->N_,it->N_).setIdentity();
+        H_.block(it->startIndex_,0,it->N_,mtState::D_).setZero();
+      }
+    }
     Pyinv_.setIdentity();
     Py_.llt().solveInPlace(Pyinv_);
 
@@ -85,8 +133,20 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>{
     Py_ = innSigmaPoints_.getCovarianceMatrix(y_);
     Pxy_ = (innSigmaPoints_.getCovarianceMatrix(stateSigmaPoints_)).transpose();
     y_.boxMinus(yIdentity_,innVector_);
+
+    // Outlier detection
+    for(typename std::vector<UpdateOutlierDetection<Innovation>>::iterator it = outlierDetectionVector_.begin(); it != outlierDetectionVector_.end(); it++){
+      it->check(innVector_,Py_);
+      if(it->outlier_){
+        // innVector_.block(it->startIndex_,0,it->N_,1).setZero(); // TODO remove if tested
+        Py_.block(0,it->startIndex_,mtInnovation::D_,it->N_).setZero();
+        Py_.block(it->startIndex_,0,it->N_,mtInnovation::D_).setZero();
+        Py_.block(it->startIndex_,it->startIndex_,it->N_,it->N_).setIdentity();
+        Pxy_.block(0,it->startIndex_,mtState::D_,it->N_).setZero();
+      }
+    }
     Pyinv_.setIdentity();
-    Py_.llt().solveInPlace(Pyinv_); // alternative way to calculate the inverse
+    Py_.llt().solveInPlace(Pyinv_);
 
     // Kalman Update
     K_ = Pxy_*Pyinv_;
@@ -136,6 +196,7 @@ class PredictionUpdate: public ModelBase<State,Innovation,Meas,Noise>{
   SigmaPoints<mtInnovation,2*(mtState::D_+mtNoise::D_+mtPredictionNoise::D_)+1,2*(mtState::D_+mtNoise::D_+mtPredictionNoise::D_)+1,0> innSigmaPoints_;
   SigmaPoints<LWF::VectorState<mtState::D_>,2*mtState::D_+1,2*mtState::D_+1,0> updateVecSP_;
   SigmaPoints<mtState,2*mtState::D_+1,2*mtState::D_+1,0> posterior_;
+  std::vector<UpdateOutlierDetection<Innovation>> outlierDetectionVector_;
   PredictionUpdate(){
     resetUpdate();
   };
@@ -150,6 +211,9 @@ class PredictionUpdate: public ModelBase<State,Innovation,Meas,Noise>{
     innSigmaPoints_.computeParameter(1e-3,2.0,0.0);
     updateVecSP_.computeParameter(1e-3,2.0,0.0);
     posterior_.computeParameter(1e-3,2.0,0.0);
+    for(unsigned int i=0;i<outlierDetectionVector_.size();i++){
+      outlierDetectionVector_[i].reset();
+    }
   }
   virtual ~PredictionUpdate(){};
   int predictAndUpdateEKF(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt){
@@ -167,6 +231,18 @@ class PredictionUpdate: public ModelBase<State,Innovation,Meas,Noise>{
     y_ = this->eval(state,meas);
     Py_ = H_*cov*H_.transpose() + Hn_*updnoiP_*Hn_.transpose() + H_*C_ + C_.transpose()*H_.transpose();
     y_.boxMinus(yIdentity_,innVector_);
+
+    // Outlier detection
+    for(typename std::vector<UpdateOutlierDetection<Innovation>>::iterator it = outlierDetectionVector_.begin(); it != outlierDetectionVector_.end(); it++){
+      it->check(innVector_,Py_);
+      if(it->outlier_){
+        // innVector_.block(it->startIndex_,0,it->N_,1).setZero(); // TODO remove if tested
+        Py_.block(0,it->startIndex_,mtInnovation::D_,it->N_).setZero();
+        Py_.block(it->startIndex_,0,it->N_,mtInnovation::D_).setZero();
+        Py_.block(it->startIndex_,it->startIndex_,it->N_,it->N_).setIdentity();
+        H_.block(it->startIndex_,0,it->N_,mtState::D_).setZero();
+      }
+    }
     Pyinv_.setIdentity();
     Py_.llt().solveInPlace(Pyinv_);
 
@@ -205,8 +281,20 @@ class PredictionUpdate: public ModelBase<State,Innovation,Meas,Noise>{
     Py_ = innSigmaPoints_.getCovarianceMatrix(y_);
     Pxy_ = (innSigmaPoints_.getCovarianceMatrix(stateSigmaPointsPre_)).transpose();
     y_.boxMinus(yIdentity_,innVector_);
+
+    // Outlier detection
+    for(typename std::vector<UpdateOutlierDetection<Innovation>>::iterator it = outlierDetectionVector_.begin(); it != outlierDetectionVector_.end(); it++){
+      it->check(innVector_,Py_);
+      if(it->outlier_){
+        // innVector_.block(it->startIndex_,0,it->N_,1).setZero(); // TODO remove if tested
+        Py_.block(0,it->startIndex_,mtInnovation::D_,it->N_).setZero();
+        Py_.block(it->startIndex_,0,it->N_,mtInnovation::D_).setZero();
+        Py_.block(it->startIndex_,it->startIndex_,it->N_,it->N_).setIdentity();
+        Pxy_.block(0,it->startIndex_,mtState::D_,it->N_).setZero();
+      }
+    }
     Pyinv_.setIdentity();
-    Py_.llt().solveInPlace(Pyinv_); // alternative way to calculate the inverse
+    Py_.llt().solveInPlace(Pyinv_);
 
     // Kalman Update
     K_ = Pxy_*Pyinv_;
