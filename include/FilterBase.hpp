@@ -33,128 +33,171 @@ class FilterState{
   virtual ~FilterState(){};
 };
 
+class MeasurementTimelineBase{
+ public:
+  MeasurementTimelineBase(){};
+  virtual ~MeasurementTimelineBase(){};
+  virtual bool getNextTime(double actualTime, double& nextTime) = 0;
+  virtual void clean(double t) = 0;
+  virtual void constrainTime(double actualTime, double& time) = 0;
+  virtual bool getLastTime(double& lastTime) = 0;
+  virtual bool hasMeasurementAt(double t) = 0;
+};
+
+template<typename Meas>
+class MeasurementTimeline: public virtual MeasurementTimelineBase{
+ public:
+  typedef Meas mtMeas;
+  MeasurementTimeline(){
+    maxWaitTime_ = 1.0;
+  };
+  virtual ~MeasurementTimeline(){};
+  std::map<double,mtMeas> measMap_;
+  typename std::map<double,mtMeas>::iterator itMeas_;
+  double maxWaitTime_;
+  void addMeas(const mtMeas& meas, const double& t){
+//    assert(t>safe_.t_); // TODO
+//    if(front_.t_>=t) validFront_ = false;
+    measMap_[t] = meas;
+  }
+  void clean(double t){
+    while(!measMap_.empty() && measMap_.begin()->first<=t){
+      measMap_.erase(measMap_.begin());
+    }
+  }
+  bool getNextTime(double actualTime, double& nextTime){ // TODO rename functions
+    itMeas_ = measMap_.upper_bound(actualTime);
+    if(itMeas_!=measMap_.end()){
+      nextTime = itMeas_->first;
+      return true;
+    } else {
+      return false;
+    }
+  }
+  void constrainTime(double actualTime, double& time){
+    double measurementTime = actualTime-maxWaitTime_;
+    if(!measMap_.empty() && measMap_.rbegin()->first > measurementTime){
+      measurementTime = measMap_.rbegin()->first;
+    }
+    if(time > measurementTime){
+      time = measurementTime;
+    }
+  }
+  bool getLastTime(double& lastTime){
+    if(!measMap_.empty()){
+      lastTime = measMap_.rbegin()->first;
+      return true;
+    } else {
+      return false;
+    }
+  }
+  bool hasMeasurementAt(double t){
+    return measMap_.count(t)>0;
+  }
+};
+
 template<typename State>
-class UpdateManagerBase{
+class UpdateManagerBase: public virtual MeasurementTimelineBase{
  public:
   typedef State mtState;
   typedef typename mtState::mtCovMat mtCovMat;
-  UpdateManagerBase(){
-    maxWaitTime_ = 1.0;
-  };
+  UpdateManagerBase(bool coupledToPrediction = false): coupledToPrediction_(coupledToPrediction){};
   virtual ~UpdateManagerBase(){};
-  virtual bool getNextUpdateTime(double tCurrent, double& nextUpdateTime) = 0;
-  virtual void clean(double t) = 0;
-  virtual void constrainSafeUpdateTime(double maxPredictionTime, double& safeUpdateTime) = 0;
   virtual void update(FilterState<mtState>& filterState) = 0;
-  double maxWaitTime_;
+  const bool coupledToPrediction_;
 };
 
 template<typename Update>
-class UpdateManager: public UpdateManagerBase<typename Update::mtState>{
+class UpdateManager: public MeasurementTimeline<typename Update::mtMeas>,public UpdateManagerBase<typename Update::mtState>{
  public:
-  using UpdateManagerBase<typename Update::mtState>::maxWaitTime_;
+  using MeasurementTimeline<typename Update::mtMeas>::measMap_;
   typedef typename Update::mtState mtState;
   typedef typename Update::mtMeas mtMeas;
   typedef typename mtState::mtCovMat mtCovMat;
-  std::map<double,mtMeas> updateMeasMap_;
   Update update_;
-  typename std::map<double,mtMeas>::iterator itMeas_;
   UpdateManager(){};
   ~UpdateManager(){};
-  void addMeas(const mtMeas& meas, const double& t){
-//    assert(t>safe_.t_); // TODO
-//    if(front_.t_>=t) validFront_ = false;
-    updateMeasMap_[t] = meas;
-  }
-  void clean(double t){
-    while(!updateMeasMap_.empty() && updateMeasMap_.begin()->first<=t){
-      updateMeasMap_.erase(updateMeasMap_.begin());
-    }
-  }
-  bool getNextUpdateTime(double tCurrent, double& nextUpdateTime){
-    itMeas_ = updateMeasMap_.upper_bound(tCurrent);
-    if(itMeas_!=updateMeasMap_.end()){
-      nextUpdateTime = itMeas_->first;
-      return true;
-    } else {
-      return false;
-    }
-  }
-  void constrainSafeUpdateTime(double maxPredictionTime, double& safeUpdateTime){
-    double updateTime = maxPredictionTime-maxWaitTime_;
-    if(!updateMeasMap_.empty() && updateMeasMap_.rbegin()->first > updateTime){
-      updateTime = updateMeasMap_.rbegin()->first;
-    }
-    if(safeUpdateTime > updateTime){
-      safeUpdateTime = updateTime;
-    }
-  }
   void update(FilterState<mtState>& filterState){
-    if(updateMeasMap_.count(filterState.t_)){
-      int r = update_.updateEKF(filterState.state_,filterState.cov_,updateMeasMap_[filterState.t_]);
+    if(this->hasMeasurementAt(filterState.t_)){
+      int r = update_.updateEKF(filterState.state_,filterState.cov_,measMap_[filterState.t_]);
       if(r!=0) std::cout << "Error during update: " << r << std::endl;
     }
   }
-  // predictAndUpdate
+};
+
+template<typename State, typename Prediction>
+class UpdateAndPredictManagerBase: public virtual UpdateManagerBase<State>{
+ public:
+  typedef State mtState;
+  typedef typename mtState::mtCovMat mtCovMat;
+  UpdateAndPredictManagerBase(): UpdateManagerBase<State>(true){};
+  virtual ~UpdateAndPredictManagerBase(){};
+  virtual void predictAndUpdate(FilterState<mtState>& filterState, Prediction& prediction, const typename Prediction::mtMeas& predictionMeas, double dt) = 0;
+};
+
+template<typename Update, typename Prediction>
+class UpdateAndPredictManager:public MeasurementTimeline<typename Update::mtMeas>, public UpdateAndPredictManagerBase<typename Update::mtState, Prediction>{
+ public:
+  using MeasurementTimeline<typename Update::mtMeas>::measMap_;
+  typedef typename Update::mtState mtState;
+  typedef typename Update::mtMeas mtMeas;
+  typedef typename mtState::mtCovMat mtCovMat;
+  Update update_;
+  UpdateAndPredictManager(){};
+  ~UpdateAndPredictManager(){};
+  void update(FilterState<mtState>& filterState){
+    assert(0);
+  }
+  void predictAndUpdate(FilterState<mtState>& filterState, Prediction& prediction, const typename Prediction::mtMeas& predictionMeas, double dt){
+    if(hasMeasurementAt(filterState.t_)){
+      int r = update_.predictAndUpdateEKF(filterState.state_,filterState.cov_,measMap_[filterState.t_],prediction,predictionMeas,dt);
+      if(r!=0) std::cout << "Error during update: " << r << std::endl;
+    }
+  }
 };
 
 template<typename Prediction, typename DefaultPrediction = Prediction>
-class PredictionManager{
+class PredictionManager: public MeasurementTimeline<typename Prediction::mtMeas>{
  public:
+  using MeasurementTimeline<typename Prediction::mtMeas>::measMap_;
+  using MeasurementTimeline<typename Prediction::mtMeas>::itMeas_;
   typedef typename Prediction::mtState mtState;
   typedef typename Prediction::mtCovMat mtCovMat;
   typedef typename Prediction::mtMeas mtMeas;
-  std::map<double,mtMeas> predictionMeasMap_;
   Prediction prediction_;
   DefaultPrediction defaultPrediction_;
-  typename std::map<double,mtMeas>::iterator itMeas_;
   PredictionManager(){};
   ~PredictionManager(){};
-  void addMeas(const mtMeas& meas, const double& t){
-//    assert(t>safe_.t_); // TODO
-//    if(front_.t_>=t) validFront_ = false;
-    predictionMeasMap_[t] = meas;
-  }
-  void clean(double t){
-    while(!predictionMeasMap_.empty() && predictionMeasMap_.begin()->first<=t){
-      predictionMeasMap_.erase(predictionMeasMap_.begin());
-    }
-  }
-  bool getMaxPredictionTime(double& maxPredictionTime){
-    if(!predictionMeasMap_.empty()){
-      maxPredictionTime = predictionMeasMap_.rbegin()->first;
-      return true;
-    } else {
-      return false;
-    }
-  }
+  std::vector<UpdateAndPredictManagerBase<mtState,Prediction>*> mCoupledUpdates_;
   void predict(FilterState<mtState>& filterState, double tNext){
+    double tPrediction = tNext;
+    int coupledPredictionIndex = -1;
     while(filterState.t_<tNext){
-      itMeas_ = predictionMeasMap_.upper_bound(filterState.t_);
-      if(itMeas_ != predictionMeasMap_.end()){
-        int r = prediction_.predictEKF(filterState.state_,filterState.cov_,itMeas_->second,itMeas_->first-filterState.t_);
-        if(r!=0) std::cout << "Error during prediction: " << r << std::endl;
-        filterState.t_ = itMeas_->first;
+      itMeas_ = measMap_.upper_bound(filterState.t_);
+      if(itMeas_ != measMap_.end()){
+        tPrediction = std::min(tNext,itMeas_->first);
+        coupledPredictionIndex = -1;
+        for(unsigned int i=0;i<mCoupledUpdates_.size();i++){
+          if(mCoupledUpdates_[i]->hasMeasurementAt(tPrediction)){
+            if(coupledPredictionIndex == -1){
+              coupledPredictionIndex = i;
+            } else {
+              std::cout << "Error found multiple updates, only considering first" << std::endl;
+            }
+          }
+        }
+        if(coupledPredictionIndex < 0){
+          int r = prediction_.predictEKF(filterState.state_,filterState.cov_,itMeas_->second,tPrediction-filterState.t_);
+          if(r!=0) std::cout << "Error during prediction: " << r << std::endl;
+        } else {
+          mCoupledUpdates_[coupledPredictionIndex]->predictAndUpdate(filterState,prediction_,itMeas_->second,tPrediction-filterState.t_);
+        }
+        filterState.t_ = tPrediction;
       } else {
-        mtMeas meas; // TODO = mtMeas::Identity();
+        mtMeas meas;
         int r = defaultPrediction_.predictEKF(filterState.state_,filterState.cov_,meas,tNext-filterState.t_);
         if(r!=0) std::cout << "Error during prediction: " << r << std::endl;
         filterState.t_ = tNext;
-      }
-    }
-  }
-  void predictAndUpdate(FilterState<mtState>& filterState, UpdateManagerBase<mtState>* updateManagerBase, double tNext){
-    while(filterState.t_<tNext){
-      itMeas_ = predictionMeasMap_.upper_bound(filterState.t_);
-      if(itMeas_ != predictionMeasMap_.end()){
-        int r = prediction_.predictEKF(filterState.state_,filterState.cov_,itMeas_->second,itMeas_->first-filterState.t_);
-        if(r!=0) std::cout << "Error during prediction: " << r << std::endl;
-        filterState.t_ = itMeas_->first;
-      } else { // Drop error and ignore update
-//        mtMeas meas; // TODO = mtMeas::Identity();
-//        int r = defaultPrediction_.predictEKF(filterState.state_,filterState.cov_,meas,tNext-filterState.t_);
-//        if(r!=0) std::cout << "Error during prediction: " << r << std::endl;
-//        filterState.t_ = tNext;
       }
     }
   }
@@ -188,13 +231,13 @@ class FilterBase{
   }
   bool getSafeTime(double& safeTime){
     double maxPredictionTime;
-    if(!predictionManager_.getMaxPredictionTime(maxPredictionTime)){
+    if(!predictionManager_.getLastTime(maxPredictionTime)){
       return false;
     }
     safeTime = maxPredictionTime;
     // Check if we have to wait for update measurements
     for(unsigned int i=0;i<nUT_;i++){
-      if(updateManagerBase_[i] != nullptr) updateManagerBase_[i]->constrainSafeUpdateTime(maxPredictionTime,safeTime);
+      if(updateManagerBase_[i] != nullptr) updateManagerBase_[i]->constrainTime(maxPredictionTime,safeTime);
     }
     if(safeTime <= safe_.t_) return false;
     return true;
@@ -218,30 +261,18 @@ class FilterBase{
   void update(FilterState<mtState>& filterState,const double& tEnd){
     double tNext = filterState.t_;
     double tNextUpdate;
-    int availableCoupledPrediction = -1;
     while(filterState.t_<tEnd){
       tNext = tEnd;
       for(unsigned int i=0;i<nUT_;i++){
         if(updateManagerBase_[i] != nullptr){
-          if(updateManagerBase_[i]->getNextUpdateTime(tNext,tNextUpdate) && tNextUpdate <= tNext){
-            if(tNextUpdate<tNext){
-              tNext = tNextUpdate;
-              availableCoupledPrediction = -1;
-            }
-//            if(itUpdate[i]->second->isCoupledToPrediction_){ // TODO
-//              if(availableCoupledPrediction==-1) availableCoupledPrediction = i;
-//              else std::cout << "ERROR: multiple coupled updates";
-//            }
+          if(updateManagerBase_[i]->getNextTime(tNext,tNextUpdate) && tNextUpdate < tNext){
+            tNext = tNextUpdate;
           }
         }
       }
-      if(availableCoupledPrediction==-1){
-        predictionManager_.predict(filterState,tNext);
-      } else {
-        predictionManager_.predictAndUpdate(filterState,updateManagerBase_[availableCoupledPrediction],tNext);
-      }
+      predictionManager_.predict(filterState,tNext);
       for(unsigned int i=0;i<nUT_;i++){
-        if(updateManagerBase_[i] != nullptr && i!=availableCoupledPrediction){
+        if(updateManagerBase_[i] != nullptr && !updateManagerBase_[i]->coupledToPrediction_){
           updateManagerBase_[i]->update(filterState);
         }
       }

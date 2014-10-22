@@ -152,7 +152,7 @@ class PredictionUpdate: public ModelBase<State,Innovation,Meas,Noise>{
     posterior_.computeParameter(1e-3,2.0,0.0);
   }
   virtual ~PredictionUpdate(){};
-  int predictAndUpdateEKF(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction prediction, const mtPredictionMeas& predictionMeas, double dt){
+  int predictAndUpdateEKF(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt){
     // Predict
     F_ = prediction.jacInput(state,predictionMeas,dt);
     Fn_ = prediction.jacNoise(state,predictionMeas,dt);
@@ -178,7 +178,7 @@ class PredictionUpdate: public ModelBase<State,Innovation,Meas,Noise>{
     state.fix();
     return 0;
   }
-  int predictAndUpdateUKF(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction prediction, const mtPredictionMeas& predictionMeas, double dt){
+  int predictAndUpdateUKF(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt){
     // Predict
     noiP_.template block<mtPredictionNoise::D_,mtPredictionNoise::D_>(0,0) = prediction.prenoiP_;
     noiP_.template block<mtPredictionNoise::D_,mtNoise::D_>(0,mtPredictionNoise::D_) = preupdnoiP_;
