@@ -16,7 +16,7 @@
 
 namespace LWF{
 
-enum FilterType{
+enum FilteringMode{
   EKF,
   UKF
 };
@@ -106,28 +106,28 @@ class UpdateManagerBase: public virtual MeasurementTimelineBase{
  public:
   typedef State mtState;
   typedef typename mtState::mtCovMat mtCovMat;
-  UpdateManagerBase(bool coupledToPrediction = false, FilterType filterType = EKF): coupledToPrediction_(coupledToPrediction), filterType_(filterType){};
+  UpdateManagerBase(bool coupledToPrediction = false, FilteringMode filteringMode = EKF): coupledToPrediction_(coupledToPrediction), filteringMode_(filteringMode){};
   virtual ~UpdateManagerBase(){};
   virtual void update(FilterState<mtState>& filterState) = 0;
   const bool coupledToPrediction_;
-  const FilterType filterType_;
+  const FilteringMode filteringMode_;
 };
 
 template<typename Update>
 class UpdateManager: public MeasurementTimeline<typename Update::mtMeas>,public UpdateManagerBase<typename Update::mtState>{
  public:
   using MeasurementTimeline<typename Update::mtMeas>::measMap_;
-  using UpdateManagerBase<typename Update::mtState>::filterType_;
+  using UpdateManagerBase<typename Update::mtState>::filteringMode_;
   typedef typename Update::mtState mtState;
   typedef typename Update::mtMeas mtMeas;
   typedef typename mtState::mtCovMat mtCovMat;
   Update update_;
-  UpdateManager(FilterType filterType = EKF): UpdateManagerBase<typename Update::mtState>(false,filterType){};
+  UpdateManager(FilteringMode filteringMode = EKF): UpdateManagerBase<typename Update::mtState>(false,filteringMode){};
   ~UpdateManager(){};
   void update(FilterState<mtState>& filterState){
     if(this->hasMeasurementAt(filterState.t_)){
       int r = 0;
-      switch(filterType_){
+      switch(filteringMode_){
         case EKF:
           r = update_.updateEKF(filterState.state_,filterState.cov_,measMap_[filterState.t_]);
           if(r!=0) std::cout << "Error during updateEKF: " << r << std::endl;
@@ -150,7 +150,7 @@ class UpdateAndPredictManagerBase: public virtual UpdateManagerBase<State>{
  public:
   typedef State mtState;
   typedef typename mtState::mtCovMat mtCovMat;
-  UpdateAndPredictManagerBase(FilterType filterType = EKF): UpdateManagerBase<State>(true,filterType){};
+  UpdateAndPredictManagerBase(FilteringMode filteringMode = EKF): UpdateManagerBase<State>(true,filteringMode){};
   virtual ~UpdateAndPredictManagerBase(){};
   virtual void predictAndUpdate(FilterState<mtState>& filterState, Prediction& prediction, const typename Prediction::mtMeas& predictionMeas, double dt) = 0;
 };
@@ -159,12 +159,12 @@ template<typename Update, typename Prediction>
 class UpdateAndPredictManager:public MeasurementTimeline<typename Update::mtMeas>, public UpdateAndPredictManagerBase<typename Update::mtState, Prediction>{
  public:
   using MeasurementTimeline<typename Update::mtMeas>::measMap_;
-  using UpdateAndPredictManagerBase<typename Update::mtState, Prediction>::filterType_;
+  using UpdateAndPredictManagerBase<typename Update::mtState, Prediction>::filteringMode_;
   typedef typename Update::mtState mtState;
   typedef typename Update::mtMeas mtMeas;
   typedef typename mtState::mtCovMat mtCovMat;
   Update update_;
-  UpdateAndPredictManager(FilterType filterType = EKF): UpdateAndPredictManagerBase<typename Update::mtState, Prediction>(filterType){};
+  UpdateAndPredictManager(FilteringMode filteringMode = EKF): UpdateAndPredictManagerBase<typename Update::mtState, Prediction>(filteringMode){};
   ~UpdateAndPredictManager(){};
   void update(FilterState<mtState>& filterState){
     assert(0);
@@ -172,7 +172,7 @@ class UpdateAndPredictManager:public MeasurementTimeline<typename Update::mtMeas
   void predictAndUpdate(FilterState<mtState>& filterState, Prediction& prediction, const typename Prediction::mtMeas& predictionMeas, double dt){
     if(hasMeasurementAt(filterState.t_)){
       int r = 0;
-      switch(filterType_){
+      switch(filteringMode_){
         case EKF:
           r = update_.predictAndUpdateEKF(filterState.state_,filterState.cov_,measMap_[filterState.t_],prediction,predictionMeas,dt);
           if(r!=0) std::cout << "Error during predictAndUpdateEKF: " << r << std::endl;
@@ -201,8 +201,8 @@ class PredictionManager: public MeasurementTimeline<typename Prediction::mtMeas>
   typedef typename Prediction::mtMeas mtMeas;
   Prediction prediction_;
   DefaultPrediction defaultPrediction_;
-  const FilterType filterType_;
-  PredictionManager(FilterType filterType = EKF): filterType_(filterType){};
+  const FilteringMode filteringMode_;
+  PredictionManager(FilteringMode filteringMode = EKF): filteringMode_(filteringMode){};
   ~PredictionManager(){};
   std::vector<UpdateAndPredictManagerBase<mtState,Prediction>*> mCoupledUpdates_;
   void predict(FilterState<mtState>& filterState, double tNext){
@@ -224,7 +224,7 @@ class PredictionManager: public MeasurementTimeline<typename Prediction::mtMeas>
         }
         if(coupledPredictionIndex < 0){
           int r = 0;
-          switch(filterType_){
+          switch(filteringMode_){
             case EKF:
               r = prediction_.predictEKF(filterState.state_,filterState.cov_,itMeas_->second,tPrediction-filterState.t_);
               if(r!=0) std::cout << "Error during predictEKF: " << r << std::endl;
@@ -245,7 +245,7 @@ class PredictionManager: public MeasurementTimeline<typename Prediction::mtMeas>
       } else {
         mtMeas meas;
         int r = 0;
-        switch(filterType_){
+        switch(filteringMode_){
           case EKF:
             r = defaultPrediction_.predictEKF(filterState.state_,filterState.cov_,meas,tNext-filterState.t_);
             if(r!=0) std::cout << "Error during predictEKF: " << r << std::endl;
