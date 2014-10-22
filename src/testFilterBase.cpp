@@ -142,14 +142,14 @@ class UpdateModelTest : public ::testing::Test {
     testPredictionMeas_.v(0) = Eigen::Vector3d(-5,2,17.3);
     testPredictionMeas_.v(1) = Eigen::Vector3d(15.7,0.45,-2.3);
     updateManager2_.maxWaitTime_ = 0.0;
-    testFilter_.updateManagerBase_[0] = &updateManager1_;
-    testFilter_.updateManagerBase_[1] = &updateManager2_;
+    testFilter_.mUpdateVector_.push_back(&updateManager1_);
+    testFilter_.mUpdateVector_.push_back(&updateManager2_);
   }
   virtual ~UpdateModelTest() {
   }
   UpdateExample testUpdate_;
   PredictionExample testPrediction_;
-  LWF::FilterBase<PredictionExample,2> testFilter_;
+  LWF::FilterBase<PredictionExample> testFilter_;
   State testState_;
   UpdateMeas testUpdateMeas_;
   PredictionMeas testPredictionMeas_;
@@ -160,8 +160,7 @@ class UpdateModelTest : public ::testing::Test {
 
 // Test constructors
 TEST_F(UpdateModelTest, constructors) {
-  LWF::FilterBase<PredictionExample,2> testFilter;
-  ASSERT_TRUE(testFilter.validFront_==false);
+  LWF::FilterBase<PredictionExample> testFilter;
 }
 //
 //// Test measurement adder

@@ -272,31 +272,25 @@ class PredictionManager: public MeasurementTimeline<typename Prediction::mtMeas>
   }
 };
 
-template<typename Prediction, unsigned int nUpdType = 1>
+template<typename Prediction>
 class FilterBase{
  public:
   typedef Prediction mtPrediction;
   typedef typename mtPrediction::mtState mtState;
   typedef typename mtState::mtCovMat mtCovMat;
   static const unsigned int D_ = mtState::D_;
-  static const unsigned int nUT_ = nUpdType;
   FilterState<mtState> safe_;
   FilterState<mtState> front_;
   FilterState<mtState> init_;
-  bool validFront_;
   PredictionManager<mtPrediction> predictionManager_;
-  UpdateManagerBase<mtState>* updateManagerBase_[nUT_];
-  FilterBase(){
-    validFront_ = false;
-    for(unsigned int i = 0; i<nUT_;i++){
-      updateManagerBase_[i] = nullptr;
-    }
-  };
+  std::vector<UpdateManagerBase<mtState>*> mUpdateVector_;
+  FilterBase(){};
   virtual ~FilterBase(){};
   void resetFilter(){
     safe_ = init_;
     front_ = init_;
-    validFront_ = false;
+    setSafeWarningTime(front_.t_);
+    resetFrontWarningTime(front_.t_);
   }
   bool getSafeTime(double& safeTime){
     double maxPredictionTime;
@@ -305,30 +299,30 @@ class FilterBase{
     }
     safeTime = maxPredictionTime;
     // Check if we have to wait for update measurements
-    for(unsigned int i=0;i<nUT_;i++){
-      if(updateManagerBase_[i] != nullptr) updateManagerBase_[i]->constrainTime(maxPredictionTime,safeTime);
+    for(unsigned int i=0;i<mUpdateVector_.size();i++){
+      mUpdateVector_[i]->constrainTime(maxPredictionTime,safeTime);
     }
     if(safeTime <= safe_.t_) return false;
     return true;
   }
   void setSafeWarningTime(double safeTime){
     predictionManager_.safeWarningTime_ = safeTime;
-    for(unsigned int i=0;i<nUT_;i++){
-      if(updateManagerBase_[i] != nullptr) updateManagerBase_[i]->safeWarningTime_ = safeTime;
+    for(unsigned int i=0;i<mUpdateVector_.size();i++){
+      mUpdateVector_[i]->safeWarningTime_ = safeTime;
     }
   }
   void resetFrontWarningTime(double frontTime){
     predictionManager_.frontWarningTime_ = frontTime;
     predictionManager_.gotFrontWarning_ = false;
-    for(unsigned int i=0;i<nUT_;i++){
-      if(updateManagerBase_[i] != nullptr) updateManagerBase_[i]->frontWarningTime_ = frontTime;
-      if(updateManagerBase_[i] != nullptr) updateManagerBase_[i]->gotFrontWarning_ = false;
+    for(unsigned int i=0;i<mUpdateVector_.size();i++){
+      mUpdateVector_[i]->frontWarningTime_ = frontTime;
+      mUpdateVector_[i]->gotFrontWarning_ = false;
     }
   }
   bool checkFrontWarning(){
     bool gotFrontWarning = predictionManager_.gotFrontWarning_;
-    for(unsigned int i=0;i<nUT_;i++){
-      if(updateManagerBase_[i] != nullptr) gotFrontWarning = updateManagerBase_[i]->gotFrontWarning_ | gotFrontWarning;
+    for(unsigned int i=0;i<mUpdateVector_.size();i++){
+      gotFrontWarning = mUpdateVector_[i]->gotFrontWarning_ | gotFrontWarning;
     }
     return gotFrontWarning;
   }
@@ -355,25 +349,23 @@ class FilterBase{
     double tNextUpdate;
     while(filterState.t_<tEnd){
       tNext = tEnd;
-      for(unsigned int i=0;i<nUT_;i++){
-        if(updateManagerBase_[i] != nullptr){
-          if(updateManagerBase_[i]->getNextTime(tNext,tNextUpdate) && tNextUpdate < tNext){
-            tNext = tNextUpdate;
-          }
+      for(unsigned int i=0;i<mUpdateVector_.size();i++){
+        if(mUpdateVector_[i]->getNextTime(tNext,tNextUpdate) && tNextUpdate < tNext){
+          tNext = tNextUpdate;
         }
       }
       predictionManager_.predict(filterState,tNext);
-      for(unsigned int i=0;i<nUT_;i++){
-        if(updateManagerBase_[i] != nullptr && !updateManagerBase_[i]->coupledToPrediction_){
-          updateManagerBase_[i]->update(filterState);
+      for(unsigned int i=0;i<mUpdateVector_.size();i++){
+        if(!mUpdateVector_[i]->coupledToPrediction_){
+          mUpdateVector_[i]->update(filterState);
         }
       }
     }
   }
   void clean(const double& t){
     predictionManager_.clean(t);
-    for(unsigned int i=0;i<nUT_;i++){
-      if(updateManagerBase_[i] != nullptr) updateManagerBase_[i]->clean(t);
+    for(unsigned int i=0;i<mUpdateVector_.size();i++){
+      if(mUpdateVector_[i] != nullptr) mUpdateVector_[i]->clean(t);
     }
   }
 };
