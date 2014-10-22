@@ -197,7 +197,6 @@ class PredictionUpdate: public ModelBase<State,Innovation,Meas,Noise>{
     state.fix();
     cov = stateSigmaPointsPre_.getCovarianceMatrix(state);
 
-    // TODO: handle correlated noise and test!
     // Update
     for(unsigned int i=0;i<innSigmaPoints_.L_;i++){
       innSigmaPoints_(i) = this->eval(stateSigmaPointsPre_(i),meas,stateSigmaPointsNoi_(i).second());

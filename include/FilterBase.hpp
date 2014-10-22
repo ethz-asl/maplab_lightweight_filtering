@@ -40,13 +40,20 @@ class FilterState{
 
 class MeasurementTimelineBase{
  public:
-  MeasurementTimelineBase(){};
+  MeasurementTimelineBase(){
+    safeWarningTime_ = 0.0;
+    frontWarningTime_ = 0.0;
+    gotFrontWarning_ = false;
+  };
   virtual ~MeasurementTimelineBase(){};
   virtual bool getNextTime(double actualTime, double& nextTime) = 0;
   virtual void clean(double t) = 0;
   virtual void constrainTime(double actualTime, double& time) = 0;
   virtual bool getLastTime(double& lastTime) = 0;
   virtual bool hasMeasurementAt(double t) = 0;
+  double safeWarningTime_;
+  double frontWarningTime_;
+  bool gotFrontWarning_;
 };
 
 template<typename Meas>
@@ -61,8 +68,8 @@ class MeasurementTimeline: public virtual MeasurementTimelineBase{
   typename std::map<double,mtMeas>::iterator itMeas_;
   double maxWaitTime_;
   void addMeas(const mtMeas& meas, const double& t){
-//    assert(t>safe_.t_); // TODO
-//    if(front_.t_>=t) validFront_ = false;
+    if(t<= safeWarningTime_) std::cout << "Warning: included measurements before safeTime" << std::endl;
+    if(t<= frontWarningTime_) gotFrontWarning_ = true;
     measMap_[t] = meas;
   }
   void clean(double t){
@@ -70,7 +77,7 @@ class MeasurementTimeline: public virtual MeasurementTimelineBase{
       measMap_.erase(measMap_.begin());
     }
   }
-  bool getNextTime(double actualTime, double& nextTime){ // TODO rename functions
+  bool getNextTime(double actualTime, double& nextTime){
     itMeas_ = measMap_.upper_bound(actualTime);
     if(itMeas_!=measMap_.end()){
       nextTime = itMeas_->first;
@@ -304,21 +311,44 @@ class FilterBase{
     if(safeTime <= safe_.t_) return false;
     return true;
   }
+  void setSafeWarningTime(double safeTime){
+    predictionManager_.safeWarningTime_ = safeTime;
+    for(unsigned int i=0;i<nUT_;i++){
+      if(updateManagerBase_[i] != nullptr) updateManagerBase_[i]->safeWarningTime_ = safeTime;
+    }
+  }
+  void resetFrontWarningTime(double frontTime){
+    predictionManager_.frontWarningTime_ = frontTime;
+    predictionManager_.gotFrontWarning_ = false;
+    for(unsigned int i=0;i<nUT_;i++){
+      if(updateManagerBase_[i] != nullptr) updateManagerBase_[i]->frontWarningTime_ = frontTime;
+      if(updateManagerBase_[i] != nullptr) updateManagerBase_[i]->gotFrontWarning_ = false;
+    }
+  }
+  bool checkFrontWarning(){
+    bool gotFrontWarning = predictionManager_.gotFrontWarning_;
+    for(unsigned int i=0;i<nUT_;i++){
+      if(updateManagerBase_[i] != nullptr) gotFrontWarning = updateManagerBase_[i]->gotFrontWarning_ | gotFrontWarning;
+    }
+    return gotFrontWarning;
+  }
   void updateSafe(){
     double nextSafeTime;
     if(!getSafeTime(nextSafeTime)) return;
-    if(front_.t_<=nextSafeTime && validFront_ && front_.t_>safe_.t_){
+    if(front_.t_<=nextSafeTime && !checkFrontWarning() && front_.t_>safe_.t_){
       safe_ = front_;
     }
     update(safe_,nextSafeTime);
     clean(nextSafeTime);
+    setSafeWarningTime(nextSafeTime);
   }
   void updateFront(const double& tEnd){
     updateSafe();
-    if(!validFront_ || front_.t_<=safe_.t_){
+    if(checkFrontWarning() || front_.t_<=safe_.t_){
       front_ = safe_;
     }
     update(front_,tEnd);
+    resetFrontWarningTime(tEnd);
   }
   void update(FilterState<mtState>& filterState,const double& tEnd){
     double tNext = filterState.t_;
