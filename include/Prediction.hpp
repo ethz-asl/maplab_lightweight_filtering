@@ -17,6 +17,11 @@
 
 namespace LWF{
 
+enum PredictionFilteringMode{
+  PredictionEKF,
+  PredictionUKF
+};
+
 template<typename State, typename Meas, typename Noise>
 class Prediction: public ModelBase<State,State,Meas,Noise>{
  public:
@@ -44,6 +49,16 @@ class Prediction: public ModelBase<State,State,Meas,Noise>{
     stateSigmaPointsNoi_.computeFromZeroMeanGaussian(prenoiP_);
   }
   virtual ~Prediction(){};
+  int predict(mtState& state, mtCovMat& cov, const mtMeas& meas, double dt, PredictionFilteringMode mode = PredictionEKF){
+    switch(mode){
+      case PredictionEKF:
+        return predictEKF(state,cov,meas,dt);
+      case PredictionUKF:
+        return predictUKF(state,cov,meas,dt);
+      default:
+        return predictEKF(state,cov,meas,dt);
+    }
+  }
   int predictEKF(mtState& state, mtCovMat& cov, const mtMeas& meas, double dt){
     preProcess(state,cov,meas,dt);
     F_ = this->jacInput(state,meas,dt);
@@ -62,7 +77,6 @@ class Prediction: public ModelBase<State,State,Meas,Noise>{
     for(unsigned int i=0;i<stateSigmaPoints_.L_;i++){
       stateSigmaPointsPre_(i) = this->eval(stateSigmaPoints_(i),meas,stateSigmaPointsNoi_(i),dt);
     }
-
     // Calculate mean and variance
     state = stateSigmaPointsPre_.getMean();
     state.fix();
@@ -70,13 +84,23 @@ class Prediction: public ModelBase<State,State,Meas,Noise>{
     postProcess(state,cov,meas,dt);
     return 0;
   }
+  int predictMerged(mtState& state, mtCovMat& cov, double tStart, const typename std::map<double,mtMeas>::iterator itMeasStart, unsigned int N, PredictionFilteringMode mode = PredictionEKF){
+    switch(mode){
+      case PredictionEKF:
+        return predictMergedEKF(state,cov,tStart,itMeasStart,N);
+      case PredictionUKF:
+        return predictMergedUKF(state,cov,tStart,itMeasStart,N);
+      default:
+        return predictMergedEKF(state,cov,tStart,itMeasStart,N);
+    }
+  }
   virtual int predictMergedEKF(mtState& state, mtCovMat& cov, double tStart, const typename std::map<double,mtMeas>::iterator itMeasStart, unsigned int N){
     const typename std::map<double,mtMeas>::iterator itMeasEnd = next(itMeasStart,N-1);
     typename std::map<double,mtMeas>::iterator itMeas = itMeasStart;
     double dT = itMeasEnd->first-tStart;
     preProcess(state,cov,itMeasStart->second,dT);
     F_ = this->jacInput(state,itMeasStart->second,dT);
-    Fn_ = this->jacNoise(state,itMeasStart->second,dT); // TODO
+    Fn_ = this->jacNoise(state,itMeasStart->second,dT); // TODO: check
     double t = tStart;
     for(unsigned int i=0;i<N;i++){
       state = this->eval(state,itMeas->second,itMeas->first-t);
@@ -85,6 +109,23 @@ class Prediction: public ModelBase<State,State,Meas,Noise>{
     }
     state.fix();
     cov = F_*cov*F_.transpose() + Fn_*prenoiP_*Fn_.transpose();
+    postProcess(state,cov,itMeasEnd->second,dT);
+    return 0;
+  }
+  virtual int predictMergedUKF(mtState& state, mtCovMat& cov, double tStart, const typename std::map<double,mtMeas>::iterator itMeasStart, unsigned int N){
+    const typename std::map<double,mtMeas>::iterator itMeasEnd = next(itMeasStart,N-1);
+    typename std::map<double,mtMeas>::iterator itMeas = itMeasStart;
+    double dT = itMeasEnd->first-tStart;
+    preProcess(state,cov,itMeasStart->second,dT);
+    stateSigmaPoints_.computeFromGaussian(state,cov);
+
+    // Prediction
+    for(unsigned int i=0;i<stateSigmaPoints_.L_;i++){
+      stateSigmaPointsPre_(i) = this->eval(stateSigmaPoints_(i),itMeasStart->second,stateSigmaPointsNoi_(i),dT); // TODO: check
+    }
+    state = stateSigmaPointsPre_.getMean();
+    state.fix();
+    cov = stateSigmaPointsPre_.getCovarianceMatrix(state);
     postProcess(state,cov,itMeasEnd->second,dT);
     return 0;
   }

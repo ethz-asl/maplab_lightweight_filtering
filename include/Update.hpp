@@ -17,6 +17,11 @@
 
 namespace LWF{
 
+enum UpdateFilteringMode{
+  UpdateEKF,
+  UpdateUKF
+};
+
 template<typename Innovation>
 class UpdateOutlierDetection{
  public:
@@ -93,6 +98,16 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>{
     }
   }
   virtual ~Update(){};
+  int updateState(mtState& state, mtCovMat& cov, const mtMeas& meas, UpdateFilteringMode mode = UpdateEKF){
+    switch(mode){
+      case UpdateEKF:
+        return updateEKF(state,cov,meas);
+      case UpdateUKF:
+        return updateUKF(state,cov,meas);
+      default:
+        return updateEKF(state,cov,meas);
+    }
+  }
   int updateEKF(mtState& state, mtCovMat& cov, const mtMeas& meas){
     preProcess(state,cov,meas);
     H_ = this->jacInput(state,meas);
@@ -224,6 +239,16 @@ class PredictionUpdate: public ModelBase<State,Innovation,Meas,Noise>{
     }
   }
   virtual ~PredictionUpdate(){};
+  int predictAndUpdate(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt, UpdateFilteringMode mode = UpdateEKF){
+    switch(mode){
+      case UpdateEKF:
+        return predictAndUpdateEKF(state,cov,meas,prediction,predictionMeas,dt);
+      case UpdateUKF:
+        return predictAndUpdateUKF(state,cov,meas,prediction,predictionMeas,dt);
+      default:
+        return predictAndUpdateEKF(state,cov,meas,prediction,predictionMeas,dt);
+    }
+  }
   int predictAndUpdateEKF(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt){
     preProcess(state,cov,meas,prediction,predictionMeas,dt);
     // Predict
