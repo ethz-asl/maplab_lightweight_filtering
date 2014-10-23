@@ -13,6 +13,7 @@
 #include "kindr/rotations/RotationEigen.hpp"
 #include "ModelBase.hpp"
 #include "SigmaPoints.hpp"
+#include <map>
 
 namespace LWF{
 
@@ -29,7 +30,8 @@ class Prediction: public ModelBase<State,State,Meas,Noise>{
   SigmaPoints<mtState,2*mtState::D_+1,2*(mtState::D_+mtNoise::D_)+1,0> stateSigmaPoints_;
   SigmaPoints<mtNoise,2*mtNoise::D_+1,2*(mtState::D_+mtNoise::D_)+1,2*mtState::D_> stateSigmaPointsNoi_;
   SigmaPoints<mtState,2*(mtState::D_+mtNoise::D_)+1,2*(mtState::D_+mtNoise::D_)+1,0> stateSigmaPointsPre_;
-  Prediction(){
+  const bool mbMergePredictions_;
+  Prediction(bool mbMergePredictions = false): mbMergePredictions_(mbMergePredictions){
     resetPrediction();
   };
   virtual void preProcess(mtState& state, mtCovMat& cov, const mtMeas& meas, double dt){};
@@ -66,6 +68,24 @@ class Prediction: public ModelBase<State,State,Meas,Noise>{
     state.fix();
     cov = stateSigmaPointsPre_.getCovarianceMatrix(state);
     postProcess(state,cov,meas,dt);
+    return 0;
+  }
+  virtual int predictMergedEKF(mtState& state, mtCovMat& cov, double tStart, const typename std::map<double,mtMeas>::iterator itMeasStart, unsigned int N){
+    const typename std::map<double,mtMeas>::iterator itMeasEnd = next(itMeasStart,N-1);
+    typename std::map<double,mtMeas>::iterator itMeas = itMeasStart;
+    double dT = itMeasEnd->first-tStart;
+    preProcess(state,cov,itMeasStart->second,dT);
+    F_ = this->jacInput(state,itMeasStart->second,dT);
+    Fn_ = this->jacNoise(state,itMeasStart->second,dT); // TODO
+    double t = tStart;
+    for(unsigned int i=0;i<N;i++){
+      state = this->eval(state,itMeas->second,itMeas->first-t);
+      t = itMeas->first;
+      itMeas++;
+    }
+    state.fix();
+    cov = F_*cov*F_.transpose() + Fn_*prenoiP_*Fn_.transpose();
+    postProcess(state,cov,itMeasEnd->second,dT);
     return 0;
   }
 };

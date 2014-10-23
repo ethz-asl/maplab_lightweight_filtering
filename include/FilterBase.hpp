@@ -212,63 +212,94 @@ class PredictionManager: public MeasurementTimeline<typename Prediction::mtMeas>
   PredictionManager(FilteringMode filteringMode = EKF): filteringMode_(filteringMode){};
   ~PredictionManager(){};
   std::vector<UpdateAndPredictManagerBase<mtState,Prediction>*> mCoupledUpdates_;
-  void predict(FilterState<mtState>& filterState, double tNext){
+  void predict(FilterState<mtState>& filterState, const double tNext){
     double tPrediction = tNext;
-    int coupledPredictionIndex = -1;
-    while(filterState.t_<tNext){
-      itMeas_ = measMap_.upper_bound(filterState.t_);
-      if(itMeas_ != measMap_.end()){
-        tPrediction = std::min(tNext,itMeas_->first);
-        coupledPredictionIndex = -1;
-        for(unsigned int i=0;i<mCoupledUpdates_.size();i++){
-          if(mCoupledUpdates_[i]->hasMeasurementAt(tPrediction)){
-            if(coupledPredictionIndex == -1){
-              coupledPredictionIndex = i;
-            } else {
-              std::cout << "Error found multiple updates, only considering first" << std::endl;
-            }
-          }
-        }
-        if(coupledPredictionIndex < 0){
-          int r = 0;
+    int r = 0;
+
+    // Count mergeable prediction steps (always without update)
+    itMeas_ = measMap_.upper_bound(filterState.t_);
+    unsigned int countMergeable = 0;
+    while(itMeas_ != measMap_.end() && itMeas_->first < tNext){
+      countMergeable++;
+      itMeas_++;
+    }
+    itMeas_ = measMap_.upper_bound(filterState.t_); // Reset Iterator
+    if(countMergeable>1){
+      if(prediction_.mbMergePredictions_){
+        r = prediction_.predictMergedEKF(filterState.state_,filterState.cov_,filterState.t_,itMeas_,countMergeable);
+        if(r!=0) std::cout << "Error during predictMergedEKF: " << r << std::endl;
+      } else {
+        for(unsigned int i=0;i<countMergeable;i++){
           switch(filteringMode_){
             case EKF:
-              r = prediction_.predictEKF(filterState.state_,filterState.cov_,itMeas_->second,tPrediction-filterState.t_);
+              r = prediction_.predictEKF(filterState.state_,filterState.cov_,itMeas_->second,itMeas_->first-filterState.t_);
               if(r!=0) std::cout << "Error during predictEKF: " << r << std::endl;
               break;
             case UKF:
-              r = prediction_.predictUKF(filterState.state_,filterState.cov_,itMeas_->second,tPrediction-filterState.t_);
+              r = prediction_.predictUKF(filterState.state_,filterState.cov_,itMeas_->second,itMeas_->first-filterState.t_);
               if(r!=0) std::cout << "Error during predictUKF: " << r << std::endl;
               break;
             default:
-              r = prediction_.predictEKF(filterState.state_,filterState.cov_,itMeas_->second,tPrediction-filterState.t_);
+              r = prediction_.predictEKF(filterState.state_,filterState.cov_,itMeas_->second,itMeas_->first-filterState.t_);
               if(r!=0) std::cout << "Error during predictEKF: " << r << std::endl;
               break;
           }
-        } else {
-          mCoupledUpdates_[coupledPredictionIndex]->predictAndUpdate(filterState,prediction_,itMeas_->second,tPrediction-filterState.t_);
+          filterState.t_ = itMeas_->first;
+          itMeas_++;
         }
-        filterState.t_ = tPrediction;
-      } else {
-        mtMeas meas;
-        int r = 0;
+      }
+    }
+
+    // Check for coupled update
+    itMeas_ = measMap_.upper_bound(filterState.t_); // Reset Iterator
+    int coupledPredictionIndex = -1;
+    for(unsigned int i=0;i<mCoupledUpdates_.size();i++){
+      if(mCoupledUpdates_[i]->hasMeasurementAt(tNext)){
+        if(coupledPredictionIndex == -1){
+          coupledPredictionIndex = i;
+        } else {
+          std::cout << "Warning found multiple updates, only considering first" << std::endl;
+        }
+      }
+    }
+    if(itMeas_ != measMap_.end()){
+      if(coupledPredictionIndex < 0){
         switch(filteringMode_){
           case EKF:
-            r = defaultPrediction_.predictEKF(filterState.state_,filterState.cov_,meas,tNext-filterState.t_);
+            r = prediction_.predictEKF(filterState.state_,filterState.cov_,itMeas_->second,tNext-filterState.t_);
             if(r!=0) std::cout << "Error during predictEKF: " << r << std::endl;
             break;
           case UKF:
-            r = defaultPrediction_.predictUKF(filterState.state_,filterState.cov_,meas,tNext-filterState.t_);
+            r = prediction_.predictUKF(filterState.state_,filterState.cov_,itMeas_->second,tNext-filterState.t_);
             if(r!=0) std::cout << "Error during predictUKF: " << r << std::endl;
             break;
           default:
-            r = defaultPrediction_.predictEKF(filterState.state_,filterState.cov_,meas,tNext-filterState.t_);
+            r = prediction_.predictEKF(filterState.state_,filterState.cov_,itMeas_->second,tNext-filterState.t_);
             if(r!=0) std::cout << "Error during predictEKF: " << r << std::endl;
             break;
         }
-        filterState.t_ = tNext;
+      } else {
+        mCoupledUpdates_[coupledPredictionIndex]->predictAndUpdate(filterState,prediction_,itMeas_->second,tNext-filterState.t_);
+      }
+    } else {
+      if(coupledPredictionIndex >= 0) std::cout << "No prediction available for coupled update, ignoring update" << std::endl;
+      mtMeas meas;
+      switch(filteringMode_){
+        case EKF:
+          r = defaultPrediction_.predictEKF(filterState.state_,filterState.cov_,meas,tNext-filterState.t_);
+          if(r!=0) std::cout << "Error during predictEKF: " << r << std::endl;
+          break;
+        case UKF:
+          r = defaultPrediction_.predictUKF(filterState.state_,filterState.cov_,meas,tNext-filterState.t_);
+          if(r!=0) std::cout << "Error during predictUKF: " << r << std::endl;
+          break;
+        default:
+          r = defaultPrediction_.predictEKF(filterState.state_,filterState.cov_,meas,tNext-filterState.t_);
+          if(r!=0) std::cout << "Error during predictEKF: " << r << std::endl;
+          break;
       }
     }
+    filterState.t_ = tNext;
   }
 };
 
