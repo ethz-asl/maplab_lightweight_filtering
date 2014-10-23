@@ -261,8 +261,12 @@ class PairState{
     state2_.boxPlus(vecIn.template block<State2::D_,1>(State1::D_,0),stateOut.state2_);
   }
   void boxMinus(const PairState<State1,State2>& stateIn, mtDiffVec& vecOut) const{
-    state1_.boxMinus(stateIn.state1_,vecOut.template block<State1::D_,1>(0,0));
-    state2_.boxMinus(stateIn.state2_,vecOut.template block<State2::D_,1>(State1::D_,0));
+    typename State1::mtDiffVec difVec1;
+    state1_.boxMinus(stateIn.state1_,difVec1);
+    vecOut.template block<State1::D_,1>(0,0) = difVec1;
+    typename State2::mtDiffVec difVec2;
+    state2_.boxMinus(stateIn.state2_,difVec2);
+    vecOut.template block<State2::D_,1>(State1::D_,0) = difVec2;
   }
   void print() const{
     state1_.print();
@@ -270,18 +274,18 @@ class PairState{
   }
   void setIdentity(){
     state1_.setIdentity();
-    state2_.setidentity();
+    state2_.setIdentity();
   }
   const State1& first() const{
     return state1_;
   };
-  State1 first(){
+  State1& first(){
     return state1_;
   };
   const State1& second() const{
     return state2_;
   };
-  State2 second(){
+  State2& second(){
     return state2_;
   };
   PairState<State1,State2>& operator=(const PairState<State1,State2>& state){
