@@ -32,6 +32,8 @@ class Prediction: public ModelBase<State,State,Meas,Noise>{
   Prediction(){
     resetPrediction();
   };
+  virtual void preProcess(mtState& state, mtCovMat& cov, const mtMeas& meas, double dt){};
+  virtual void postProcess(mtState& state, mtCovMat& cov, const mtMeas& meas, double dt){};
   void resetPrediction(){
     prenoiP_ = mtNoise::mtCovMat::Identity()*0.0001;
     stateSigmaPoints_.computeParameter(1e-3,2.0,0.0);
@@ -41,14 +43,17 @@ class Prediction: public ModelBase<State,State,Meas,Noise>{
   }
   virtual ~Prediction(){};
   int predictEKF(mtState& state, mtCovMat& cov, const mtMeas& meas, double dt){
+    preProcess(state,cov,meas,dt);
     F_ = this->jacInput(state,meas,dt);
     Fn_ = this->jacNoise(state,meas,dt);
     state = this->eval(state,meas,dt);
     state.fix();
     cov = F_*cov*F_.transpose() + Fn_*prenoiP_*Fn_.transpose();
+    postProcess(state,cov,meas,dt);
     return 0;
   }
   int predictUKF(mtState& state, mtCovMat& cov, const mtMeas& meas, double dt){
+    preProcess(state,cov,meas,dt);
     stateSigmaPoints_.computeFromGaussian(state,cov);
 
     // Prediction
@@ -60,6 +65,7 @@ class Prediction: public ModelBase<State,State,Meas,Noise>{
     state = stateSigmaPointsPre_.getMean();
     state.fix();
     cov = stateSigmaPointsPre_.getCovarianceMatrix(state);
+    postProcess(state,cov,meas,dt);
     return 0;
   }
 };

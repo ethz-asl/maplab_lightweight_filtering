@@ -77,6 +77,8 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>{
   Update(){
     resetUpdate();
   };
+  virtual void preProcess(mtState& state, mtCovMat& cov, const mtMeas& meas){};
+  virtual void postProcess(mtState& state, mtCovMat& cov, const mtMeas& meas){};
   void resetUpdate(){
     updateVec_.setIdentity();
     updnoiP_ = mtNoise::mtCovMat::Identity()*0.0001;
@@ -92,6 +94,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>{
   }
   virtual ~Update(){};
   int updateEKF(mtState& state, mtCovMat& cov, const mtMeas& meas){
+    preProcess(state,cov,meas);
     H_ = this->jacInput(state,meas);
     Hn_ = this->jacNoise(state,meas);
     y_ = this->eval(state,meas);
@@ -120,9 +123,11 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>{
     updateVec_ = -K_*innVector_;
     state.boxPlus(updateVec_,state);
     state.fix();
+    postProcess(state,cov,meas);
     return 0;
   }
   int updateUKF(mtState& state, mtCovMat& cov, const mtMeas& meas){
+    preProcess(state,cov,meas);
     stateSigmaPoints_.computeFromGaussian(state,cov);
 
     // Update
@@ -160,6 +165,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>{
     }
     state = posterior_.getMean();
     cov = posterior_.getCovarianceMatrix(state);
+    postProcess(state,cov,meas);
     return 0;
   }
 };
@@ -200,6 +206,8 @@ class PredictionUpdate: public ModelBase<State,Innovation,Meas,Noise>{
   PredictionUpdate(){
     resetUpdate();
   };
+  virtual void preProcess(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt){};
+  virtual void postProcess(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt){};
   void resetUpdate(){
     updateVec_.setIdentity();
     updnoiP_ = mtNoise::mtCovMat::Identity()*0.0001;
@@ -217,6 +225,7 @@ class PredictionUpdate: public ModelBase<State,Innovation,Meas,Noise>{
   }
   virtual ~PredictionUpdate(){};
   int predictAndUpdateEKF(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt){
+    preProcess(state,cov,meas,prediction,predictionMeas,dt);
     // Predict
     F_ = prediction.jacInput(state,predictionMeas,dt);
     Fn_ = prediction.jacNoise(state,predictionMeas,dt);
@@ -252,9 +261,11 @@ class PredictionUpdate: public ModelBase<State,Innovation,Meas,Noise>{
     updateVec_ = -K_*innVector_;
     state.boxPlus(updateVec_,state);
     state.fix();
+    postProcess(state,cov,meas,prediction,predictionMeas,dt);
     return 0;
   }
   int predictAndUpdateUKF(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt){
+    preProcess(state,cov,meas,prediction,predictionMeas,dt);
     // Predict
     noiP_.template block<mtPredictionNoise::D_,mtPredictionNoise::D_>(0,0) = prediction.prenoiP_;
     noiP_.template block<mtPredictionNoise::D_,mtNoise::D_>(0,mtPredictionNoise::D_) = preupdnoiP_;
@@ -308,6 +319,7 @@ class PredictionUpdate: public ModelBase<State,Innovation,Meas,Noise>{
     }
     state = posterior_.getMean();
     cov = posterior_.getCovarianceMatrix(state);
+    postProcess(state,cov,meas,prediction,predictionMeas,dt);
     return 0;
   }
 };
