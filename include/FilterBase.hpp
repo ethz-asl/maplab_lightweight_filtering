@@ -12,6 +12,7 @@
 #include <iostream>
 #include "kindr/rotations/RotationEigen.hpp"
 #include <map>
+#include "Image.hpp"
 
 namespace LWF{
 
@@ -246,13 +247,29 @@ class FilterBase{
   FilterState<mtState> init_;
   PredictionManager<mtPrediction> predictionManager_;
   std::vector<UpdateManagerBase<mtState>*> mUpdateVector_;
-  FilterBase(){};
-  virtual ~FilterBase(){};
+  Image<1000,1000> imageLog_;
+  double imageLogStartTime_;
+  unsigned int imageLogCounter_;
+  FilterBase(){
+    imageLogStartTime_ = 0.0;
+    imageLogCounter_ = 0;
+  };
+  virtual ~FilterBase(){
+    imageLog_.writeToFile();
+  };
+  void makeLineLog(){
+    imageLog_.setPixelRGB(imageLogCounter_%imageLog_.height_,(int)((safe_.t_-imageLogStartTime_)*100),255,0,0);
+    imageLog_.setPixelRGB(imageLogCounter_%imageLog_.height_,(int)((front_.t_-imageLogStartTime_)*100),0,255,0);
+    imageLogCounter_++;
+  }
   void resetFilter(){
     safe_ = init_;
     front_ = init_;
-    setSafeWarningTime(front_.t_);
+    setSafeWarningTime(safe_.t_);
     resetFrontWarningTime(front_.t_);
+    imageLogStartTime_ = safe_.t_;
+    imageLogCounter_ = 0;
+    imageLog_.reset();
   }
   bool getSafeTime(double& safeTime){
     double maxPredictionTime;
@@ -289,6 +306,7 @@ class FilterBase{
     return gotFrontWarning;
   }
   void updateSafe(){
+    makeLineLog();
     double nextSafeTime;
     if(!getSafeTime(nextSafeTime)) return;
     if(front_.t_<=nextSafeTime && !checkFrontWarning() && front_.t_>safe_.t_){
