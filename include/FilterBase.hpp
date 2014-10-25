@@ -255,11 +255,18 @@ class FilterBase{
     imageLogCounter_ = 0;
   };
   virtual ~FilterBase(){
-    imageLog_.writeToFile();
+    imageLog_.writeToFile("imageLog.bmp");
   };
   void makeLineLog(){
-    imageLog_.setPixelR(imageLogCounter_%imageLog_.height_,(int)((safe_.t_-imageLogStartTime_)*100),1.0);
-    imageLog_.setPixelG(imageLogCounter_%imageLog_.height_,(int)((front_.t_-imageLogStartTime_)*100),1.0);
+    imageLog_.getPixelRGB(imageLogCounter_%imageLog_.height_,(int)((safe_.t_-imageLogStartTime_)*100)) = PixelValueHSL(300,0.8,0.5).toRGB();
+    imageLog_.getPixelRGB(imageLogCounter_%imageLog_.height_,(int)((front_.t_-imageLogStartTime_)*100)) = PixelValueHSL(300,0.8,0.5).toRGB();
+    imageLog_.getPixelRGB(imageLogCounter_%imageLog_.height_,(int)((safe_.t_-imageLogStartTime_)*100)).increaseH(60);
+    imageLog_.getPixelRGB(imageLogCounter_%imageLog_.height_,(int)((front_.t_-imageLogStartTime_)*100)).increaseH(-60);
+
+    for(typename std::map<double,typename mtPrediction::mtMeas>::iterator itMeas = predictionManager_.measMap_.begin(); itMeas != predictionManager_.measMap_.end();itMeas++){
+      imageLog_.getPixelRGB(imageLogCounter_%imageLog_.height_,(int)((itMeas->first-imageLogStartTime_)*100)).increaseL(0.2);
+    }
+
     imageLogCounter_++;
   }
   void resetFilter(){
@@ -312,7 +319,7 @@ class FilterBase{
       safe_ = front_;
     }
     update(safe_,nextSafeTime);
-    clean(nextSafeTime);
+//    clean(nextSafeTime);
     setSafeWarningTime(nextSafeTime);
   }
   void updateFront(const double& tEnd){

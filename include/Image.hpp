@@ -15,6 +15,134 @@ namespace rot = kindr::rotations::eigen_impl;
 
 namespace LWF{
 
+class PixelValueRGB;
+
+class PixelValueHSL{
+ public:
+  PixelValueHSL();
+  PixelValueHSL(double H, double S, double L);
+  PixelValueHSL(const PixelValueRGB& in);
+  PixelValueRGB toRGB() const;
+  void setHSL(double H, double S, double L);
+  double H_;
+  double S_;
+  double L_;
+};
+
+class PixelValueRGB{
+ public:
+  PixelValueRGB(){
+    R_ = 0.0;
+    G_ = 0.0;
+    B_ = 0.0;
+  };
+  PixelValueRGB(double R, double G, double B){
+    setRGB(R,G,B);
+  };
+  PixelValueRGB(const PixelValueHSL& in){
+    *this = in.toRGB();
+  };
+  PixelValueHSL toHSL() const{
+    PixelValueHSL out;
+    const double vMM = std::max(R_,std::max(G_,B_));
+    const double vM = std::min(R_,std::min(G_,B_));
+    const double vC = vMM-vM;
+    double vHt = 0;
+    if(vC>0){
+      if(vMM==R_){
+        vHt = std::fmod((G_-B_)/vC,6.0);
+      } else if(vMM==G_){
+        vHt = (B_-R_)/vC + 2.0;
+      } else {
+        vHt = (R_-G_)/vC + 4.0;
+      }
+    }
+    out.H_ = vHt*60;
+    out.L_ = (vMM+vM)/2;
+    if(out.L_ > 0 && out.L_ < 1.0){
+      out.S_ = vC/(1.0 - std::fabs(2*out.L_-1.0));
+    } else {
+      out.S_ = 0.0;
+    }
+    return out;
+  }
+  void setRGB(double R, double G, double B){
+    R_ = R;
+    G_ = G;
+    B_ = B;
+  };
+  void increaseL(double dL){
+    PixelValueHSL HSL(*this);
+    HSL.L_ += dL;
+    if(HSL.L_ > 1.0) HSL.L_ = 1.0;
+    if(HSL.L_ < 0.0) HSL.L_ = 0.0;
+    *this = HSL.toRGB();
+  }
+  void setH(double H){
+    PixelValueHSL HSL(*this);
+    HSL.H_ = H;
+    *this = HSL.toRGB();
+  }
+  void increaseH(double dH){
+    PixelValueHSL HSL(*this);
+    HSL.H_ = std::fmod(HSL.H_+dH+360,360);
+    *this = HSL.toRGB();
+  }
+  double R_;
+  double G_;
+  double B_;
+};
+
+PixelValueHSL::PixelValueHSL(){
+  H_ = 0.0;
+  S_ = 0.0;
+  L_ = 0.0;
+};
+PixelValueHSL::PixelValueHSL(double H, double S, double L){
+  setHSL(H,S,L);
+};
+PixelValueHSL::PixelValueHSL(const PixelValueRGB& in){
+  *this = in.toHSL();
+};
+void PixelValueHSL::setHSL(double H, double S, double L){
+  H_ = H;
+  S_ = S;
+  L_ = L;
+};
+PixelValueRGB PixelValueHSL::toRGB() const{
+  PixelValueRGB out;
+  const double vC = (1.0-std::fabs(2*L_-1.0))*S_;
+  const double vHt = std::fmod(H_,360.0)/60;
+  const double vX = vC*(1.0-std::fabs(std::fmod(vHt,2.0)-1.0));
+  double vR1 = 0.0;
+  double vG1 = 0.0;
+  double vB1 = 0.0;
+  if(vHt<1.0){
+    vR1 = vC;
+    vG1 = vX;
+  } else if(vHt<2.0){
+    vG1 = vC;
+    vR1 = vX;
+  } else if(vHt<3.0){
+    vG1 = vC;
+    vB1 = vX;
+  } else if(vHt<4.0){
+    vB1 = vC;
+    vG1 = vX;
+  } else if(vHt<5.0){
+    vB1 = vC;
+    vR1 = vX;
+  } else if(vHt<6.0){
+    vR1 = vC;
+    vB1 = vX;
+  }
+  const double vM = L_-0.5*vC;
+  out.R_ = vR1+vM;
+  out.G_ = vG1+vM;
+  out.B_ = vB1+vM;
+  return out;
+};
+
 template<unsigned int W, unsigned int H>
 class Image{
  public:
@@ -52,7 +180,7 @@ class Image{
   const unsigned int offset_ = 14 + 40;
 
   // Image data
-  unsigned char data_[W][H][3];
+  PixelValueRGB data_[W][H];
 
   Image(){
     reset();
@@ -60,12 +188,12 @@ class Image{
   void reset(){
     for(unsigned int i=0;i<height_;i++){
       for(unsigned int j=0;j<width_;j++){
-        setPixelRGB(i,j,0.5,0.5,0.5);
+        data_[i][j].setRGB(0.5,0.5,0.5);
       }
     }
   }
-  void writeToFile(){
-    FILE* fp = fopen("test.bmp", "wb");
+  void writeToFile(std::string fileName){
+    FILE* fp = fopen(fileName.c_str(), "wb");
 
     fwrite(&id_,sizeof(id_),1,fp);
     fwrite(&fileSize_,sizeof(fileSize_),1,fp);
@@ -90,9 +218,9 @@ class Image{
     //now write the image data...
     for (unsigned int i=0; i<height_;i++){
       for (unsigned int j=0; j<width_;j++){
-        temp[0] = data_[i][j][0];
-        temp[1] = data_[i][j][1];
-        temp[2] = data_[i][j][2];
+        temp[0] = (unsigned char)(data_[i][j].R_*255);
+        temp[1] = (unsigned char)(data_[i][j].G_*255);
+        temp[2] = (unsigned char)(data_[i][j].B_*255);
         fwrite(temp,sizeof(temp[0]),3,fp);
       }
       //and introduce the padding
@@ -104,59 +232,8 @@ class Image{
 
     fclose(fp);
   }
-  void setPixelRGB(unsigned int i, unsigned int j, double R, double G, double B){
-    data_[i][j][0] = (unsigned char)(R*255);
-    data_[i][j][1] = (unsigned char)(G*255);
-    data_[i][j][2] = (unsigned char)(B*255);
-  }
-  void setPixelFromHSL(unsigned int i, unsigned int j, double vH, double vS, double vL){
-    const double vC = (1.0-std::fabs(2*vL-1.0))*vS;
-    const double vHt = std::fmod(vH,360.0)/60;
-    const double vX = vC*(1.0-std::fabs(std::fmod(vHt,2.0)-1.0));
-    double vR1 = 0.0;
-    double vG1 = 0.0;
-    double vB1 = 0.0;
-    if(vHt<1.0){
-      vR1 = vC;
-      vG1 = vX;
-    } else if(vHt<2.0){
-      vG1 = vC;
-      vR1 = vX;
-    } else if(vHt<3.0){
-      vG1 = vC;
-      vB1 = vX;
-    } else if(vHt<4.0){
-      vB1 = vC;
-      vG1 = vX;
-    } else if(vHt<5.0){
-      vB1 = vC;
-      vR1 = vX;
-    } else if(vHt<6.0){
-      vR1 = vC;
-      vB1 = vX;
-    }
-    const double vM = vL-0.5*vC;
-    data_[i][j][0] = vR1+vM;
-    data_[i][j][1] = vG1+vM;
-    data_[i][j][2] = vB1+vM;
-  }
-  void setPixelR(unsigned int i, unsigned int j, double R){
-    data_[i][j][0] = (unsigned char)(R*255);
-  }
-  void setPixelG(unsigned int i, unsigned int j, double G){
-    data_[i][j][1] = (unsigned char)(G*255);
-  }
-  void setPixelB(unsigned int i, unsigned int j, double B){
-    data_[i][j][2] = (unsigned char)(B*255);
-  }
-  void getPixelHSL(unsigned int i, unsigned int j, double& vH, double& vS, double& vL){
-    const double vR = data_[i][j][0];
-    const double vG = data_[i][j][1];
-    const double vB = data_[i][j][2];
-    const double vMM = std::max(vR,std::max(vG,vB));
-    const double vM = std::min(vR,std::min(vG,vB));
-    const double vC = vMM-vM;
-    // TODO
+  PixelValueRGB& getPixelRGB(unsigned int i, unsigned int j){
+    return data_[i][j];
   }
 };
 
