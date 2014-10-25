@@ -258,8 +258,8 @@ class FilterBase{
     imageLog_.writeToFile();
   };
   void makeLineLog(){
-    imageLog_.setPixelRGB(imageLogCounter_%imageLog_.height_,(int)((safe_.t_-imageLogStartTime_)*100),255,0,0);
-    imageLog_.setPixelRGB(imageLogCounter_%imageLog_.height_,(int)((front_.t_-imageLogStartTime_)*100),0,255,0);
+    imageLog_.setPixelR(imageLogCounter_%imageLog_.height_,(int)((safe_.t_-imageLogStartTime_)*100),1.0);
+    imageLog_.setPixelG(imageLogCounter_%imageLog_.height_,(int)((front_.t_-imageLogStartTime_)*100),1.0);
     imageLogCounter_++;
   }
   void resetFilter(){
@@ -306,7 +306,6 @@ class FilterBase{
     return gotFrontWarning;
   }
   void updateSafe(){
-    makeLineLog();
     double nextSafeTime;
     if(!getSafeTime(nextSafeTime)) return;
     if(front_.t_<=nextSafeTime && !checkFrontWarning() && front_.t_>safe_.t_){
@@ -340,6 +339,7 @@ class FilterBase{
           mUpdateVector_[i]->update(filterState);
         }
       }
+      makeLineLog();
     }
   }
   void clean(const double& t){

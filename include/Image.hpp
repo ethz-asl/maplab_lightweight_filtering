@@ -60,7 +60,7 @@ class Image{
   void reset(){
     for(unsigned int i=0;i<height_;i++){
       for(unsigned int j=0;j<width_;j++){
-        setPixelRGB(i,j,128,128,128);
+        setPixelRGB(i,j,0.5,0.5,0.5);
       }
     }
   }
@@ -104,10 +104,59 @@ class Image{
 
     fclose(fp);
   }
-  void setPixelRGB(unsigned int i, unsigned int j, unsigned char R, unsigned char G, unsigned char B){
-    data_[i][j][0] = R;
-    data_[i][j][1] = G;
-    data_[i][j][2] = B;
+  void setPixelRGB(unsigned int i, unsigned int j, double R, double G, double B){
+    data_[i][j][0] = (unsigned char)(R*255);
+    data_[i][j][1] = (unsigned char)(G*255);
+    data_[i][j][2] = (unsigned char)(B*255);
+  }
+  void setPixelFromHSL(unsigned int i, unsigned int j, double vH, double vS, double vL){
+    const double vC = (1.0-std::fabs(2*vL-1.0))*vS;
+    const double vHt = std::fmod(vH,360.0)/60;
+    const double vX = vC*(1.0-std::fabs(std::fmod(vHt,2.0)-1.0));
+    double vR1 = 0.0;
+    double vG1 = 0.0;
+    double vB1 = 0.0;
+    if(vHt<1.0){
+      vR1 = vC;
+      vG1 = vX;
+    } else if(vHt<2.0){
+      vG1 = vC;
+      vR1 = vX;
+    } else if(vHt<3.0){
+      vG1 = vC;
+      vB1 = vX;
+    } else if(vHt<4.0){
+      vB1 = vC;
+      vG1 = vX;
+    } else if(vHt<5.0){
+      vB1 = vC;
+      vR1 = vX;
+    } else if(vHt<6.0){
+      vR1 = vC;
+      vB1 = vX;
+    }
+    const double vM = vL-0.5*vC;
+    data_[i][j][0] = vR1+vM;
+    data_[i][j][1] = vG1+vM;
+    data_[i][j][2] = vB1+vM;
+  }
+  void setPixelR(unsigned int i, unsigned int j, double R){
+    data_[i][j][0] = (unsigned char)(R*255);
+  }
+  void setPixelG(unsigned int i, unsigned int j, double G){
+    data_[i][j][1] = (unsigned char)(G*255);
+  }
+  void setPixelB(unsigned int i, unsigned int j, double B){
+    data_[i][j][2] = (unsigned char)(B*255);
+  }
+  void getPixelHSL(unsigned int i, unsigned int j, double& vH, double& vS, double& vL){
+    const double vR = data_[i][j][0];
+    const double vG = data_[i][j][1];
+    const double vB = data_[i][j][2];
+    const double vMM = std::max(vR,std::max(vG,vB));
+    const double vM = std::min(vR,std::min(vG,vB));
+    const double vC = vMM-vM;
+    // TODO
   }
 };
 
