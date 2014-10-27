@@ -12,7 +12,8 @@
 #include <iostream>
 #include "kindr/rotations/RotationEigen.hpp"
 #include <map>
-#include "Image.hpp"
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/info_parser.hpp>
 
 namespace LWF{
 
@@ -248,12 +249,20 @@ class FilterBase{
   PredictionManager<mtPrediction> predictionManager_;
   std::vector<UpdateManagerBase<mtState>*> mUpdateVector_;
   FilterBase(){};
-  virtual ~FilterBase(){};
+  virtual ~FilterBase(){
+    generateInfo("test.info");
+  };
   void resetFilter(){
     safe_ = init_;
     front_ = init_;
     setSafeWarningTime(safe_.t_);
     resetFrontWarningTime(front_.t_);
+  }
+  void generateInfo(const std::string &filename){
+    using boost::property_tree::ptree;
+    ptree pt;
+    pt.put("a.path.to.float.value", 3.14f);
+    write_info(filename,pt);
   }
   bool getSafeTime(double& safeTime){
     double maxPredictionTime;
@@ -296,7 +305,7 @@ class FilterBase{
       safe_ = front_;
     }
     update(safe_,nextSafeTime);
-//    clean(nextSafeTime);
+    clean(nextSafeTime);
     setSafeWarningTime(nextSafeTime);
   }
   void updateFront(const double& tEnd){
