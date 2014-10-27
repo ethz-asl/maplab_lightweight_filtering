@@ -142,8 +142,9 @@ class UpdateModelTest : public ::testing::Test {
     testPredictionMeas_.v(0) = Eigen::Vector3d(-5,2,17.3);
     testPredictionMeas_.v(1) = Eigen::Vector3d(15.7,0.45,-2.3);
     updateManager2_.maxWaitTime_ = 0.0;
-    testFilter_.mUpdateVector_.push_back(&updateManager1_);
-    testFilter_.mUpdateVector_.push_back(&updateManager2_);
+    testFilter_.registerUpdateManager(updateManager1_);
+    testFilter_.registerUpdateManager(updateManager2_);
+    testFilter_.writeToInfo("test.info");
   }
   virtual ~UpdateModelTest() {
   }

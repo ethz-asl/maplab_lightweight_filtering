@@ -10,7 +10,7 @@
 
 #include <Eigen/Dense>
 #include <iostream>
-#include "kindr/rotations/RotationEigen.hpp"
+#include "PropertyHandler.hpp"
 #include <map>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/info_parser.hpp>
@@ -105,7 +105,7 @@ class MeasurementTimeline: public virtual MeasurementTimelineBase{
 };
 
 template<typename State>
-class UpdateManagerBase: public virtual MeasurementTimelineBase{
+class UpdateManagerBase: public virtual MeasurementTimelineBase, public PropertyHandler{
  public:
   typedef State mtState;
   typedef typename mtState::mtCovMat mtCovMat;
@@ -121,11 +121,16 @@ class UpdateManager: public MeasurementTimeline<typename Update::mtMeas>,public 
  public:
   using MeasurementTimeline<typename Update::mtMeas>::measMap_;
   using UpdateManagerBase<typename Update::mtState>::filteringMode_;
+  using UpdateManagerBase<typename Update::mtState>::doubleRegister_;
   typedef typename Update::mtState mtState;
   typedef typename Update::mtMeas mtMeas;
   typedef typename mtState::mtCovMat mtCovMat;
   Update update_;
-  UpdateManager(UpdateFilteringMode filteringMode = UpdateEKF): UpdateManagerBase<typename Update::mtState>(false,filteringMode){};
+  double test;
+  UpdateManager(UpdateFilteringMode filteringMode = UpdateEKF): UpdateManagerBase<typename Update::mtState>(false,filteringMode){
+    test = 0.5;
+    doubleRegister_.registerScalar("updnoiP00",test);
+  };
   ~UpdateManager(){};
   void update(FilterState<mtState>& filterState){
     if(this->hasMeasurementAt(filterState.t_)){
@@ -237,7 +242,7 @@ class PredictionManager: public MeasurementTimeline<typename Prediction::mtMeas>
 };
 
 template<typename Prediction>
-class FilterBase{
+class FilterBase: public PropertyHandler{
  public:
   typedef Prediction mtPrediction;
   typedef typename mtPrediction::mtState mtState;
@@ -248,21 +253,16 @@ class FilterBase{
   FilterState<mtState> init_;
   PredictionManager<mtPrediction> predictionManager_;
   std::vector<UpdateManagerBase<mtState>*> mUpdateVector_;
-  FilterBase(){};
+  FilterBase(){
+    doubleRegister_.registerScalar("t",safe_.t_);
+  };
   virtual ~FilterBase(){
-    generateInfo("test.info");
   };
   void resetFilter(){
     safe_ = init_;
     front_ = init_;
     setSafeWarningTime(safe_.t_);
     resetFrontWarningTime(front_.t_);
-  }
-  void generateInfo(const std::string &filename){
-    using boost::property_tree::ptree;
-    ptree pt;
-    pt.put("a.path.to.float.value", 3.14f);
-    write_info(filename,pt);
   }
   bool getSafeTime(double& safeTime){
     double maxPredictionTime;
@@ -339,6 +339,10 @@ class FilterBase{
     for(unsigned int i=0;i<mUpdateVector_.size();i++){
       if(mUpdateVector_[i] != nullptr) mUpdateVector_[i]->clean(t);
     }
+  }
+  void registerUpdateManager(UpdateManagerBase<mtState>& updateManagerBase){
+    mUpdateVector_.push_back(&updateManagerBase); // TODO make unique
+    registerSubHandler("test",updateManagerBase); // TODO change name
   }
 };
 
