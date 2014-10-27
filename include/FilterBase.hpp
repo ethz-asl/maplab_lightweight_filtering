@@ -247,36 +247,13 @@ class FilterBase{
   FilterState<mtState> init_;
   PredictionManager<mtPrediction> predictionManager_;
   std::vector<UpdateManagerBase<mtState>*> mUpdateVector_;
-  Image<1000,1000> imageLog_;
-  double imageLogStartTime_;
-  unsigned int imageLogCounter_;
-  FilterBase(){
-    imageLogStartTime_ = 0.0;
-    imageLogCounter_ = 0;
-  };
-  virtual ~FilterBase(){
-    imageLog_.writeToFile("imageLog.bmp");
-  };
-  void makeLineLog(){
-    imageLog_.getPixelRGB(imageLogCounter_%imageLog_.height_,(int)((safe_.t_-imageLogStartTime_)*100)) = PixelValueHSL(300,0.8,0.5).toRGB();
-    imageLog_.getPixelRGB(imageLogCounter_%imageLog_.height_,(int)((front_.t_-imageLogStartTime_)*100)) = PixelValueHSL(300,0.8,0.5).toRGB();
-    imageLog_.getPixelRGB(imageLogCounter_%imageLog_.height_,(int)((safe_.t_-imageLogStartTime_)*100)).increaseH(60);
-    imageLog_.getPixelRGB(imageLogCounter_%imageLog_.height_,(int)((front_.t_-imageLogStartTime_)*100)).increaseH(-60);
-
-    for(typename std::map<double,typename mtPrediction::mtMeas>::iterator itMeas = predictionManager_.measMap_.begin(); itMeas != predictionManager_.measMap_.end();itMeas++){
-      imageLog_.getPixelRGB(imageLogCounter_%imageLog_.height_,(int)((itMeas->first-imageLogStartTime_)*100)).increaseL(0.2);
-    }
-
-    imageLogCounter_++;
-  }
+  FilterBase(){};
+  virtual ~FilterBase(){};
   void resetFilter(){
     safe_ = init_;
     front_ = init_;
     setSafeWarningTime(safe_.t_);
     resetFrontWarningTime(front_.t_);
-    imageLogStartTime_ = safe_.t_;
-    imageLogCounter_ = 0;
-    imageLog_.reset();
   }
   bool getSafeTime(double& safeTime){
     double maxPredictionTime;
@@ -346,7 +323,6 @@ class FilterBase{
           mUpdateVector_[i]->update(filterState);
         }
       }
-      makeLineLog();
     }
   }
   void clean(const double& t){

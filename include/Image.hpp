@@ -10,8 +10,6 @@
 
 #include <iostream>
 #include <unordered_map>
-#include "kindr/rotations/RotationEigen.hpp"
-namespace rot = kindr::rotations::eigen_impl;
 
 namespace LWF{
 
