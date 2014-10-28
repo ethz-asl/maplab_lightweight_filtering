@@ -31,6 +31,16 @@ class SigmaPointTest : public ::testing::Test {
         P_(j,i) += randValue;
       }
     }
+    Qmat_ = mtState::D_*mtCovMat::Identity();
+    for(int i=0;i<mtState::D_;i++){
+      for(int j=i;j<mtState::D_;j++){
+        randValue = (cos((double)(123456*(i+j+1)))+1.0)/2.0;
+        Qmat_(i,j) += randValue;
+        Qmat_(j,i) += randValue;
+      }
+    }
+    Eigen::ColPivHouseholderQR<mtCovMat> qr(Qmat_);
+    Qmat_ = qr.householderQ();
   }
   ~SigmaPointTest() {
   }
@@ -48,6 +58,10 @@ class SigmaPointTest : public ::testing::Test {
   LWF::SigmaPoints<mtStateVector,L_,L_,0> sigmaPointsVector_;
   mtState mean_;
   mtCovMat P_;
+  mtCovMat Qmat_;
+  double alpha_ = 1e-3;
+  double beta_ = 2.0;
+  double kappa_ = 0.0;
 };
 
 // Test constructors
@@ -60,13 +74,13 @@ TEST_F(SigmaPointTest, constructors) {
 
 // Test computeParameter
 TEST_F(SigmaPointTest, computeParameter) {
-  sigmaPoints_.computeParameter(1e-3,2.0,0.0);
+  sigmaPoints_.computeParameter(alpha_,beta_,kappa_);
   const unsigned int D = (L_-1)/2;
-  double lambda = 1e-6*(D)-D;
+  double lambda = alpha_*alpha_*(D+kappa_)-D;
   double gamma = sqrt(lambda + D);
   double wm = 1/(2*(D+lambda));
   double wc = wm;
-  double wc0 = lambda/(D+lambda)+(1-1e-6+2);
+  double wc0 = lambda/(D+lambda)+(1-alpha_*alpha_+beta_);
   ASSERT_EQ(sigmaPoints_.wm_,wm);
   ASSERT_EQ(sigmaPoints_.wc_,wc);
   ASSERT_EQ(sigmaPoints_.wc0_,wc0);
@@ -110,6 +124,22 @@ TEST_F(SigmaPointTest, computeFromGaussianPlusPlus) {
   ASSERT_NEAR(vec.norm(),0.0,1e-8);
   P = sigmaPoints_.getCovarianceMatrix(mean);
   ASSERT_NEAR((P-Psemi).norm(),0.0,1e-8);
+}
+
+// Test computeFromGaussian with W matrix
+TEST_F(SigmaPointTest, computeFromGaussianQ) {
+  // computeFromGaussian
+  sigmaPoints_.computeFromGaussian(mean_,P_,Qmat_);
+
+  // Check mean is same
+  mtState mean = sigmaPoints_.getMean();
+  mtDiffVec vec;
+  mean.boxMinus(mean_,vec);
+  ASSERT_NEAR(vec.norm(),0.0,1e-8);
+
+  // Check covariance is same
+  mtCovMat P = sigmaPoints_.getCovarianceMatrix(mean);
+  ASSERT_NEAR((P-P_).norm(),0.0,1e-8);
 }
 
 // Test getMean, getCovariance2
