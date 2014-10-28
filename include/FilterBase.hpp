@@ -10,15 +10,12 @@
 
 #include <Eigen/Dense>
 #include <iostream>
-//#include "PropertyHandler.hpp"
+#include "PropertyHandler.hpp"
 #include <map>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/info_parser.hpp>
 
 namespace LWF{
-
-class PropertyHandler{
-};
 
 template<typename State>
 class FilterState{
@@ -124,7 +121,7 @@ class UpdateManager: public MeasurementTimeline<typename Update::mtMeas>,public 
  public:
   using MeasurementTimeline<typename Update::mtMeas>::measMap_;
   using UpdateManagerBase<typename Update::mtState>::filteringMode_;
-//  using UpdateManagerBase<typename Update::mtState>::doubleRegister_;
+  using UpdateManagerBase<typename Update::mtState>::doubleRegister_;
   typedef typename Update::mtState mtState;
   typedef typename Update::mtMeas mtMeas;
   typedef typename mtState::mtCovMat mtCovMat;
@@ -132,7 +129,7 @@ class UpdateManager: public MeasurementTimeline<typename Update::mtMeas>,public 
   double test;
   UpdateManager(UpdateFilteringMode filteringMode = UpdateEKF): UpdateManagerBase<typename Update::mtState>(false,filteringMode){
     test = 0.5;
-//    doubleRegister_.registerScalar("updnoiP00",test);
+    doubleRegister_.registerScalar("updnoiP00",test);
   };
   ~UpdateManager(){};
   void update(FilterState<mtState>& filterState){
@@ -257,7 +254,7 @@ class FilterBase: public PropertyHandler{
   PredictionManager<mtPrediction> predictionManager_;
   std::vector<UpdateManagerBase<mtState>*> mUpdateVector_;
   FilterBase(){
-//    doubleRegister_.registerScalar("t",safe_.t_);
+    doubleRegister_.registerScalar("t",safe_.t_);
   };
   virtual ~FilterBase(){
   };
@@ -345,7 +342,7 @@ class FilterBase: public PropertyHandler{
   }
   void registerUpdateManager(UpdateManagerBase<mtState>& updateManagerBase){
     mUpdateVector_.push_back(&updateManagerBase); // TODO make unique
-//    registerSubHandler("test",updateManagerBase); // TODO change name
+    registerSubHandler("test",updateManagerBase); // TODO change name
   }
 };
 

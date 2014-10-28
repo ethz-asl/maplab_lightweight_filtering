@@ -21,7 +21,7 @@ class UpdateModelTest : public ::testing::Test {
     updateManager2_.maxWaitTime_ = 0.0;
     testFilter_.registerUpdateManager(updateManager1_);
     testFilter_.registerUpdateManager(updateManager2_);
-//    testFilter_.writeToInfo("test.info");
+    testFilter_.writeToInfo("test.info");
   }
   virtual ~UpdateModelTest() {
   }
