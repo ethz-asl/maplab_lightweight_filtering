@@ -1,80 +1,8 @@
-#include "Prediction.hpp"
-#include "State.hpp"
+#include "TestClasses.hpp"
 #include "gtest/gtest.h"
 #include <assert.h>
 
-class State: public LWF::StateSVQ<0,4,1>{
- public:
-  State(){};
-  ~State(){};
-};
-class Meas: public LWF::StateSVQ<0,2,0>{
- public:
-  Meas(){};
-  ~Meas(){};
-};
-class Noise: public LWF::VectorState<15>{
- public:
-  Noise(){};
-  ~Noise(){};
-};
-
-class PredictionExample: public LWF::Prediction<State,Meas,Noise>{
- public:
-  using LWF::Prediction<State,Meas,Noise>::eval;
-  typedef State mtState;
-  typedef typename mtState::mtCovMat mtCovMat;
-  typedef Meas mtMeas;
-  typedef Noise mtNoise;
-  PredictionExample(){};
-  ~PredictionExample(){};
-  mtState eval(const mtState& state, const mtMeas& meas, const mtNoise noise, double dt) const{
-    mtState output;
-    Eigen::Vector3d g_(0,0,-9.81);
-    Eigen::Vector3d dOmega = -dt*(meas.v(1)-state.v(3)+noise.block<3>(6)/sqrt(dt));
-    rot::RotationQuaternionPD dQ = dQ.exponentialMap(dOmega);
-    output.q(0) = state.q(0)*dQ;
-    output.q(0).fix();
-    output.v(0) = (Eigen::Matrix3d::Identity()+kindr::linear_algebra::getSkewMatrixFromVector(dOmega))*state.v(0)-dt*state.v(1)+noise.block<3>(0)*sqrt(dt);
-    output.v(1) = (Eigen::Matrix3d::Identity()+kindr::linear_algebra::getSkewMatrixFromVector(dOmega))*state.v(1)
-        -dt*(meas.v(0)-state.v(2)+state.q(0).inverseRotate(g_)+noise.block<3>(3)/sqrt(dt));
-    output.v(2) = state.v(2)+noise.block<3>(9)*sqrt(dt);
-    output.v(3) = state.v(3)+noise.block<3>(12)*sqrt(dt);
-    return output;
-  }
-  mtJacInput jacInput(const mtState& state, const mtMeas& meas, double dt) const{
-    mtJacInput J;
-    Eigen::Vector3d g_(0,0,-9.81);
-    Eigen::Vector3d dOmega = -dt*(meas.v(1)-state.v(3));
-    J.setZero();
-    J.template block<3,3>(state.getId(state.v(0)),state.getId(state.v(0))) = (Eigen::Matrix3d::Identity()+kindr::linear_algebra::getSkewMatrixFromVector(dOmega));
-    J.template block<3,3>(state.getId(state.v(0)),state.getId(state.v(1))) = -dt*Eigen::Matrix3d::Identity();
-    J.template block<3,3>(state.getId(state.v(0)),state.getId(state.v(3))) = -dt*kindr::linear_algebra::getSkewMatrixFromVector(state.v(0));
-    J.template block<3,3>(state.getId(state.v(1)),state.getId(state.v(1))) = (Eigen::Matrix3d::Identity()+kindr::linear_algebra::getSkewMatrixFromVector(dOmega));
-    J.template block<3,3>(state.getId(state.v(1)),state.getId(state.v(2))) = dt*Eigen::Matrix3d::Identity();
-    J.template block<3,3>(state.getId(state.v(1)),state.getId(state.v(3))) = -dt*kindr::linear_algebra::getSkewMatrixFromVector(state.v(1));
-    J.template block<3,3>(state.getId(state.v(1)),state.getId(state.q(0))) = dt*rot::RotationMatrixPD(state.q(0)).matrix().transpose()*kindr::linear_algebra::getSkewMatrixFromVector(g_);
-    J.template block<3,3>(state.getId(state.v(2)),state.getId(state.v(2))) = Eigen::Matrix3d::Identity();
-    J.template block<3,3>(state.getId(state.v(3)),state.getId(state.v(3))) = Eigen::Matrix3d::Identity();
-    J.template block<3,3>(state.getId(state.q(0)),state.getId(state.v(3))) = dt*rot::RotationMatrixPD(state.q(0)).matrix()*LWF::Lmat(dOmega);
-    J.template block<3,3>(state.getId(state.q(0)),state.getId(state.q(0))) = Eigen::Matrix3d::Identity();
-    return J;
-  }
-  mtJacNoise jacNoise(const mtState& state, const mtMeas& meas, double dt) const{
-    mtJacNoise J;
-    Eigen::Vector3d g_(0,0,-9.81);
-    Eigen::Vector3d dOmega = -dt*(meas.v(1)-state.v(3));
-    J.setZero();
-    J.template block<3,3>(state.getId(state.v(0)),0) = Eigen::Matrix3d::Identity()*sqrt(dt);
-    J.template block<3,3>(state.getId(state.v(0)),6) = kindr::linear_algebra::getSkewMatrixFromVector(state.v(0))*sqrt(dt);
-    J.template block<3,3>(state.getId(state.v(1)),3) = -Eigen::Matrix3d::Identity()*sqrt(dt);
-    J.template block<3,3>(state.getId(state.v(1)),6) = kindr::linear_algebra::getSkewMatrixFromVector(state.v(1))*sqrt(dt);
-    J.template block<3,3>(state.getId(state.v(2)),9) = Eigen::Matrix3d::Identity()*sqrt(dt);
-    J.template block<3,3>(state.getId(state.v(3)),12) = Eigen::Matrix3d::Identity()*sqrt(dt);
-    J.template block<3,3>(state.getId(state.q(0)),6) = -rot::RotationMatrixPD(state.q(0)).matrix()*LWF::Lmat(dOmega)*sqrt(dt);
-    return J;
-  }
-};
+using namespace LWFTest;
 
 // The fixture for testing class PredictionModel
 class PredictionModelTest : public ::testing::Test {
@@ -85,21 +13,33 @@ class PredictionModelTest : public ::testing::Test {
     testState_.v(2) = Eigen::Vector3d(0.3,10.9,2.3);
     testState_.v(3) = Eigen::Vector3d(0.3,10.9,2.3);
     testState_.q(0) = rot::RotationQuaternionPD(4.0/sqrt(30.0),3.0/sqrt(30.0),1.0/sqrt(30.0),2.0/sqrt(30.0));
-    testMeas_.v(0) = Eigen::Vector3d(-1.5,12,1785.23);
-    testMeas_.v(1) = Eigen::Vector3d(-1.5,12,1785.23);
+    testMeas_.v(0) = Eigen::Vector3d(2.3,5.6,3.1);
+    testMeas_.v(1) = Eigen::Vector3d(-2,2,-2);
+    measMap_[0.1] = testMeas_;
+    testMeas_.v(0) = Eigen::Vector3d(-1.5,12,15.23);
+    testMeas_.v(1) = Eigen::Vector3d(-5,2,5.2);
+    measMap_[0.2] = testMeas_;
+    testMeas_.v(0) = Eigen::Vector3d(3,-4.5,0.0);
+    testMeas_.v(1) = Eigen::Vector3d(-1.2,2.1,1.1);
+    measMap_[0.4] = testMeas_;
   }
   virtual ~PredictionModelTest() {
   }
   PredictionExample testPrediction_;
   State testState_;
-  Meas testMeas_;
+  PredictionMeas testMeas_;
   const double dt_ = 0.1;
+  std::map<double,PredictionMeas> measMap_;
 };
 
 // Test constructors
 TEST_F(PredictionModelTest, constructors) {
   PredictionExample testPrediction;
   ASSERT_EQ((testPrediction.prenoiP_-PredictionExample::mtNoise::mtCovMat::Identity()*0.0001).norm(),0.0);
+  typename PredictionExample::mtNoise::mtDiffVec dif;
+  testPrediction.stateSigmaPointsNoi_.getMean().boxMinus(typename PredictionExample::mtNoise(),dif);
+  ASSERT_NEAR(dif.norm(),0.0,1e-6);
+  ASSERT_NEAR((testPrediction.prenoiP_-PredictionExample::mtNoise::mtCovMat::Identity()*0.0001).norm(),0.0,1e-8);
 }
 
 // Test finite difference Jacobians
@@ -136,8 +76,32 @@ TEST_F(PredictionModelTest, comparePredict) {
   testPrediction_.predictUKF(state2,cov2,testMeas_,dt_);
   PredictionExample::mtState::mtDiffVec dif;
   state1.boxMinus(state2,dif);
-  ASSERT_NEAR(dif.norm(),0.0,1e-6); // Careful, will differ depending on the magnitude of the covariance
+  ASSERT_NEAR(dif.norm(),0.0,1e-5); // Careful, will differ depending on the magnitude of the covariance
   ASSERT_NEAR((cov1-cov2).norm(),0.0,1e-6); // Careful, will differ depending on the magnitude of the covariance
+}
+
+// Test predictMergedEKF
+TEST_F(PredictionModelTest, predictMergedEKF) {
+  PredictionExample::mtState::mtCovMat cov;
+  cov.setIdentity();
+  double t = 0;
+  double dt = measMap_.rbegin()->first-t;
+  PredictionExample::mtJacInput F = testPrediction_.jacInput(testState_,measMap_.begin()->second,dt);
+  PredictionExample::mtJacNoise Fn = testPrediction_.jacNoise(testState_,measMap_.begin()->second,dt);
+  PredictionExample::mtState::mtCovMat predictedCov = F*cov*F.transpose() + Fn*testPrediction_.prenoiP_*Fn.transpose();
+  PredictionExample::mtState state1;
+  state1 = testState_;
+  testPrediction_.predictMergedEKF(state1,cov,0.0,measMap_.begin(),measMap_.size());
+  PredictionExample::mtState state2;
+  state2 = testState_;
+  for(std::map<double,PredictionMeas>::iterator it = measMap_.begin();it != measMap_.end();it++){
+    state2 = testPrediction_.eval(state2,it->second,it->first-t);
+    t = it->first;
+  }
+  PredictionExample::mtState::mtDiffVec dif;
+  state1.boxMinus(state2,dif);
+  ASSERT_NEAR(dif.norm(),0.0,1e-6);
+  ASSERT_NEAR((cov-predictedCov).norm(),0.0,1e-6);
 }
 
 int main(int argc, char **argv) {
