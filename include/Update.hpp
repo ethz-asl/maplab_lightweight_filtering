@@ -122,7 +122,6 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>{
     for(typename std::vector<UpdateOutlierDetection<Innovation>>::iterator it = outlierDetectionVector_.begin(); it != outlierDetectionVector_.end(); it++){
       it->check(innVector_,Py_);
       if(it->outlier_){
-        // innVector_.block(it->startIndex_,0,it->N_,1).setZero(); // TODO remove if tested
         Py_.block(0,it->startIndex_,mtInnovation::D_,it->N_).setZero();
         Py_.block(it->startIndex_,0,it->N_,mtInnovation::D_).setZero();
         Py_.block(it->startIndex_,it->startIndex_,it->N_,it->N_).setIdentity();
@@ -158,7 +157,6 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>{
     for(typename std::vector<UpdateOutlierDetection<Innovation>>::iterator it = outlierDetectionVector_.begin(); it != outlierDetectionVector_.end(); it++){
       it->check(innVector_,Py_);
       if(it->outlier_){
-        // innVector_.block(it->startIndex_,0,it->N_,1).setZero(); // TODO remove if tested
         Py_.block(0,it->startIndex_,mtInnovation::D_,it->N_).setZero();
         Py_.block(it->startIndex_,0,it->N_,mtInnovation::D_).setZero();
         Py_.block(it->startIndex_,it->startIndex_,it->N_,it->N_).setIdentity();
@@ -195,6 +193,7 @@ class PredictionUpdate: public ModelBase<State,Innovation,Meas,Noise>{
   typedef typename Prediction::mtMeas mtPredictionMeas;
   typedef Noise mtNoise;
   typedef typename Prediction::mtNoise mtPredictionNoise;
+  typedef PairState<mtPredictionNoise,mtNoise> mtJointNoise;
   typename ModelBase<State,Innovation,Meas,Noise>::mtJacInput H_;
   typename ModelBase<State,Innovation,Meas,Noise>::mtJacNoise Hn_;
   typename Prediction::mtJacInput F_;
@@ -211,10 +210,10 @@ class PredictionUpdate: public ModelBase<State,Innovation,Meas,Noise>{
   typename mtState::mtDiffVec updateVec_;
   Eigen::Matrix<double,mtState::D_,mtInnovation::D_> K_;
   Eigen::Matrix<double,mtState::D_,mtInnovation::D_> Pxy_;
-  SigmaPoints<mtState,2*mtState::D_+1,2*(mtState::D_+mtNoise::D_+mtPredictionNoise::D_)+1,0> stateSigmaPoints_;
-  SigmaPoints<mtState,2*(mtState::D_+mtNoise::D_+mtPredictionNoise::D_)+1,2*(mtState::D_+mtNoise::D_+mtPredictionNoise::D_)+1,0> stateSigmaPointsPre_;
-  SigmaPoints<PairState<mtPredictionNoise,mtNoise>,2*(mtNoise::D_+mtPredictionNoise::D_)+1,2*(mtState::D_+mtNoise::D_+mtPredictionNoise::D_)+1,2*(mtState::D_)> stateSigmaPointsNoi_;
-  SigmaPoints<mtInnovation,2*(mtState::D_+mtNoise::D_+mtPredictionNoise::D_)+1,2*(mtState::D_+mtNoise::D_+mtPredictionNoise::D_)+1,0> innSigmaPoints_;
+  SigmaPoints<mtState,2*mtState::D_+1,2*(mtState::D_+mtJointNoise::D_)+1,0> stateSigmaPoints_;
+  SigmaPoints<mtState,2*(mtState::D_+mtJointNoise::D_)+1,2*(mtState::D_+mtJointNoise::D_)+1,0> stateSigmaPointsPre_;
+  SigmaPoints<mtJointNoise,2*mtJointNoise::D_+1,2*(mtState::D_+mtJointNoise::D_)+1,2*(mtState::D_)> stateSigmaPointsNoi_;
+  SigmaPoints<mtInnovation,2*(mtState::D_+mtJointNoise::D_)+1,2*(mtState::D_+mtJointNoise::D_)+1,0> innSigmaPoints_;
   SigmaPoints<LWF::VectorState<mtState::D_>,2*mtState::D_+1,2*mtState::D_+1,0> updateVecSP_;
   SigmaPoints<mtState,2*mtState::D_+1,2*mtState::D_+1,0> posterior_;
   std::vector<UpdateOutlierDetection<Innovation>> outlierDetectionVector_;

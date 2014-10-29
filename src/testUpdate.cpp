@@ -37,6 +37,8 @@ TEST_F(UpdateModelTest, constructors) {
   testUpdate.stateSigmaPointsNoi_.getMean().boxMinus(typename UpdateExample::mtNoise(),dif);
   ASSERT_NEAR(dif.norm(),0.0,1e-6);
   ASSERT_NEAR((testUpdate.updnoiP_-testUpdate.stateSigmaPointsNoi_.getCovarianceMatrix()).norm(),0.0,1e-8);
+  PredictAndUpdateExample testPredictAndUpdate;
+  ASSERT_EQ((testPredictAndUpdate.updnoiP_-PredictAndUpdateExample::mtNoise::mtCovMat::Identity()*0.0001).norm(),0.0);
 }
 
 // Test finite difference Jacobians
@@ -134,12 +136,24 @@ TEST_F(UpdateModelTest, compareUpdate) {
   state1.boxMinus(state2,dif);
   ASSERT_NEAR(dif.norm(),0.0,1e-6); // Careful, will differ depending on the magnitude of the covariance
   ASSERT_NEAR((cov1-cov2).norm(),0.0,1e-5); // Careful, will differ depending on the magnitude of the covariance
+
+  // Test with outlier detection
+  cov1 = UpdateExample::mtState::mtCovMat::Identity()*0.000001;
+  cov2 = UpdateExample::mtState::mtCovMat::Identity()*0.000001;
+  state1 = testState_;
+  state2 = testState_;
+  testUpdate_.outlierDetectionVector_.push_back(LWF::UpdateOutlierDetection<UpdateExample::mtInnovation>(0,2,7.21));
+  testUpdate_.updateEKF(state1,cov1,testUpdateMeas_);
+  testUpdate_.updateUKF(state2,cov2,testUpdateMeas_);
+  state1.boxMinus(state2,dif);
+  ASSERT_NEAR(dif.norm(),0.0,1e-6);
+  ASSERT_NEAR((cov1-cov2).norm(),0.0,1e-5);
 }
 
 // Test predictAndUpdateEKF
 TEST_F(UpdateModelTest, predictAndUpdateEKF) {
   UpdateExample::mtState::mtCovMat cov1 = UpdateExample::mtState::mtCovMat::Identity()*0.000001;
-  UpdateExample::mtState::mtCovMat cov2 = UpdateExample::mtState::mtCovMat::Identity()*0.000001;
+  UpdateExample::mtState::mtCovMat cov2 = cov1;
   UpdateExample::mtState state1 = testState_;
   UpdateExample::mtState state2 = testState_;
   testPrediction_.predictEKF(state1,cov1,testPredictionMeas_,dt_);
@@ -147,14 +161,28 @@ TEST_F(UpdateModelTest, predictAndUpdateEKF) {
   testPredictAndUpdate_.predictAndUpdateEKF(state2,cov2,testUpdateMeas_,testPrediction_,testPredictionMeas_,dt_);
   UpdateExample::mtState::mtDiffVec dif;
   state1.boxMinus(state2,dif);
-  ASSERT_NEAR(dif.norm(),0.0,1e-6); // Careful, will differ depending on the magnitude of the covariance
-  ASSERT_NEAR((cov1-cov2).norm(),0.0,1e-5); // Careful, will differ depending on the magnitude of the covariance
+  ASSERT_NEAR(dif.norm(),0.0,1e-8);
+  ASSERT_NEAR((cov1-cov2).norm(),0.0,1e-8);
+
+  // With outlier
+  testUpdate_.outlierDetectionVector_.push_back(LWF::UpdateOutlierDetection<UpdateExample::mtInnovation>(0,2,7.21));
+  testPredictAndUpdate_.outlierDetectionVector_.push_back(LWF::UpdateOutlierDetection<UpdateExample::mtInnovation>(0,2,7.21));
+  cov1 = UpdateExample::mtState::mtCovMat::Identity()*0.000001;
+  cov2 = cov1;
+  state1 = testState_;
+  state2 = testState_;
+  testPrediction_.predictEKF(state1,cov1,testPredictionMeas_,dt_);
+  testUpdate_.updateEKF(state1,cov1,testUpdateMeas_);
+  testPredictAndUpdate_.predictAndUpdateEKF(state2,cov2,testUpdateMeas_,testPrediction_,testPredictionMeas_,dt_);
+  state1.boxMinus(state2,dif);
+  ASSERT_NEAR(dif.norm(),0.0,1e-8);
+  ASSERT_NEAR((cov1-cov2).norm(),0.0,1e-8);
 }
 
 // Test predictAndUpdateUKF
 TEST_F(UpdateModelTest, predictAndUpdateUKF) {
   UpdateExample::mtState::mtCovMat cov1 = UpdateExample::mtState::mtCovMat::Identity()*0.000001;
-  UpdateExample::mtState::mtCovMat cov2 = UpdateExample::mtState::mtCovMat::Identity()*0.000001;
+  UpdateExample::mtState::mtCovMat cov2 = cov1;
   UpdateExample::mtState state1 = testState_;
   UpdateExample::mtState state2 = testState_;
   testPrediction_.predictUKF(state1,cov1,testPredictionMeas_,dt_);
@@ -164,6 +192,35 @@ TEST_F(UpdateModelTest, predictAndUpdateUKF) {
   state1.boxMinus(state2,dif);
   ASSERT_NEAR(dif.norm(),0.0,1e-4); // Careful, will differ depending on the magnitude of the covariance
   ASSERT_NEAR((cov1-cov2).norm(),0.0,1e-6); // Careful, will differ depending on the magnitude of the covariance
+
+  // With outlier
+  testUpdate_.outlierDetectionVector_.push_back(LWF::UpdateOutlierDetection<UpdateExample::mtInnovation>(0,2,7.21));
+  testPredictAndUpdate_.outlierDetectionVector_.push_back(LWF::UpdateOutlierDetection<UpdateExample::mtInnovation>(0,2,7.21));
+  cov1 = UpdateExample::mtState::mtCovMat::Identity()*0.000001;
+  cov2 = cov1;
+  state1 = testState_;
+  state2 = testState_;
+  testPrediction_.predictUKF(state1,cov1,testPredictionMeas_,dt_);
+  testUpdate_.updateUKF(state1,cov1,testUpdateMeas_);
+  testPredictAndUpdate_.predictAndUpdateUKF(state2,cov2,testUpdateMeas_,testPrediction_,testPredictionMeas_,dt_);
+  state1.boxMinus(state2,dif);
+  ASSERT_NEAR(dif.norm(),0.0,1e-4); // Careful, will differ depending on the magnitude of the covariance
+  ASSERT_NEAR((cov1-cov2).norm(),0.0,1e-6); // Careful, will differ depending on the magnitude of the covariance
+}
+
+// Test comparePredictAndUpdate (including correlated noise)
+TEST_F(UpdateModelTest, comparePredictAndUpdate) {
+  UpdateExample::mtState::mtCovMat cov1 = UpdateExample::mtState::mtCovMat::Identity()*0.000001;
+  UpdateExample::mtState::mtCovMat cov2 = cov1;
+  UpdateExample::mtState state1 = testState_;
+  UpdateExample::mtState state2 = testState_;
+  testPredictAndUpdate_.predictAndUpdateEKF(state1,cov1,testUpdateMeas_,testPrediction_,testPredictionMeas_,dt_);
+  testPredictAndUpdate_.predictAndUpdateUKF(state2,cov2,testUpdateMeas_,testPrediction_,testPredictionMeas_,dt_);
+  UpdateExample::mtState::mtDiffVec dif;
+  state1.boxMinus(state2,dif);
+//  ASSERT_NEAR(dif.norm(),0.0,1e-4); // Careful, will differ depending on the magnitude of the covariance
+//  ASSERT_NEAR((cov1-cov2).norm(),0.0,1e-6); // Careful, will differ depending on the magnitude of the covariance
+
 }
 
 int main(int argc, char **argv) {
