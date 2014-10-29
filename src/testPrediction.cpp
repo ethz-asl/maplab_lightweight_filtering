@@ -104,6 +104,27 @@ TEST_F(PredictionModelTest, predictMergedEKF) {
   ASSERT_NEAR((cov-predictedCov).norm(),0.0,1e-6);
 }
 
+// Test predictMergedUKF
+TEST_F(PredictionModelTest, predictMergedUKF) {
+  PredictionExample::mtState::mtCovMat cov;
+  cov.setIdentity();
+  double t = 0;
+  double dt = measMap_.rbegin()->first-t;
+  testPrediction_.stateSigmaPoints_.computeFromGaussian(testState_,cov);
+  for(unsigned int i=0;i<testPrediction_.stateSigmaPoints_.L_;i++){
+    testPrediction_.stateSigmaPointsPre_(i) = testPrediction_.eval(testPrediction_.stateSigmaPoints_(i),measMap_.begin()->second,testPrediction_.stateSigmaPointsNoi_(i),dt);
+  }
+  PredictionExample::mtState state1 = testPrediction_.stateSigmaPointsPre_.getMean();
+  PredictionExample::mtState::mtCovMat predictedCov = testPrediction_.stateSigmaPointsPre_.getCovarianceMatrix(state1);
+  PredictionExample::mtState state2;
+  state2 = testState_;
+  testPrediction_.predictMergedUKF(state2,cov,0.0,measMap_.begin(),measMap_.size());
+  PredictionExample::mtState::mtDiffVec dif;
+  state1.boxMinus(state2,dif);
+  ASSERT_NEAR(dif.norm(),0.0,1e-6);
+  ASSERT_NEAR((cov-predictedCov).norm(),0.0,1e-6);
+}
+
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
