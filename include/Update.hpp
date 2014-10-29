@@ -269,7 +269,6 @@ class PredictionUpdate: public ModelBase<State,Innovation,Meas,Noise>{
     for(typename std::vector<UpdateOutlierDetection<Innovation>>::iterator it = outlierDetectionVector_.begin(); it != outlierDetectionVector_.end(); it++){
       it->check(innVector_,Py_);
       if(it->outlier_){
-        // innVector_.block(it->startIndex_,0,it->N_,1).setZero(); // TODO remove if tested
         Py_.block(0,it->startIndex_,mtInnovation::D_,it->N_).setZero();
         Py_.block(it->startIndex_,0,it->N_,mtInnovation::D_).setZero();
         Py_.block(it->startIndex_,it->startIndex_,it->N_,it->N_).setIdentity();
@@ -321,7 +320,6 @@ class PredictionUpdate: public ModelBase<State,Innovation,Meas,Noise>{
     for(typename std::vector<UpdateOutlierDetection<Innovation>>::iterator it = outlierDetectionVector_.begin(); it != outlierDetectionVector_.end(); it++){
       it->check(innVector_,Py_);
       if(it->outlier_){
-        // innVector_.block(it->startIndex_,0,it->N_,1).setZero(); // TODO remove if tested
         Py_.block(0,it->startIndex_,mtInnovation::D_,it->N_).setZero();
         Py_.block(it->startIndex_,0,it->N_,mtInnovation::D_).setZero();
         Py_.block(it->startIndex_,it->startIndex_,it->N_,it->N_).setIdentity();

@@ -13,6 +13,8 @@
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/info_parser.hpp>
 #include <list>
+#include "State.hpp"
+
 namespace rot = kindr::rotations::eigen_impl;
 
 namespace LWF{
@@ -68,6 +70,18 @@ class PropertyHandler{
   }
   void registerSubHandler(std::string str,PropertyHandler& subHandler){
     subHandlers_.push_back(std::pair<std::string,PropertyHandler*>(str,&subHandler));
+  }
+  template<unsigned int S, unsigned int V, unsigned int Q>
+  void registerStateSVQ(StateSVQ<S,V,Q>& state){
+    for(unsigned int i=0;i<S;i++){
+      doubleRegister_.registerScalar("s" + i, state.s(i));
+    }
+    for(unsigned int i=0;i<V;i++){
+      doubleRegister_.registerVector("v" + i, state.v(i));
+    }
+    for(unsigned int i=0;i<Q;i++){
+      doubleRegister_.registerQuaternion("q" + i, state.q(i));
+    };
   }
   void writeToInfo(const std::string &filename){
     ptree pt;

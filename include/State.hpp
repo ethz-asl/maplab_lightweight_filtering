@@ -329,7 +329,7 @@ class AugmentedState: public State{
   }
 };
 
-static Eigen::Matrix3d Lmat (Eigen::Vector3d a) {
+static Eigen::Matrix3d Lmat (Eigen::Vector3d a) { // TODO
   double aNorm = a.norm();
   double factor1 = 0;
   double factor2 = 0;

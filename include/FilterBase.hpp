@@ -255,6 +255,7 @@ class FilterBase: public PropertyHandler{
   std::vector<UpdateManagerBase<mtState>*> mUpdateVector_;
   FilterBase(){
     doubleRegister_.registerScalar("t",safe_.t_);
+    registerStateSVQ(init_.state_);
   };
   virtual ~FilterBase(){
   };
