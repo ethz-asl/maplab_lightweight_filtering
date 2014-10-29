@@ -39,7 +39,7 @@ TEST_F(PredictionModelTest, constructors) {
   typename PredictionExample::mtNoise::mtDiffVec dif;
   testPrediction.stateSigmaPointsNoi_.getMean().boxMinus(typename PredictionExample::mtNoise(),dif);
   ASSERT_NEAR(dif.norm(),0.0,1e-6);
-  ASSERT_NEAR((testPrediction.prenoiP_-PredictionExample::mtNoise::mtCovMat::Identity()*0.0001).norm(),0.0,1e-8);
+  ASSERT_NEAR((testPrediction.prenoiP_-testPrediction.stateSigmaPointsNoi_.getCovarianceMatrix()).norm(),0.0,1e-8);
 }
 
 // Test finite difference Jacobians

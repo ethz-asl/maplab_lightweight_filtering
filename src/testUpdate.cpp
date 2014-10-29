@@ -33,6 +33,10 @@ class UpdateModelTest : public ::testing::Test {
 TEST_F(UpdateModelTest, constructors) {
   UpdateExample testUpdate;
   ASSERT_EQ((testUpdate.updnoiP_-UpdateExample::mtNoise::mtCovMat::Identity()*0.0001).norm(),0.0);
+  typename UpdateExample::mtNoise::mtDiffVec dif;
+  testUpdate.stateSigmaPointsNoi_.getMean().boxMinus(typename UpdateExample::mtNoise(),dif);
+  ASSERT_NEAR(dif.norm(),0.0,1e-6);
+  ASSERT_NEAR((testUpdate.updnoiP_-testUpdate.stateSigmaPointsNoi_.getCovarianceMatrix()).norm(),0.0,1e-8);
 }
 
 // Test finite difference Jacobians
@@ -62,6 +66,46 @@ TEST_F(UpdateModelTest, updateEKF) {
   // Update
   UpdateExample::mtInnovation::mtCovMat Py = H*cov*H.transpose() + Hn*testUpdate_.updnoiP_*Hn.transpose();
   y.boxMinus(yIdentity,innVector);
+  UpdateExample::mtInnovation::mtCovMat Pyinv = Py.inverse();
+
+  // Kalman Update
+  Eigen::Matrix<double,UpdateExample::mtState::D_,UpdateExample::mtInnovation::D_> K = cov*H.transpose()*Pyinv;
+  updateCov = cov - K*Py*K.transpose();
+  UpdateExample::mtState::mtDiffVec updateVec;
+  updateVec = -K*innVector;
+  state.boxPlus(updateVec,stateUpdated);
+
+  testUpdate_.updateEKF(state,cov,testUpdateMeas_);
+  UpdateExample::mtState::mtDiffVec dif;
+  state.boxMinus(stateUpdated,dif);
+  ASSERT_NEAR(dif.norm(),0.0,1e-6);
+  ASSERT_NEAR((cov-updateCov).norm(),0.0,1e-6);
+}
+
+// Test updateEKFWithOutlier
+TEST_F(UpdateModelTest, updateEKFWithOutlier) {
+  testUpdate_.outlierDetectionVector_.push_back(LWF::UpdateOutlierDetection<UpdateExample::mtInnovation>(0,2,7.21));
+  UpdateExample::mtState::mtCovMat cov;
+  UpdateExample::mtState::mtCovMat updateCov;
+  cov.setIdentity();
+  UpdateExample::mtJacInput H = testUpdate_.jacInput(testState_,testUpdateMeas_,dt_);
+  UpdateExample::mtJacNoise Hn = testUpdate_.jacNoise(testState_,testUpdateMeas_,dt_);
+
+  UpdateExample::mtInnovation y = testUpdate_.eval(testState_,testUpdateMeas_);
+  UpdateExample::mtInnovation yIdentity;
+  UpdateExample::mtInnovation::mtDiffVec innVector;
+
+  UpdateExample::mtState state;
+  UpdateExample::mtState stateUpdated;
+  state = testState_;
+
+  // Update
+  UpdateExample::mtInnovation::mtCovMat Py = H*cov*H.transpose() + Hn*testUpdate_.updnoiP_*Hn.transpose();
+  y.boxMinus(yIdentity,innVector);
+  Py.block(0,0,6,3).setZero();
+  Py.block(0,0,3,6).setZero();
+  Py.block(0,0,3,3).setIdentity();
+  H.block(0,0,3,UpdateExample::mtState::D_).setZero();
   UpdateExample::mtInnovation::mtCovMat Pyinv = Py.inverse();
 
   // Kalman Update
@@ -116,8 +160,6 @@ TEST_F(UpdateModelTest, predictAndUpdateUKF) {
   testPrediction_.predictUKF(state1,cov1,testPredictionMeas_,dt_);
   testUpdate_.updateUKF(state1,cov1,testUpdateMeas_);
   testPredictAndUpdate_.predictAndUpdateUKF(state2,cov2,testUpdateMeas_,testPrediction_,testPredictionMeas_,dt_);
-  state1.print();
-  state2.print();
   UpdateExample::mtState::mtDiffVec dif;
   state1.boxMinus(state2,dif);
   ASSERT_NEAR(dif.norm(),0.0,1e-4); // Careful, will differ depending on the magnitude of the covariance
