@@ -206,6 +206,8 @@ TEST_F(UpdateModelTest, predictAndUpdateUKF) {
   state1.boxMinus(state2,dif);
   ASSERT_NEAR(dif.norm(),0.0,1e-4); // Careful, will differ depending on the magnitude of the covariance
   ASSERT_NEAR((cov1-cov2).norm(),0.0,1e-6); // Careful, will differ depending on the magnitude of the covariance
+
+  // NB: Also tested with hack in update, difference comes because of different sigma points
 }
 
 // Test comparePredictAndUpdate (including correlated noise)
@@ -218,9 +220,32 @@ TEST_F(UpdateModelTest, comparePredictAndUpdate) {
   testPredictAndUpdate_.predictAndUpdateUKF(state2,cov2,testUpdateMeas_,testPrediction_,testPredictionMeas_,dt_);
   UpdateExample::mtState::mtDiffVec dif;
   state1.boxMinus(state2,dif);
-//  ASSERT_NEAR(dif.norm(),0.0,1e-4); // Careful, will differ depending on the magnitude of the covariance
-//  ASSERT_NEAR((cov1-cov2).norm(),0.0,1e-6); // Careful, will differ depending on the magnitude of the covariance
+  ASSERT_NEAR(dif.norm(),0.0,1e-3); // Careful, will differ depending on the magnitude of the covariance
+  ASSERT_NEAR((cov1-cov2).norm(),0.0,1e-4); // Careful, will differ depending on the magnitude of the covariance
 
+  // Negativ Control (Based on above)
+  cov1 = UpdateExample::mtState::mtCovMat::Identity()*0.000001;
+  cov2 = cov1;
+  state1 = testState_;
+  state2 = testState_;
+  testPredictAndUpdate_.predictAndUpdateEKF(state1,cov1,testUpdateMeas_,testPrediction_,testPredictionMeas_,dt_);
+  testPredictAndUpdate_.preupdnoiP_.block(6,3,3,3) = Eigen::Matrix3d::Identity()*0.00005;
+  testPredictAndUpdate_.predictAndUpdateUKF(state2,cov2,testUpdateMeas_,testPrediction_,testPredictionMeas_,dt_);
+  state1.boxMinus(state2,dif);
+  ASSERT_TRUE(dif.norm()>1e-3);
+  ASSERT_TRUE((cov1-cov2).norm()>1e-4);
+
+
+  testPredictAndUpdate_.preupdnoiP_.block(6,3,3,3) = Eigen::Matrix3d::Identity()*0.00005;
+  cov1 = UpdateExample::mtState::mtCovMat::Identity()*0.000001;
+  cov2 = cov1;
+  state1 = testState_;
+  state2 = testState_;
+  testPredictAndUpdate_.predictAndUpdateEKF(state1,cov1,testUpdateMeas_,testPrediction_,testPredictionMeas_,dt_);
+  testPredictAndUpdate_.predictAndUpdateUKF(state2,cov2,testUpdateMeas_,testPrediction_,testPredictionMeas_,dt_);
+  state1.boxMinus(state2,dif);
+  ASSERT_NEAR(dif.norm(),0.0,1e-3); // Careful, will differ depending on the magnitude of the covariance
+  ASSERT_NEAR((cov1-cov2).norm(),0.0,1e-4); // Careful, will differ depending on the magnitude of the covariance
 }
 
 int main(int argc, char **argv) {
