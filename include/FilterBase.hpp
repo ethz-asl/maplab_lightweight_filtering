@@ -254,8 +254,7 @@ class FilterBase: public PropertyHandler{
   PredictionManager<mtPrediction> predictionManager_;
   std::vector<UpdateManagerBase<mtState>*> mUpdateVector_;
   FilterBase(){
-    doubleRegister_.registerScalar("t",safe_.t_);
-    registerStateSVQ(init_.state_);
+    registerStateSVQ("initState.",init_.state_);
   };
   virtual ~FilterBase(){
   };
@@ -338,12 +337,12 @@ class FilterBase: public PropertyHandler{
   void clean(const double& t){
     predictionManager_.clean(t);
     for(unsigned int i=0;i<mUpdateVector_.size();i++){
-      if(mUpdateVector_[i] != nullptr) mUpdateVector_[i]->clean(t);
+      mUpdateVector_[i]->clean(t);
     }
   }
-  void registerUpdateManager(UpdateManagerBase<mtState>& updateManagerBase){
+  void registerUpdateManager(UpdateManagerBase<mtState>& updateManagerBase, std::string str){
     mUpdateVector_.push_back(&updateManagerBase); // TODO make unique
-    registerSubHandler("test",updateManagerBase); // TODO change name
+    registerSubHandler(str,updateManagerBase);
   }
 };
 
