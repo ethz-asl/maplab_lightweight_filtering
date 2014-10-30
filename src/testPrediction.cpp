@@ -86,8 +86,20 @@ TEST_F(PredictionModelTest, predictMergedEKF) {
   cov.setIdentity();
   double t = 0;
   double dt = measMap_.rbegin()->first-t;
-  PredictionExample::mtJacInput F = testPrediction_.jacInput(testState_,measMap_.begin()->second,dt);
-  PredictionExample::mtJacNoise Fn = testPrediction_.jacNoise(testState_,measMap_.begin()->second,dt);
+
+  PredictionExample::mtMeas meanMeas;
+  typename PredictionExample::mtMeas::mtDiffVec vec;
+  typename PredictionExample::mtMeas::mtDiffVec difVec;
+  vec.setZero();
+  for(std::map<double,PredictionMeas>::iterator it = next(measMap_.begin());it != measMap_.end();it++){
+    measMap_.begin()->second.boxMinus(it->second,difVec);
+    vec = vec + difVec;
+  }
+  vec = vec/measMap_.size();
+  measMap_.begin()->second.boxPlus(vec,meanMeas);
+
+  PredictionExample::mtJacInput F = testPrediction_.jacInput(testState_,meanMeas,dt);
+  PredictionExample::mtJacNoise Fn = testPrediction_.jacNoise(testState_,meanMeas,dt);
   PredictionExample::mtState::mtCovMat predictedCov = F*cov*F.transpose() + Fn*testPrediction_.prenoiP_*Fn.transpose();
   PredictionExample::mtState state1;
   state1 = testState_;
@@ -110,9 +122,21 @@ TEST_F(PredictionModelTest, predictMergedUKF) {
   cov.setIdentity();
   double t = 0;
   double dt = measMap_.rbegin()->first-t;
+
+  PredictionExample::mtMeas meanMeas;
+  typename PredictionExample::mtMeas::mtDiffVec vec;
+  typename PredictionExample::mtMeas::mtDiffVec difVec;
+  vec.setZero();
+  for(std::map<double,PredictionMeas>::iterator it = next(measMap_.begin());it != measMap_.end();it++){
+    measMap_.begin()->second.boxMinus(it->second,difVec);
+    vec = vec + difVec;
+  }
+  vec = vec/measMap_.size();
+  measMap_.begin()->second.boxPlus(vec,meanMeas);
+
   testPrediction_.stateSigmaPoints_.computeFromGaussian(testState_,cov);
   for(unsigned int i=0;i<testPrediction_.stateSigmaPoints_.L_;i++){
-    testPrediction_.stateSigmaPointsPre_(i) = testPrediction_.eval(testPrediction_.stateSigmaPoints_(i),measMap_.begin()->second,testPrediction_.stateSigmaPointsNoi_(i),dt);
+    testPrediction_.stateSigmaPointsPre_(i) = testPrediction_.eval(testPrediction_.stateSigmaPoints_(i),meanMeas,testPrediction_.stateSigmaPointsNoi_(i),dt);
   }
   PredictionExample::mtState state1 = testPrediction_.stateSigmaPointsPre_.getMean();
   PredictionExample::mtState::mtCovMat predictedCov = testPrediction_.stateSigmaPointsPre_.getCovarianceMatrix(state1);

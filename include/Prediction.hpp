@@ -95,38 +95,63 @@ class Prediction: public ModelBase<State,State,Meas,Noise>{
     }
   }
   virtual int predictMergedEKF(mtState& state, mtCovMat& cov, double tStart, const typename std::map<double,mtMeas>::iterator itMeasStart, unsigned int N){
-    const typename std::map<double,mtMeas>::iterator itMeasEnd = next(itMeasStart,N-1);
+    const typename std::map<double,mtMeas>::iterator itMeasEnd = next(itMeasStart,N);
     typename std::map<double,mtMeas>::iterator itMeas = itMeasStart;
-    double dT = itMeasEnd->first-tStart;
-    preProcess(state,cov,itMeasStart->second,dT);
-    F_ = this->jacInput(state,itMeasStart->second,dT);
-    Fn_ = this->jacNoise(state,itMeasStart->second,dT); // TODO: check
+    double dT = next(itMeasStart,N-1)->first-tStart;
+
+    // Compute mean Measurement
+    mtMeas meanMeas;
+    typename mtMeas::mtDiffVec vec;
+    typename mtMeas::mtDiffVec difVec;
+    vec.setZero();
+    for(itMeas=next(itMeasStart);itMeas!=itMeasEnd;itMeas++){
+      itMeasStart->second.boxMinus(itMeas->second,difVec);
+      vec = vec + difVec;
+    }
+    vec = vec/N;
+    itMeasStart->second.boxPlus(vec,meanMeas);
+
+    preProcess(state,cov,meanMeas,dT);
+    F_ = this->jacInput(state,meanMeas,dT);
+    Fn_ = this->jacNoise(state,meanMeas,dT); // Works for time continuous parametrization of noise
     double t = tStart;
-    for(unsigned int i=0;i<N;i++){
+    for(itMeas=itMeasStart;itMeas!=itMeasEnd;itMeas++){
       state = this->eval(state,itMeas->second,itMeas->first-t);
       t = itMeas->first;
-      itMeas++;
     }
     state.fix();
     cov = F_*cov*F_.transpose() + Fn_*prenoiP_*Fn_.transpose();
-    postProcess(state,cov,itMeasEnd->second,dT);
+    postProcess(state,cov,meanMeas,dT);
     return 0;
   }
   virtual int predictMergedUKF(mtState& state, mtCovMat& cov, double tStart, const typename std::map<double,mtMeas>::iterator itMeasStart, unsigned int N){
-    const typename std::map<double,mtMeas>::iterator itMeasEnd = next(itMeasStart,N-1);
+    const typename std::map<double,mtMeas>::iterator itMeasEnd = next(itMeasStart,N);
     typename std::map<double,mtMeas>::iterator itMeas = itMeasStart;
-    double dT = itMeasEnd->first-tStart;
-    preProcess(state,cov,itMeasStart->second,dT);
+    double dT = next(itMeasStart,N-1)->first-tStart;
+
+    // Compute mean Measurement
+    mtMeas meanMeas;
+    typename mtMeas::mtDiffVec vec;
+    typename mtMeas::mtDiffVec difVec;
+    vec.setZero();
+    for(itMeas=next(itMeasStart);itMeas!=itMeasEnd;itMeas++){
+      itMeasStart->second.boxMinus(itMeas->second,difVec);
+      vec = vec + difVec;
+    }
+    vec = vec/N;
+    itMeasStart->second.boxPlus(vec,meanMeas);
+
+    preProcess(state,cov,meanMeas,dT);
     stateSigmaPoints_.computeFromGaussian(state,cov);
 
     // Prediction
     for(unsigned int i=0;i<stateSigmaPoints_.L_;i++){
-      stateSigmaPointsPre_(i) = this->eval(stateSigmaPoints_(i),itMeasStart->second,stateSigmaPointsNoi_(i),dT); // TODO: check
+      stateSigmaPointsPre_(i) = this->eval(stateSigmaPoints_(i),meanMeas,stateSigmaPointsNoi_(i),dT); // TODO: check
     }
     state = stateSigmaPointsPre_.getMean();
     state.fix();
     cov = stateSigmaPointsPre_.getCovarianceMatrix(state);
-    postProcess(state,cov,itMeasEnd->second,dT);
+    postProcess(state,cov,meanMeas,dT);
     return 0;
   }
 };
