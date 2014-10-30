@@ -26,9 +26,11 @@ class StateSVQ{
   typedef Eigen::Matrix<double,D_,1> mtDiffVec;
   typedef Eigen::Matrix<double,D_,D_> mtCovMat;
   std::unordered_map<const void*,unsigned int> IdMap_;
+  std::array<std::string,S_+V_+Q_> names_;
   StateSVQ(){
     setIdentity();
     createVarLookup();
+    createDefaultNames();
   };
   StateSVQ(const StateSVQ<S,V,Q>& other){
     for(unsigned int i=0;i<S_;i++){
@@ -41,6 +43,7 @@ class StateSVQ{
       q(i) = other.q(i);
     };
     createVarLookup();
+    createDefaultNames();
   }
   double scalarList[S_];
   Eigen::Vector3d vectorList[V_];
@@ -113,6 +116,24 @@ class StateSVQ{
     assert(i<S_);
     return scalarList[i];
   };
+  const double& s(const std::string& str) const{
+    for(unsigned int i=0;i<S_;i++){
+      if(names_[i]==str){
+        return s(i);
+      }
+    }
+    assert(0);
+    return s(0);
+  };
+  double& s(const std::string& str) {
+    for(unsigned int i=0;i<S_;i++){
+      if(names_[i]==str){
+        return s(i);
+      }
+    }
+    assert(0);
+    return s(0);
+  };
   const Eigen::Matrix<double,3,1>& v(unsigned int i) const{
     assert(i<V_);
     return vectorList[i];
@@ -120,6 +141,24 @@ class StateSVQ{
   Eigen::Matrix<double,3,1>& v(unsigned int i) {
     assert(i<V_);
     return vectorList[i];
+  };
+  const Eigen::Matrix<double,3,1>& v(const std::string& str) const{
+    for(unsigned int i=0;i<V_;i++){
+      if(names_[i+S_]==str){
+        return v(i);
+      }
+    }
+    assert(0);
+    return v(0);
+  };
+  Eigen::Matrix<double,3,1>& v(const std::string& str) {
+    for(unsigned int i=0;i<V_;i++){
+      if(names_[i+S_]==str){
+        return v(i);
+      }
+    }
+    assert(0);
+    return v(0);
   };
   const rot::RotationQuaternionPD& q(unsigned int i) const{
     assert(i<Q_);
@@ -129,6 +168,24 @@ class StateSVQ{
     assert(i<Q_);
     return quaternionList[i];
   };
+  const rot::RotationQuaternionPD& q(const std::string& str) const{
+    for(unsigned int i=0;i<Q_;i++){
+      if(names_[i+S_+V_]==str){
+        return q(i);
+      }
+    }
+    assert(0);
+    return q(0);
+  };
+  rot::RotationQuaternionPD& q(const std::string& str) {
+    for(unsigned int i=0;i<Q_;i++){
+      if(names_[i+S_+V_]==str){
+        return q(i);
+      }
+    }
+    assert(0);
+    return q(0);
+  };
   unsigned int getId(const double& var) const{
     return IdMap_.at(static_cast<const void*>(&var));
   };
@@ -137,6 +194,25 @@ class StateSVQ{
   };
   unsigned int getId(const rot::RotationQuaternionPD& var) const{
     return IdMap_.at(static_cast<const void*>(&var));
+  };
+  unsigned int getId(const std::string& str) const{
+    for(unsigned int i=0;i<S_;i++){
+      if(names_[i]==str){
+        return i;
+      }
+    }
+    for(unsigned int i=S_;i<S_+V_;i++){
+      if(names_[i]==str){
+        return S_+(i-S_)*3;
+      }
+    }
+    for(unsigned int i=S_+V_;i<S_+V_+Q_;i++){
+      if(names_[i]==str){
+        return S_+3*V_+(i-S_-V_)*3;
+      }
+    }
+    assert(0);
+    return 0;
   };
   void createVarLookup(){
     for(unsigned int i=0;i<S_;i++){
@@ -148,6 +224,41 @@ class StateSVQ{
     for(unsigned int i=0;i<Q_;i++){
       IdMap_[static_cast<const void*>(&q(i))] = S_+3*V_+3*i;
     }
+  };
+  void createDefaultNames(){
+    for(unsigned int i=0;i<S_;i++){
+      sName(i) = "s" + std::to_string(i);
+    }
+    for(unsigned int i=0;i<V_;i++){
+      vName(i) = "v" + std::to_string(i);
+    }
+    for(unsigned int i=0;i<Q_;i++){
+      qName(i) = "q" + std::to_string(i);
+    }
+  };
+  const std::string& sName(unsigned int i) const{
+    assert(i<S_);
+    return names_[i];
+  };
+  std::string& sName(unsigned int i) {
+    assert(i<S_);
+    return names_[i];
+  };
+  const std::string& vName(unsigned int i) const{
+    assert(i<V_);
+    return names_[i+S_];
+  };
+  std::string& vName(unsigned int i) {
+    assert(i<V_);
+    return names_[i+S_];
+  };
+  const std::string& qName(unsigned int i) const{
+    assert(i<Q_);
+    return names_[i+S_+V_];
+  };
+  std::string& qName(unsigned int i) {
+    assert(i<Q_);
+    return names_[i+S_+V_];
   };
   StateSVQ<S,V,Q>& operator=(const StateSVQ<S,V,Q>& state){
     for(unsigned int i=0;i<S_;i++){

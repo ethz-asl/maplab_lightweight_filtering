@@ -126,10 +126,8 @@ class UpdateManager: public MeasurementTimeline<typename Update::mtMeas>,public 
   typedef typename Update::mtMeas mtMeas;
   typedef typename mtState::mtCovMat mtCovMat;
   Update update_;
-  double test;
   UpdateManager(UpdateFilteringMode filteringMode = UpdateEKF): UpdateManagerBase<typename Update::mtState>(false,filteringMode){
-    test = 0.5;
-    doubleRegister_.registerScalar("updnoiP00",test);
+    doubleRegister_.registerDiagonalMatrix("UpdateNoise",update_.updnoiP_);
   };
   ~UpdateManager(){};
   void update(FilterState<mtState>& filterState){
@@ -173,7 +171,7 @@ class UpdateAndPredictManager:public MeasurementTimeline<typename Update::mtMeas
 };
 
 template<typename Prediction, typename DefaultPrediction = Prediction>
-class PredictionManager: public MeasurementTimeline<typename Prediction::mtMeas>{
+class PredictionManager: public MeasurementTimeline<typename Prediction::mtMeas>, public PropertyHandler{
  public:
   using MeasurementTimeline<typename Prediction::mtMeas>::measMap_;
   using MeasurementTimeline<typename Prediction::mtMeas>::itMeas_;
@@ -183,7 +181,9 @@ class PredictionManager: public MeasurementTimeline<typename Prediction::mtMeas>
   Prediction prediction_;
   DefaultPrediction defaultPrediction_;
   const PredictionFilteringMode filteringMode_;
-  PredictionManager(PredictionFilteringMode filteringMode = PredictionEKF): filteringMode_(filteringMode){};
+  PredictionManager(PredictionFilteringMode filteringMode = PredictionEKF): filteringMode_(filteringMode){
+    doubleRegister_.registerScaledUnitMatrix("PredictionNoise",prediction_.prenoiP_);
+  };
   ~PredictionManager(){};
   std::vector<UpdateAndPredictManagerBase<mtState,Prediction>*> mCoupledUpdates_;
   void predict(FilterState<mtState>& filterState, const double tNext){
@@ -251,10 +251,12 @@ class FilterBase: public PropertyHandler{
   FilterState<mtState> safe_;
   FilterState<mtState> front_;
   FilterState<mtState> init_;
-  PredictionManager<mtPrediction> predictionManager_;
+  PredictionManager<mtPrediction>* mpPredictionManager_;
   std::vector<UpdateManagerBase<mtState>*> mUpdateVector_;
   FilterBase(){
-    registerStateSVQ("initState.",init_.state_);
+    mpPredictionManager_ = nullptr;
+    registerStateSVQ("InitState.",init_.state_);
+    doubleRegister_.registerDiagonalMatrix("InitCovariance.m",init_.cov_);
   };
   virtual ~FilterBase(){
   };
@@ -266,7 +268,7 @@ class FilterBase: public PropertyHandler{
   }
   bool getSafeTime(double& safeTime){
     double maxPredictionTime;
-    if(!predictionManager_.getLastTime(maxPredictionTime)){
+    if(!mpPredictionManager_->getLastTime(maxPredictionTime)){
       return false;
     }
     safeTime = maxPredictionTime;
@@ -278,21 +280,21 @@ class FilterBase: public PropertyHandler{
     return true;
   }
   void setSafeWarningTime(double safeTime){
-    predictionManager_.safeWarningTime_ = safeTime;
+    mpPredictionManager_->safeWarningTime_ = safeTime;
     for(unsigned int i=0;i<mUpdateVector_.size();i++){
       mUpdateVector_[i]->safeWarningTime_ = safeTime;
     }
   }
   void resetFrontWarningTime(double frontTime){
-    predictionManager_.frontWarningTime_ = frontTime;
-    predictionManager_.gotFrontWarning_ = false;
+    mpPredictionManager_->frontWarningTime_ = frontTime;
+    mpPredictionManager_->gotFrontWarning_ = false;
     for(unsigned int i=0;i<mUpdateVector_.size();i++){
       mUpdateVector_[i]->frontWarningTime_ = frontTime;
       mUpdateVector_[i]->gotFrontWarning_ = false;
     }
   }
   bool checkFrontWarning(){
-    bool gotFrontWarning = predictionManager_.gotFrontWarning_;
+    bool gotFrontWarning = mpPredictionManager_->gotFrontWarning_;
     for(unsigned int i=0;i<mUpdateVector_.size();i++){
       gotFrontWarning = mUpdateVector_[i]->gotFrontWarning_ | gotFrontWarning;
     }
@@ -326,7 +328,7 @@ class FilterBase: public PropertyHandler{
           tNext = tNextUpdate;
         }
       }
-      predictionManager_.predict(filterState,tNext);
+      mpPredictionManager_->predict(filterState,tNext);
       for(unsigned int i=0;i<mUpdateVector_.size();i++){
         if(!mUpdateVector_[i]->coupledToPrediction_){
           mUpdateVector_[i]->update(filterState);
@@ -335,13 +337,17 @@ class FilterBase: public PropertyHandler{
     }
   }
   void clean(const double& t){
-    predictionManager_.clean(t);
+    mpPredictionManager_->clean(t);
     for(unsigned int i=0;i<mUpdateVector_.size();i++){
       mUpdateVector_[i]->clean(t);
     }
   }
+  void registerPredictionManager(PredictionManager<Prediction>& predictionManager, std::string str){
+    mpPredictionManager_ = &predictionManager;
+    registerSubHandler(str,predictionManager);
+  }
   void registerUpdateManager(UpdateManagerBase<mtState>& updateManagerBase, std::string str){
-    mUpdateVector_.push_back(&updateManagerBase); // TODO make unique
+    mUpdateVector_.push_back(&updateManagerBase);
     registerSubHandler(str,updateManagerBase);
   }
 };

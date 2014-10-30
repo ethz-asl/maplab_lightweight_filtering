@@ -19,8 +19,9 @@ class UpdateModelTest : public ::testing::Test {
     testPredictionMeas_.v(0) = Eigen::Vector3d(-5,2,17.3);
     testPredictionMeas_.v(1) = Eigen::Vector3d(15.7,0.45,-2.3);
     updateManager2_.maxWaitTime_ = 0.0;
-    testFilter_.registerUpdateManager(updateManager1_,"UpdateManager1");
-    testFilter_.registerUpdateManager(updateManager2_,"UpdateManager2");
+    testFilter_.registerUpdateManager(updateManager1_,"Update1");
+    testFilter_.registerUpdateManager(updateManager2_,"Update2");
+    testFilter_.registerPredictionManager(predictionManager_,"Prediction");
     testFilter_.writeToInfo("test.info");
   }
   virtual ~UpdateModelTest() {
@@ -31,6 +32,7 @@ class UpdateModelTest : public ::testing::Test {
   State testState_;
   UpdateMeas testUpdateMeas_;
   PredictionMeas testPredictionMeas_;
+  LWF::PredictionManager<PredictionExample> predictionManager_;
   LWF::UpdateManager<UpdateExample> updateManager1_;
   LWF::UpdateManager<UpdateExample> updateManager2_;
   const double dt_ = 0.1;
@@ -62,7 +64,7 @@ TEST_F(UpdateModelTest, constructors) {
 // Test updateSafe (Only for 1 update type (wait time set to zero for the other)), co-test getSafeTime()
 TEST_F(UpdateModelTest, updateSafe) {
   double safeTime = 0.0;
-  testFilter_.predictionManager_.addMeas(testPredictionMeas_,0.1);
+  predictionManager_.addMeas(testPredictionMeas_,0.1);
   updateManager1_.addMeas(testUpdateMeas_,0.1);
   ASSERT_TRUE(testFilter_.getSafeTime(safeTime));
   ASSERT_EQ(safeTime,0.1);
@@ -73,8 +75,8 @@ TEST_F(UpdateModelTest, updateSafe) {
   ASSERT_EQ(safeTime,0.1);
   testFilter_.updateSafe();
   ASSERT_EQ(testFilter_.safe_.t_,0.1);
-  testFilter_.predictionManager_.addMeas(testPredictionMeas_,0.2);
-  testFilter_.predictionManager_.addMeas(testPredictionMeas_,0.3);
+  predictionManager_.addMeas(testPredictionMeas_,0.2);
+  predictionManager_.addMeas(testPredictionMeas_,0.3);
   ASSERT_TRUE(testFilter_.getSafeTime(safeTime));
   ASSERT_EQ(safeTime,0.2);
   testFilter_.updateSafe();
@@ -88,7 +90,7 @@ TEST_F(UpdateModelTest, updateSafe) {
 
 // Test updateFront
 TEST_F(UpdateModelTest, updateFront) {
-  testFilter_.predictionManager_.addMeas(testPredictionMeas_,0.1);
+  predictionManager_.addMeas(testPredictionMeas_,0.1);
   updateManager1_.addMeas(testUpdateMeas_,0.1);
   testFilter_.updateFront(0.5);
   ASSERT_EQ(testFilter_.safe_.t_,0.1);
@@ -97,8 +99,8 @@ TEST_F(UpdateModelTest, updateFront) {
   testFilter_.updateFront(0.2);
   ASSERT_EQ(testFilter_.safe_.t_,0.1);
   ASSERT_EQ(testFilter_.front_.t_,0.2);
-  testFilter_.predictionManager_.addMeas(testPredictionMeas_,0.2);
-  testFilter_.predictionManager_.addMeas(testPredictionMeas_,0.3);
+  predictionManager_.addMeas(testPredictionMeas_,0.2);
+  predictionManager_.addMeas(testPredictionMeas_,0.3);
   testFilter_.updateFront(0.3);
   ASSERT_EQ(testFilter_.safe_.t_,0.2);
   ASSERT_EQ(testFilter_.front_.t_,0.3);
@@ -110,11 +112,11 @@ TEST_F(UpdateModelTest, updateFront) {
 
 //// Test cleaning
 //TEST_F(UpdateModelTest, cleaning) {
-//  testFilter_.predictionManager_.addMeas(testPredictionMeas_,0.1);
+//  predictionManager_.addMeas(testPredictionMeas_,0.1);
 //  updateManager1_.addMeas(testUpdateMeas_,0.1);
 //  updateManager1_.addMeas(testUpdateMeas_,0.2);
-//  testFilter_.predictionManager_.addMeas(testPredictionMeas_,0.2);
-//  testFilter_.predictionManager_.addMeas(testPredictionMeas_,0.3);
+//  predictionManager_.addMeas(testPredictionMeas_,0.2);
+//  predictionManager_.addMeas(testPredictionMeas_,0.3);
 //  updateManager1_.addMeas(testUpdateMeas_,0.3,1);
 //  ASSERT_EQ(testFilter_.predictionMap_.size(),3);
 //  ASSERT_EQ(testFilter_.updateMap_[0].size(),2);
