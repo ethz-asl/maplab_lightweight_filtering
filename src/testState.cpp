@@ -683,6 +683,47 @@ TEST_F(PairStateTest, operatorEQ) {
   }
 }
 
+// The fixture for testing class ComposedState
+class ComposedStateTest : public virtual ::testing::Test, public StateSVQTest, public VectorStateTest{
+ protected:
+  ComposedStateTest() {
+
+  }
+  virtual ~ComposedStateTest() {
+  }
+  LWF::ComposedState<LWF::StateSVQ<S_,V_,Q_>,LWF::VectorState<D_>> testState_;
+  LWF::ComposedState<LWF::StateSVQ<S_,V_,Q_>,LWF::VectorState<D_>>::mtDifVec difVecPairState_;
+};
+
+// Test constructors
+TEST_F(ComposedStateTest, constructors) {
+  LWF::ComposedState<LWF::StateSVQ<S_,V_,Q_>,LWF::VectorState<D_>> testState1;
+  LWF::StateSVQ<S_,V_,Q_> stateSVQ;
+  LWF::VectorState<D_> vectorState;
+  stateSVQ = testState1.state_;
+  vectorState = testState1.subComposedState_;
+//  for(int i=0;i<S_;i++){
+//    ASSERT_EQ(testState1.first().scalarList[i],0.0);
+//  }
+//  for(int i=0;i<V_;i++){
+//    ASSERT_EQ(testState1.first().vectorList[i](0),0.0);
+//    ASSERT_EQ(testState1.first().vectorList[i](1),0.0);
+//    ASSERT_EQ(testState1.first().vectorList[i](2),0.0);
+//  }
+//  for(int i=0;i<Q_;i++){
+//    ASSERT_EQ(testState1.first().quaternionList[i].w(),1.0);
+//    ASSERT_EQ(testState1.first().quaternionList[i].x(),0.0);
+//    ASSERT_EQ(testState1.first().quaternionList[i].y(),0.0);
+//    ASSERT_EQ(testState1.first().quaternionList[i].z(),0.0);
+//  }
+//  for(int i=0;i<D_;i++){
+//    ASSERT_EQ(testState1.second()[i],0.0);
+//  }
+//  LWF::PairState<LWF::StateSVQ<S_,V_,Q_>,LWF::VectorState<D_>> testState2(testPairState2_);
+//  testState2.boxMinus(testPairState2_,difVecPairState_);
+//  ASSERT_NEAR(difVecPairState_.norm(),0.0,1e-6);
+}
+
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();

@@ -18,6 +18,66 @@ namespace rot = kindr::rotations::eigen_impl;
 
 namespace LWF{
 
+template<typename State,unsigned int N>
+class StateArray{
+ public:
+  static const unsigned int D_ = State::D_*N;
+  typedef Eigen::Matrix<double,D_,1> mtDifVec;
+  typedef Eigen::Matrix<double,D_,D_> mtCovMat;
+  State array_[N];
+  StateArray(){
+    setIdentity();
+  }
+  void boxPlus(const mtDifVec& vecIn, StateArray<State,N>& stateOut) const{
+    for(unsigned int i=0;i<N;i++){
+      array_[i].boxPlus(vecIn.template block<State::D_,1>(State::D_*i,0),stateOut[i]);
+    }
+  }
+  void boxMinus(const StateArray<State,N>& stateIn, mtDifVec& vecOut) const{
+    typename State::mtDifVec difVec;
+    for(unsigned int i=0;i<N;i++){
+      array_[i].boxMinus(stateIn[i],difVec);
+      vecOut.template block<State::D_,1>(State::D_*i,0) = difVec;
+    }
+  }
+  void print() const{
+    for(unsigned int i=0;i<N;i++){
+      array_[i].print();
+    }
+  }
+  void setIdentity(){
+    for(unsigned int i=0;i<N;i++){
+      array_[i].setIdentity();
+    }
+  }
+  const double& operator[](unsigned int i) const{
+    assert(i<N);
+    return array_[i];
+  };
+  double& operator[](unsigned int i){
+    assert(i<N);
+    return array_[i];
+  };
+};
+
+template<typename State, typename... Arguments>
+class ComposedState{
+ public:
+  static const unsigned int D_ = State::D_+ComposedState<Arguments...>::D_;
+  typedef Eigen::Matrix<double,D_,1> mtDifVec;
+  typedef Eigen::Matrix<double,D_,D_> mtCovMat;
+  State state_;
+  ComposedState<Arguments...> subComposedState_;
+  void boxPlus(const mtDifVec& vecIn, ComposedState<State,Arguments...>& stateOut){
+    state_.boxPlus(vecIn.template block<State::D_,1>(0,0),stateOut.state_);
+    subComposedState_.boxPlus(vecIn.template block<ComposedState<Arguments...>::D_,1>(State::D_,0),stateOut.subComposedState_);
+  };
+};
+
+template<typename State>
+class ComposedState<State>: public State{
+};
+
 template<unsigned int S, unsigned int V, unsigned int Q>
 class StateSVQ{
  public:
