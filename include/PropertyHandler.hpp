@@ -137,6 +137,12 @@ class PropertyHandler{
       doubleRegister_.registerQuaternion(state.qName(i), state.q(i));
     };
   }
+  template<unsigned int N>
+  void registerVectorState(std::string str,VectorState<N>& state){
+    for(unsigned int i=0;i<N;i++){
+      doubleRegister_.registerScalar(state.sName(i), "v" + std::to_string(i));
+    }
+  }
   void writeToInfo(const std::string &filename){
     ptree pt;
     buildPropertyTree(pt);
