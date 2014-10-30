@@ -25,7 +25,7 @@ class StateSVQ{
   static const unsigned int V_ = V;
   static const unsigned int Q_ = Q;
   static const unsigned int D_ = S_+(V_+Q_)*3;
-  typedef Eigen::Matrix<double,D_,1> mtDiffVec;
+  typedef Eigen::Matrix<double,D_,1> mtDifVec;
   typedef Eigen::Matrix<double,D_,D_> mtCovMat;
   std::unordered_map<const void*,unsigned int> IdMap_;
   std::array<std::string,S_+V_+Q_> names_;
@@ -50,7 +50,7 @@ class StateSVQ{
   double scalarList[S_];
   Eigen::Vector3d vectorList[V_];
   rot::RotationQuaternionPD quaternionList[Q_];
-  void boxPlus(const mtDiffVec& vecIn, StateSVQ<S_,V_,Q_>& stateOut) const{
+  void boxPlus(const mtDifVec& vecIn, StateSVQ<S_,V_,Q_>& stateOut) const{
     unsigned int index = 0;
     for(unsigned int i=0;i<S_;i++){
       stateOut.scalarList[i] = scalarList[i]+vecIn(index);
@@ -65,7 +65,7 @@ class StateSVQ{
       index += 3;
     }
   }
-  void boxMinus(const StateSVQ<S_,V_,Q_>& stateIn, mtDiffVec& vecOut) const{
+  void boxMinus(const StateSVQ<S_,V_,Q_>& stateIn, mtDifVec& vecOut) const{
     unsigned int index = 0;
     for(unsigned int i=0;i<S_;i++){
       vecOut(index) = scalarList[i]-stateIn.scalarList[i];
@@ -310,7 +310,7 @@ template<unsigned int N>
 class VectorState{
  public:
   static const unsigned int D_ = N;
-  typedef Eigen::Matrix<double,D_,1> mtDiffVec;
+  typedef Eigen::Matrix<double,D_,1> mtDifVec;
   typedef Eigen::Matrix<double,D_,D_> mtCovMat;
   VectorState(){
     vector_.setZero();
@@ -322,10 +322,10 @@ class VectorState{
   };
   Eigen::Matrix<double,D_,1> vector_;
   std::unordered_map<const void*,unsigned int> IdMap_;
-  void boxPlus(const mtDiffVec& vecIn, VectorState<N>& stateOut) const{
+  void boxPlus(const mtDifVec& vecIn, VectorState<N>& stateOut) const{
     stateOut.vector_ = vector_+vecIn;
   }
-  void boxMinus(const VectorState<N>& stateIn, mtDiffVec& vecOut) const{
+  void boxMinus(const VectorState<N>& stateIn, mtDifVec& vecOut) const{
     vecOut = vector_-stateIn.vector_;
   }
   void print() const{
@@ -396,7 +396,7 @@ template<typename State1, typename State2>
 class PairState{
  public:
   static const unsigned int D_ = State1::D_+State2::D_;
-  typedef Eigen::Matrix<double,D_,1> mtDiffVec;
+  typedef Eigen::Matrix<double,D_,1> mtDifVec;
   typedef Eigen::Matrix<double,D_,D_> mtCovMat;
   PairState(){};
   PairState(const PairState<State1,State2>& other){
@@ -405,15 +405,15 @@ class PairState{
   };
   State1 state1_;
   State2 state2_;
-  void boxPlus(const mtDiffVec& vecIn, PairState<State1,State2>& stateOut) const{
+  void boxPlus(const mtDifVec& vecIn, PairState<State1,State2>& stateOut) const{
     state1_.boxPlus(vecIn.template block<State1::D_,1>(0,0),stateOut.state1_);
     state2_.boxPlus(vecIn.template block<State2::D_,1>(State1::D_,0),stateOut.state2_);
   }
-  void boxMinus(const PairState<State1,State2>& stateIn, mtDiffVec& vecOut) const{
-    typename State1::mtDiffVec difVec1;
+  void boxMinus(const PairState<State1,State2>& stateIn, mtDifVec& vecOut) const{
+    typename State1::mtDifVec difVec1;
     state1_.boxMinus(stateIn.state1_,difVec1);
     vecOut.template block<State1::D_,1>(0,0) = difVec1;
-    typename State2::mtDiffVec difVec2;
+    typename State2::mtDifVec difVec2;
     state2_.boxMinus(stateIn.state2_,difVec2);
     vecOut.template block<State2::D_,1>(State1::D_,0) = difVec2;
   }
@@ -459,13 +459,13 @@ class PairState{
 template<typename State, typename Aux> // Takes care of passing auxilliary data through boxplus, copy constructor and assignement
 class AugmentedState: public State{
  public:
-  typedef typename State::mtDiffVec mtDiffVec;
+  typedef typename State::mtDifVec mtDifVec;
   AugmentedState(){};
   AugmentedState(const AugmentedState<State,Aux>& other): State(other){
     aux_ = other.aux_;
   };
   Aux aux_;
-  void boxPlus(const mtDiffVec& vecIn, AugmentedState<State,Aux>& stateOut) const{
+  void boxPlus(const mtDifVec& vecIn, AugmentedState<State,Aux>& stateOut) const{
     State::boxPlus(vecIn,stateOut);
     stateOut.aux_ = aux_;
   }

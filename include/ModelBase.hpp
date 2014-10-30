@@ -50,7 +50,7 @@ class ModelBase{
     mtInput inputDisturbed;
     mtOutput outputReference = eval(input,meas,dt);
     typename mtInput::mtCovMat I;
-    typename mtOutput::mtDiffVec dif;
+    typename mtOutput::mtDifVec dif;
     I.setIdentity();
     for(unsigned int i=0;i<mtInput::D_;i++){
       input.boxPlus(d*I.col(i),inputDisturbed);
@@ -66,7 +66,7 @@ class ModelBase{
     mtNoise noiseDisturbed;
     mtOutput outputReference = eval(input,meas,noise,dt);
     typename mtNoise::mtCovMat I;
-    typename mtOutput::mtDiffVec dif;
+    typename mtOutput::mtDifVec dif;
     I.setIdentity();
     for(unsigned int i=0;i<mtNoise::D_;i++){
       noise.boxPlus(d*I.col(i),noiseDisturbed);

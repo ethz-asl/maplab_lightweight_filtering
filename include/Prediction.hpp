@@ -101,8 +101,8 @@ class Prediction: public ModelBase<State,State,Meas,Noise>{
 
     // Compute mean Measurement
     mtMeas meanMeas;
-    typename mtMeas::mtDiffVec vec;
-    typename mtMeas::mtDiffVec difVec;
+    typename mtMeas::mtDifVec vec;
+    typename mtMeas::mtDifVec difVec;
     vec.setZero();
     for(itMeas=next(itMeasStart);itMeas!=itMeasEnd;itMeas++){
       itMeasStart->second.boxMinus(itMeas->second,difVec);
@@ -131,8 +131,8 @@ class Prediction: public ModelBase<State,State,Meas,Noise>{
 
     // Compute mean Measurement
     mtMeas meanMeas;
-    typename mtMeas::mtDiffVec vec;
-    typename mtMeas::mtDiffVec difVec;
+    typename mtMeas::mtDifVec vec;
+    typename mtMeas::mtDifVec difVec;
     vec.setZero();
     for(itMeas=next(itMeasStart);itMeas!=itMeasEnd;itMeas++){
       itMeasStart->second.boxMinus(itMeas->second,difVec);

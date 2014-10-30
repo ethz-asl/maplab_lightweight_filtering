@@ -33,7 +33,7 @@ class UpdateOutlierDetection{
     mahalanobisTh_ = mahalanobisTh;
     outlierCount_ = 0;
   }
-  void check(const typename Innovation::mtDiffVec& innVector,const Eigen::Matrix<double,Innovation::D_,Innovation::D_>& Py){
+  void check(const typename Innovation::mtDifVec& innVector,const Eigen::Matrix<double,Innovation::D_,Innovation::D_>& Py){
     const double d = ((innVector.block(startIndex_,0,N_,1)).transpose()*Py.block(startIndex_,startIndex_,N_,N_).inverse()*innVector.block(startIndex_,0,N_,1))(0,0);
     outlier_ = d > mahalanobisTh_;
     if(outlier_){
@@ -68,9 +68,9 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>{
   mtInnovation y_;
   typename mtInnovation::mtCovMat Py_;
   typename mtInnovation::mtCovMat Pyinv_;
-  typename mtInnovation::mtDiffVec innVector_;
+  typename mtInnovation::mtDifVec innVector_;
   const mtInnovation yIdentity_;
-  typename mtState::mtDiffVec updateVec_;
+  typename mtState::mtDifVec updateVec_;
   Eigen::Matrix<double,mtState::D_,mtInnovation::D_> K_;
   Eigen::Matrix<double,mtState::D_,mtInnovation::D_> Pxy_;
   SigmaPoints<mtState,2*mtState::D_+1,2*(mtState::D_+mtNoise::D_)+1,0> stateSigmaPoints_;
@@ -205,9 +205,9 @@ class PredictionUpdate: public ModelBase<State,Innovation,Meas,Noise>{
   mtInnovation y_;
   typename mtInnovation::mtCovMat Py_;
   typename mtInnovation::mtCovMat Pyinv_;
-  typename mtInnovation::mtDiffVec innVector_;
+  typename mtInnovation::mtDifVec innVector_;
   const mtInnovation yIdentity_;
-  typename mtState::mtDiffVec updateVec_;
+  typename mtState::mtDifVec updateVec_;
   Eigen::Matrix<double,mtState::D_,mtInnovation::D_> K_;
   Eigen::Matrix<double,mtState::D_,mtInnovation::D_> Pxy_;
   SigmaPoints<mtState,2*mtState::D_+1,2*(mtState::D_+mtJointNoise::D_)+1,0> stateSigmaPoints_;

@@ -36,7 +36,7 @@ class PredictionModelTest : public ::testing::Test {
 TEST_F(PredictionModelTest, constructors) {
   PredictionExample testPrediction;
   ASSERT_EQ((testPrediction.prenoiP_-PredictionExample::mtNoise::mtCovMat::Identity()*0.0001).norm(),0.0);
-  typename PredictionExample::mtNoise::mtDiffVec dif;
+  typename PredictionExample::mtNoise::mtDifVec dif;
   testPrediction.stateSigmaPointsNoi_.getMean().boxMinus(typename PredictionExample::mtNoise(),dif);
   ASSERT_NEAR(dif.norm(),0.0,1e-6);
   ASSERT_NEAR((testPrediction.prenoiP_-testPrediction.stateSigmaPointsNoi_.getCovarianceMatrix()).norm(),0.0,1e-8);
@@ -60,7 +60,7 @@ TEST_F(PredictionModelTest, predictEKF) {
   PredictionExample::mtState state;
   state = testState_;
   testPrediction_.predictEKF(state,cov,testMeas_,dt_);
-  PredictionExample::mtState::mtDiffVec dif;
+  PredictionExample::mtState::mtDifVec dif;
   state.boxMinus(testPrediction_.eval(testState_,testMeas_,dt_),dif);
   ASSERT_NEAR(dif.norm(),0.0,1e-6);
   ASSERT_NEAR((cov-predictedCov).norm(),0.0,1e-6);
@@ -74,7 +74,7 @@ TEST_F(PredictionModelTest, comparePredict) {
   PredictionExample::mtState state2 = testState_;
   testPrediction_.predictEKF(state1,cov1,testMeas_,dt_);
   testPrediction_.predictUKF(state2,cov2,testMeas_,dt_);
-  PredictionExample::mtState::mtDiffVec dif;
+  PredictionExample::mtState::mtDifVec dif;
   state1.boxMinus(state2,dif);
   ASSERT_NEAR(dif.norm(),0.0,1e-5); // Careful, will differ depending on the magnitude of the covariance
   ASSERT_NEAR((cov1-cov2).norm(),0.0,1e-6); // Careful, will differ depending on the magnitude of the covariance
@@ -88,8 +88,8 @@ TEST_F(PredictionModelTest, predictMergedEKF) {
   double dt = measMap_.rbegin()->first-t;
 
   PredictionExample::mtMeas meanMeas;
-  typename PredictionExample::mtMeas::mtDiffVec vec;
-  typename PredictionExample::mtMeas::mtDiffVec difVec;
+  typename PredictionExample::mtMeas::mtDifVec vec;
+  typename PredictionExample::mtMeas::mtDifVec difVec;
   vec.setZero();
   for(std::map<double,PredictionMeas>::iterator it = next(measMap_.begin());it != measMap_.end();it++){
     measMap_.begin()->second.boxMinus(it->second,difVec);
@@ -110,7 +110,7 @@ TEST_F(PredictionModelTest, predictMergedEKF) {
     state2 = testPrediction_.eval(state2,it->second,it->first-t);
     t = it->first;
   }
-  PredictionExample::mtState::mtDiffVec dif;
+  PredictionExample::mtState::mtDifVec dif;
   state1.boxMinus(state2,dif);
   ASSERT_NEAR(dif.norm(),0.0,1e-6);
   ASSERT_NEAR((cov-predictedCov).norm(),0.0,1e-6);
@@ -124,8 +124,8 @@ TEST_F(PredictionModelTest, predictMergedUKF) {
   double dt = measMap_.rbegin()->first-t;
 
   PredictionExample::mtMeas meanMeas;
-  typename PredictionExample::mtMeas::mtDiffVec vec;
-  typename PredictionExample::mtMeas::mtDiffVec difVec;
+  typename PredictionExample::mtMeas::mtDifVec vec;
+  typename PredictionExample::mtMeas::mtDifVec difVec;
   vec.setZero();
   for(std::map<double,PredictionMeas>::iterator it = next(measMap_.begin());it != measMap_.end();it++){
     measMap_.begin()->second.boxMinus(it->second,difVec);
@@ -143,7 +143,7 @@ TEST_F(PredictionModelTest, predictMergedUKF) {
   PredictionExample::mtState state2;
   state2 = testState_;
   testPrediction_.predictMergedUKF(state2,cov,0.0,measMap_.begin(),measMap_.size());
-  PredictionExample::mtState::mtDiffVec dif;
+  PredictionExample::mtState::mtDifVec dif;
   state1.boxMinus(state2,dif);
   ASSERT_NEAR(dif.norm(),0.0,1e-6);
   ASSERT_NEAR((cov-predictedCov).norm(),0.0,1e-6);

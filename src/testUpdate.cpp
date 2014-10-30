@@ -33,7 +33,7 @@ class UpdateModelTest : public ::testing::Test {
 TEST_F(UpdateModelTest, constructors) {
   UpdateExample testUpdate;
   ASSERT_EQ((testUpdate.updnoiP_-UpdateExample::mtNoise::mtCovMat::Identity()*0.0001).norm(),0.0);
-  typename UpdateExample::mtNoise::mtDiffVec dif;
+  typename UpdateExample::mtNoise::mtDifVec dif;
   testUpdate.stateSigmaPointsNoi_.getMean().boxMinus(typename UpdateExample::mtNoise(),dif);
   ASSERT_NEAR(dif.norm(),0.0,1e-6);
   ASSERT_NEAR((testUpdate.updnoiP_-testUpdate.stateSigmaPointsNoi_.getCovarianceMatrix()).norm(),0.0,1e-8);
@@ -59,7 +59,7 @@ TEST_F(UpdateModelTest, updateEKF) {
 
   UpdateExample::mtInnovation y = testUpdate_.eval(testState_,testUpdateMeas_);
   UpdateExample::mtInnovation yIdentity;
-  UpdateExample::mtInnovation::mtDiffVec innVector;
+  UpdateExample::mtInnovation::mtDifVec innVector;
 
   UpdateExample::mtState state;
   UpdateExample::mtState stateUpdated;
@@ -73,12 +73,12 @@ TEST_F(UpdateModelTest, updateEKF) {
   // Kalman Update
   Eigen::Matrix<double,UpdateExample::mtState::D_,UpdateExample::mtInnovation::D_> K = cov*H.transpose()*Pyinv;
   updateCov = cov - K*Py*K.transpose();
-  UpdateExample::mtState::mtDiffVec updateVec;
+  UpdateExample::mtState::mtDifVec updateVec;
   updateVec = -K*innVector;
   state.boxPlus(updateVec,stateUpdated);
 
   testUpdate_.updateEKF(state,cov,testUpdateMeas_);
-  UpdateExample::mtState::mtDiffVec dif;
+  UpdateExample::mtState::mtDifVec dif;
   state.boxMinus(stateUpdated,dif);
   ASSERT_NEAR(dif.norm(),0.0,1e-6);
   ASSERT_NEAR((cov-updateCov).norm(),0.0,1e-6);
@@ -95,7 +95,7 @@ TEST_F(UpdateModelTest, updateEKFWithOutlier) {
 
   UpdateExample::mtInnovation y = testUpdate_.eval(testState_,testUpdateMeas_);
   UpdateExample::mtInnovation yIdentity;
-  UpdateExample::mtInnovation::mtDiffVec innVector;
+  UpdateExample::mtInnovation::mtDifVec innVector;
 
   UpdateExample::mtState state;
   UpdateExample::mtState stateUpdated;
@@ -113,12 +113,12 @@ TEST_F(UpdateModelTest, updateEKFWithOutlier) {
   // Kalman Update
   Eigen::Matrix<double,UpdateExample::mtState::D_,UpdateExample::mtInnovation::D_> K = cov*H.transpose()*Pyinv;
   updateCov = cov - K*Py*K.transpose();
-  UpdateExample::mtState::mtDiffVec updateVec;
+  UpdateExample::mtState::mtDifVec updateVec;
   updateVec = -K*innVector;
   state.boxPlus(updateVec,stateUpdated);
 
   testUpdate_.updateEKF(state,cov,testUpdateMeas_);
-  UpdateExample::mtState::mtDiffVec dif;
+  UpdateExample::mtState::mtDifVec dif;
   state.boxMinus(stateUpdated,dif);
   ASSERT_NEAR(dif.norm(),0.0,1e-6);
   ASSERT_NEAR((cov-updateCov).norm(),0.0,1e-6);
@@ -132,7 +132,7 @@ TEST_F(UpdateModelTest, compareUpdate) {
   UpdateExample::mtState state2 = testState_;
   testUpdate_.updateEKF(state1,cov1,testUpdateMeas_);
   testUpdate_.updateUKF(state2,cov2,testUpdateMeas_);
-  UpdateExample::mtState::mtDiffVec dif;
+  UpdateExample::mtState::mtDifVec dif;
   state1.boxMinus(state2,dif);
   ASSERT_NEAR(dif.norm(),0.0,1e-6); // Careful, will differ depending on the magnitude of the covariance
   ASSERT_NEAR((cov1-cov2).norm(),0.0,1e-5); // Careful, will differ depending on the magnitude of the covariance
@@ -159,7 +159,7 @@ TEST_F(UpdateModelTest, predictAndUpdateEKF) {
   testPrediction_.predictEKF(state1,cov1,testPredictionMeas_,dt_);
   testUpdate_.updateEKF(state1,cov1,testUpdateMeas_);
   testPredictAndUpdate_.predictAndUpdateEKF(state2,cov2,testUpdateMeas_,testPrediction_,testPredictionMeas_,dt_);
-  UpdateExample::mtState::mtDiffVec dif;
+  UpdateExample::mtState::mtDifVec dif;
   state1.boxMinus(state2,dif);
   ASSERT_NEAR(dif.norm(),0.0,1e-8);
   ASSERT_NEAR((cov1-cov2).norm(),0.0,1e-8);
@@ -188,7 +188,7 @@ TEST_F(UpdateModelTest, predictAndUpdateUKF) {
   testPrediction_.predictUKF(state1,cov1,testPredictionMeas_,dt_);
   testUpdate_.updateUKF(state1,cov1,testUpdateMeas_);
   testPredictAndUpdate_.predictAndUpdateUKF(state2,cov2,testUpdateMeas_,testPrediction_,testPredictionMeas_,dt_);
-  UpdateExample::mtState::mtDiffVec dif;
+  UpdateExample::mtState::mtDifVec dif;
   state1.boxMinus(state2,dif);
   ASSERT_NEAR(dif.norm(),0.0,1e-4); // Careful, will differ depending on the magnitude of the covariance
   ASSERT_NEAR((cov1-cov2).norm(),0.0,1e-6); // Careful, will differ depending on the magnitude of the covariance
@@ -218,7 +218,7 @@ TEST_F(UpdateModelTest, comparePredictAndUpdate) {
   UpdateExample::mtState state2 = testState_;
   testPredictAndUpdate_.predictAndUpdateEKF(state1,cov1,testUpdateMeas_,testPrediction_,testPredictionMeas_,dt_);
   testPredictAndUpdate_.predictAndUpdateUKF(state2,cov2,testUpdateMeas_,testPrediction_,testPredictionMeas_,dt_);
-  UpdateExample::mtState::mtDiffVec dif;
+  UpdateExample::mtState::mtDifVec dif;
   state1.boxMinus(state2,dif);
   ASSERT_NEAR(dif.norm(),0.0,1e-3); // Careful, will differ depending on the magnitude of the covariance
   ASSERT_NEAR((cov1-cov2).norm(),0.0,1e-4); // Careful, will differ depending on the magnitude of the covariance

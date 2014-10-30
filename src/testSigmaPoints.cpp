@@ -52,7 +52,7 @@ class SigmaPointTest : public ::testing::Test {
   static const unsigned int L_ = N_+O_+2;
   typedef LWF::StateSVQ<S_,V_,Q_> mtState;
   typedef LWF::StateSVQ<0,1,0> mtStateVector;
-  typedef mtState::mtDiffVec mtDiffVec;
+  typedef mtState::mtDifVec mtDifVec;
   typedef mtState::mtCovMat mtCovMat;
   LWF::SigmaPoints<mtState,N_,L_,O_> sigmaPoints_;
   LWF::SigmaPoints<mtStateVector,L_,L_,0> sigmaPointsVector_;
@@ -94,7 +94,7 @@ TEST_F(SigmaPointTest, computeFromGaussianPlusPlus) {
 
   // Check mean is same
   mtState mean = sigmaPoints_.getMean();
-  mtDiffVec vec;
+  mtDifVec vec;
   mean.boxMinus(mean_,vec);
   ASSERT_NEAR(vec.norm(),0.0,1e-8);
 
@@ -133,7 +133,7 @@ TEST_F(SigmaPointTest, computeFromGaussianQ) {
 
   // Check mean is same
   mtState mean = sigmaPoints_.getMean();
-  mtDiffVec vec;
+  mtDifVec vec;
   mean.boxMinus(mean_,vec);
   ASSERT_NEAR(vec.norm(),0.0,1e-8);
 

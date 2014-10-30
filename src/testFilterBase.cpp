@@ -50,10 +50,10 @@ TEST_F(UpdateModelTest, constructors) {
 //  testFilter_.addPrediction(mpPrediction,0.2);
 //  testFilter_.addUpdate(mpUpdate,0.3);
 //  updateManager1_.addMeas(testUpdateMeas_,0.4,1);
-//  PredictionExample::mtMeas::mtDiffVec predictionDiff;
+//  PredictionExample::mtMeas::mtDifVec predictionDiff;
 //  static_cast<PredictionExample*>(testFilter_.predictionMap_[0.2])->meas_.boxMinus(testPredictionMeas_,predictionDiff);
 //  ASSERT_NEAR(predictionDiff.norm(),0.0,1e-6);
-//  UpdateExample::mtMeas::mtDiffVec updateDiff;
+//  UpdateExample::mtMeas::mtDifVec updateDiff;
 //  static_cast<UpdateExample*>(testFilter_.updateMap_[0][0.3])->meas_.boxMinus(testUpdateMeas_,updateDiff);
 //  ASSERT_NEAR(updateDiff.norm(),0.0,1e-6);
 //  static_cast<UpdateExample*>(testFilter_.updateMap_[1][0.4])->meas_.boxMinus(testUpdateMeas_,updateDiff);

@@ -16,7 +16,7 @@ class VectorStateTest : public virtual ::testing::Test {
   static const unsigned int D_ = 4;
   LWF::VectorState<D_> testVectorState1_;
   LWF::VectorState<D_> testVectorState2_;
-  LWF::VectorState<D_>::mtDiffVec difVecVector_;
+  LWF::VectorState<D_>::mtDifVec difVecVector_;
   Eigen::Matrix<double,D_,1> testVectorVector1_;
   Eigen::Matrix<double,D_,1> testVectorVector2_;
 };
@@ -145,7 +145,7 @@ class StateSVQTest : public virtual ::testing::Test {
   static const unsigned int Q_ = 2;
   LWF::StateSVQ<S_,V_,Q_> testState1_;
   LWF::StateSVQ<S_,V_,Q_> testState2_;
-  LWF::StateSVQ<S_,V_,Q_>::mtDiffVec difVec_;
+  LWF::StateSVQ<S_,V_,Q_>::mtDifVec difVec_;
   double testScalar1_[S_];
   double testScalar2_[S_];
   Eigen::Vector3d testVector1_[V_];
@@ -369,7 +369,7 @@ class AugmentedStateTest : public ::testing::Test {
   static const unsigned int Q_ = 2;
   LWF::AugmentedState<LWF::StateSVQ<S_,V_,Q_>,Auxillary> testState1_;
   LWF::AugmentedState<LWF::StateSVQ<S_,V_,Q_>,Auxillary> testState2_;
-  LWF::AugmentedState<LWF::StateSVQ<S_,V_,Q_>,Auxillary>::mtDiffVec difVec_;
+  LWF::AugmentedState<LWF::StateSVQ<S_,V_,Q_>,Auxillary>::mtDifVec difVec_;
   double testScalar1_[S_];
   double testScalar2_[S_];
   Eigen::Vector3d testVector1_[V_];
@@ -535,7 +535,7 @@ class PairStateTest : public virtual ::testing::Test, public StateSVQTest, publi
 
   LWF::PairState<LWF::StateSVQ<S_,V_,Q_>,LWF::VectorState<D_>> testPairState1_;
   LWF::PairState<LWF::StateSVQ<S_,V_,Q_>,LWF::VectorState<D_>> testPairState2_;
-  LWF::PairState<LWF::StateSVQ<S_,V_,Q_>,LWF::VectorState<D_>>::mtDiffVec difVecPairState_;
+  LWF::PairState<LWF::StateSVQ<S_,V_,Q_>,LWF::VectorState<D_>>::mtDifVec difVecPairState_;
 };
 
 // Test constructors

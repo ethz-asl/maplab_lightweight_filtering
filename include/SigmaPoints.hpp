@@ -30,8 +30,8 @@ class SigmaPoints{
     assert(N_+O_<=L_);
   };
   mtState getMean() const{
-    typename mtState::mtDiffVec vec;
-    typename mtState::mtDiffVec vecTemp;
+    typename mtState::mtDifVec vec;
+    typename mtState::mtDifVec vecTemp;
     vec.setZero();
     for(unsigned int i=1;i<N_;i++){
       sigmaPoints_[i].boxMinus(sigmaPoints_[0],vecTemp);
@@ -47,7 +47,7 @@ class SigmaPoints{
   };
   typename mtState::mtCovMat getCovarianceMatrix(const mtState& mean) const{
     typename mtState::mtCovMat C;
-    typename mtState::mtDiffVec vec;
+    typename mtState::mtDifVec vec;
     sigmaPoints_[0].boxMinus(mean,vec);
     C = vec*vec.transpose()*(wc0_+ wc_*(L_-N_));
     for(unsigned int i=1;i<N_;i++){
@@ -65,8 +65,8 @@ class SigmaPoints{
   template<typename State2, unsigned int N2, unsigned int O2>
   Eigen::Matrix<double,mtState::D_,State2::D_> getCovarianceMatrix(const SigmaPoints<State2,N2,L_,O2>& sigmaPoints2, const mtState& mean1, const State2& mean2) const{
     Eigen::Matrix<double,mtState::D_,State2::D_> C;
-    typename mtState::mtDiffVec vec1;
-    typename State2::mtDiffVec vec2;
+    typename mtState::mtDifVec vec1;
+    typename State2::mtDifVec vec2;
     (*this)(0).boxMinus(mean1,vec1);
     sigmaPoints2(0).boxMinus(mean2,vec2);
     C = vec1*vec2.transpose()*wc0_;
