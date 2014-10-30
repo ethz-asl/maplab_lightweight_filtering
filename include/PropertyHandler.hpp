@@ -131,9 +131,17 @@ class PropertyHandler{
     write_info(filename,pt);
   }
   void readFromInfo(const std::string &filename){
+    ptree ptDefault;
+    buildPropertyTree(ptDefault);
     ptree pt;
-    read_info(filename,pt);
-    readPropertyTree(pt);
+    try{
+      read_info(filename,pt);
+      readPropertyTree(pt);
+    } catch (boost::property_tree::ptree_error& e){
+      std::cout << "An exception occurred. " << e.what() << std::endl;
+      std::cout << "Overriding current info file with valid format." << std::endl;
+      write_info(filename,ptDefault);
+    }
   }
 };
 

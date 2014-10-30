@@ -22,12 +22,11 @@ class UpdateModelTest : public ::testing::Test {
     testFilter_.registerUpdateManager(updateManager1_,"Update1");
     testFilter_.registerUpdateManager(updateManager2_,"Update2");
     testFilter_.registerPredictionManager(predictionManager_,"Prediction");
-    testFilter_.writeToInfo("test.info");
+    testFilter_.readFromInfo("test.info");
+//    testFilter_.writeToInfo("test.info");
   }
   virtual ~UpdateModelTest() {
   }
-  UpdateExample testUpdate_;
-  PredictionExample testPrediction_;
   LWF::FilterBase<PredictionExample> testFilter_;
   State testState_;
   UpdateMeas testUpdateMeas_;
