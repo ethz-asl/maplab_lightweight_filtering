@@ -12,9 +12,9 @@
 #include "kindr/rotations/RotationEigen.hpp"
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/info_parser.hpp>
+#include <map>
 #include <unordered_map>
 #include <unordered_set>
-#include "State.hpp"
 
 namespace rot = kindr::rotations::eigen_impl;
 
@@ -115,7 +115,7 @@ class PropertyHandler{
     boolRegister_.readPropertyTree(pt);
     intRegister_.readPropertyTree(pt);
     doubleRegister_.readPropertyTree(pt);
-    for(typename std::unordered_map<std::string,PropertyHandler*>::iterator it=subHandlers_.begin(); it != subHandlers_.end(); ++it){ // TODO
+    for(typename std::unordered_map<std::string,PropertyHandler*>::iterator it=subHandlers_.begin(); it != subHandlers_.end(); ++it){
       ptree ptsub;
       ptsub = pt.get_child(it->first);
       it->second->readPropertyTree(ptsub);
@@ -124,24 +124,6 @@ class PropertyHandler{
   void registerSubHandler(std::string str,PropertyHandler& subHandler){
     if(subHandlers_.count(str)!=0) std::cout << "Property Handler Error: subHandler with name " << str << " already exists" << std::endl;
     subHandlers_[str] = &subHandler;
-  }
-  template<unsigned int S, unsigned int V, unsigned int Q>
-  void registerStateSVQ(std::string str,StateSVQ<S,V,Q>& state){
-    for(unsigned int i=0;i<S;i++){
-      doubleRegister_.registerScalar(state.sName(i), state.s(i));
-    }
-    for(unsigned int i=0;i<V;i++){
-      doubleRegister_.registerVector(state.vName(i), state.v(i));
-    }
-    for(unsigned int i=0;i<Q;i++){
-      doubleRegister_.registerQuaternion(state.qName(i), state.q(i));
-    };
-  }
-  template<unsigned int N>
-  void registerVectorState(std::string str,VectorState<N>& state){
-    for(unsigned int i=0;i<N;i++){
-      doubleRegister_.registerScalar(state.sName(i), "v" + std::to_string(i));
-    }
   }
   void writeToInfo(const std::string &filename){
     ptree pt;

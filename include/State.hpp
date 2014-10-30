@@ -12,6 +12,8 @@
 #include <iostream>
 #include <unordered_map>
 #include "kindr/rotations/RotationEigen.hpp"
+#include "PropertyHandler.hpp"
+
 namespace rot = kindr::rotations::eigen_impl;
 
 namespace LWF{
@@ -276,6 +278,32 @@ class StateSVQ{
     StateSVQ<S,V,Q> identity;
     return identity;
   }
+  void registerToPropertyHandler(PropertyHandler* mtPropertyHandler, const std::string& str){
+    for(unsigned int i=0;i<S_;i++){
+      mtPropertyHandler->doubleRegister_.registerScalar(str + sName(i), s(i));
+    }
+    for(unsigned int i=0;i<V_;i++){
+      mtPropertyHandler->doubleRegister_.registerVector(str + vName(i), v(i));
+    }
+    for(unsigned int i=0;i<Q_;i++){
+      mtPropertyHandler->doubleRegister_.registerQuaternion(str + qName(i), q(i));
+    };
+  }
+  void registerDiagonalMatrixToPropertyHandler(PropertyHandler* mtPropertyHandler, const std::string& str, mtCovMat& cov){
+    for(unsigned int i=0;i<S_;i++){
+      mtPropertyHandler->doubleRegister_.registerScalar(str + sName(i), cov(i,i));
+    }
+    for(unsigned int i=0;i<V_;i++){
+      mtPropertyHandler->doubleRegister_.registerScalar(str + vName(i) + "x", cov(S_+3*i+0,S_+3*i+0));
+      mtPropertyHandler->doubleRegister_.registerScalar(str + vName(i) + "y", cov(S_+3*i+1,S_+3*i+1));
+      mtPropertyHandler->doubleRegister_.registerScalar(str + vName(i) + "z", cov(S_+3*i+2,S_+3*i+2));
+    }
+    for(unsigned int i=0;i<Q_;i++){
+      mtPropertyHandler->doubleRegister_.registerScalar(str + qName(i) + "x", cov(S_+3*(V_+i)+0,S_+3*(V_+i)+0));
+      mtPropertyHandler->doubleRegister_.registerScalar(str + qName(i) + "y", cov(S_+3*(V_+i)+1,S_+3*(V_+i)+1));
+      mtPropertyHandler->doubleRegister_.registerScalar(str + qName(i) + "z", cov(S_+3*(V_+i)+2,S_+3*(V_+i)+2));
+    };
+  }
 };
 
 template<unsigned int N>
@@ -352,6 +380,16 @@ class VectorState{
     VectorState<N> identity;
     return identity;
   }
+  void registerToPropertyHandler(PropertyHandler* mtPropertyHandler, const std::string& str){
+    for(unsigned int i=0;i<D_;i++){
+      mtPropertyHandler->doubleRegister_.registerScalar(str + "v" + std::to_string(i), vector_(i));
+    }
+  }
+  void registerDiagonalMatrixToPropertyHandler(PropertyHandler* mtPropertyHandler, const std::string& str, mtCovMat& cov){
+    for(unsigned int i=0;i<D_;i++){
+      mtPropertyHandler->doubleRegister_.registerScalar(str + "v" + std::to_string(i), cov(i,i));
+    }
+  }
 };
 
 template<typename State1, typename State2>
@@ -407,6 +445,14 @@ class PairState{
   static PairState<State1,State2> Identity(){
     PairState<State1,State2> identity;
     return identity;
+  }
+  void registerToPropertyHandler(PropertyHandler* mtPropertyHandler, const std::string& str){
+    first().registerToPropertyHandler(mtPropertyHandler,str + "first.");
+    second().registerToPropertyHandler(mtPropertyHandler,str + "second.");
+  }
+  void registerDiagonalMatrixToPropertyHandler(PropertyHandler* mtPropertyHandler, const std::string& str, mtCovMat& cov){
+    first().registerDiagonalMatrixToPropertyHandler(mtPropertyHandler,str + "first.",cov);
+    second().registerDiagonalMatrixToPropertyHandler(mtPropertyHandler,str + "second.",cov);
   }
 };
 

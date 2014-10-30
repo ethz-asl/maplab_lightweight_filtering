@@ -182,7 +182,7 @@ class PredictionManager: public MeasurementTimeline<typename Prediction::mtMeas>
   DefaultPrediction defaultPrediction_;
   const PredictionFilteringMode filteringMode_;
   PredictionManager(PredictionFilteringMode filteringMode = PredictionEKF): filteringMode_(filteringMode){
-    doubleRegister_.registerScaledUnitMatrix("PredictionNoise",prediction_.prenoiP_);
+    doubleRegister_.registerDiagonalMatrix("PredictionNoise",prediction_.prenoiP_);
   };
   ~PredictionManager(){};
   std::vector<UpdateAndPredictManagerBase<mtState,Prediction>*> mCoupledUpdates_;
@@ -255,8 +255,8 @@ class FilterBase: public PropertyHandler{
   std::vector<UpdateManagerBase<mtState>*> mUpdateVector_;
   FilterBase(){
     mpPredictionManager_ = nullptr;
-    registerStateSVQ("InitState.",init_.state_);
-    doubleRegister_.registerDiagonalMatrix("InitCovariance.m",init_.cov_);
+    init_.state_.registerToPropertyHandler(this,"InitState.");
+    init_.state_.registerDiagonalMatrixToPropertyHandler(this,"InitCovariance.",init_.cov_);
   };
   virtual ~FilterBase(){
   };
