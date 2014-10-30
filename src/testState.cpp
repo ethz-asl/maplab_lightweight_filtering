@@ -247,11 +247,13 @@ TEST_F(StateSVQTest, plusAndMinus) {
   }
 }
 
-// Test accessors
+// Test accessors and naming
 TEST_F(StateSVQTest, accessors) {
   for(int i=0;i<S_;i++){
     ASSERT_TRUE(testState1_.s(i) == testScalar1_[i]);
     ASSERT_TRUE(testState1_.s("s"+std::to_string(i)) == testScalar1_[i]);
+    testState1_.sName(i) = "scalar"+std::to_string(i);
+    ASSERT_TRUE(testState1_.s("scalar"+std::to_string(i)) == testScalar1_[i]);
   }
   for(int i=0;i<V_;i++){
     ASSERT_TRUE(testState1_.v(i)(0) == testVector1_[i](0));
@@ -260,10 +262,16 @@ TEST_F(StateSVQTest, accessors) {
     ASSERT_TRUE(testState1_.v("v"+std::to_string(i))(0) == testVector1_[i](0));
     ASSERT_TRUE(testState1_.v("v"+std::to_string(i))(1) == testVector1_[i](1));
     ASSERT_TRUE(testState1_.v("v"+std::to_string(i))(2) == testVector1_[i](2));
+    testState1_.vName(i) = "vector"+std::to_string(i);
+    ASSERT_TRUE(testState1_.v("vector"+std::to_string(i))(0) == testVector1_[i](0));
+    ASSERT_TRUE(testState1_.v("vector"+std::to_string(i))(1) == testVector1_[i](1));
+    ASSERT_TRUE(testState1_.v("vector"+std::to_string(i))(2) == testVector1_[i](2));
   }
   for(int i=0;i<Q_;i++){
     ASSERT_TRUE(testState1_.q(i).isNear(testQuat1_[i],1e-6));
     ASSERT_TRUE(testState1_.q("q"+std::to_string(i)).isNear(testQuat1_[i],1e-6));
+    testState1_.qName(i) = "quat"+std::to_string(i);
+    ASSERT_TRUE(testState1_.q("quat"+std::to_string(i)).isNear(testQuat1_[i],1e-6));
   }
 }
 
