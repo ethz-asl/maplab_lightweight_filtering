@@ -701,7 +701,14 @@ TEST_F(ComposedStateTest, constructors) {
   LWF::StateSVQ<S_,V_,Q_> stateSVQ;
   LWF::VectorState<D_> vectorState;
   stateSVQ = testState1.state_;
+  stateSVQ = testState1.get<LWF::StateSVQ<S_,V_,Q_>,0>();
   vectorState = testState1.subComposedState_;
+  vectorState = testState1.get<LWF::VectorState<D_>,1>();
+
+  LWF::StateSVQNew<S_,V_,Q_> testState2;
+  testState2.print();
+  testState2.s(0) = 2.3;
+  testState2.print();
 //  for(int i=0;i<S_;i++){
 //    ASSERT_EQ(testState1.first().scalarList[i],0.0);
 //  }

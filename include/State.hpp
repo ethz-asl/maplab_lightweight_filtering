@@ -13,10 +13,61 @@
 #include <unordered_map>
 #include "kindr/rotations/RotationEigen.hpp"
 #include "PropertyHandler.hpp"
+#include <boost/any.hpp>
+#include <type_traits>
 
 namespace rot = kindr::rotations::eigen_impl;
 
 namespace LWF{
+
+template<unsigned int D>
+class StateBase{
+ public:
+  static const unsigned int D_ = D;
+  typedef Eigen::Matrix<double,D_,1> mtDifVec;
+  typedef Eigen::Matrix<double,D_,D_> mtCovMat;
+  std::string name_;
+};
+
+class ScalarState: public StateBase<1>{
+ public:
+  double s_;
+  void boxPlus(const mtDifVec& vecIn, ScalarState& stateOut) const{
+    stateOut.s_ = s_ + vecIn(0);
+  }
+  void boxMinus(const ScalarState& stateIn, mtDifVec& vecOut) const{
+    vecOut(0) = s_ - stateIn.s_;
+  }
+  void print() const{
+    std::cout << s_ << std::endl;
+  }
+  void setIdentity(){
+    s_ = 0.0;
+  }
+  void registerToPropertyHandler(PropertyHandler* mtPropertyHandler, const std::string& str){
+    mtPropertyHandler->doubleRegister_.registerScalar(str + name_, s_);
+  }
+};
+
+class Vector3dState: public StateBase<3>{
+ public:
+  Eigen::Vector3d v_;
+  void boxPlus(const mtDifVec& vecIn, Vector3dState& stateOut) const{
+    stateOut.v_ = v_ + vecIn;
+  }
+  void boxMinus(const Vector3dState& stateIn, mtDifVec& vecOut) const{
+    vecOut = v_ - stateIn.v_;
+  }
+  void print() const{
+    std::cout << v_.transpose() << std::endl;
+  }
+  void setIdentity(){
+    v_.setZero();
+  }
+  void registerToPropertyHandler(PropertyHandler* mtPropertyHandler, const std::string& str){
+    mtPropertyHandler->doubleRegister_.registerVector(str + name_, v_);
+  }
+};
 
 template<typename State,unsigned int N>
 class StateArray{
@@ -25,8 +76,16 @@ class StateArray{
   typedef Eigen::Matrix<double,D_,1> mtDifVec;
   typedef Eigen::Matrix<double,D_,D_> mtCovMat;
   State array_[N];
+  std::unordered_map<const void*,unsigned int> IdMap_;
   StateArray(){
     setIdentity();
+    createVarLookup();
+  }
+  StateArray(const StateArray<State,N>& other){
+    for(unsigned int i=0;i<N;i++){
+      array_[i] = other[i];
+    }
+    createVarLookup();
   }
   void boxPlus(const mtDifVec& vecIn, StateArray<State,N>& stateOut) const{
     for(unsigned int i=0;i<N;i++){
@@ -50,15 +109,87 @@ class StateArray{
       array_[i].setIdentity();
     }
   }
-  const double& operator[](unsigned int i) const{
+  const State& operator[](unsigned int i) const{
     assert(i<N);
     return array_[i];
   };
-  double& operator[](unsigned int i){
+  State& operator[](unsigned int i){
     assert(i<N);
     return array_[i];
   };
+  const std::string& getName(unsigned int i) const{
+    return array_[i].name_;
+  };
+  std::string& getName(unsigned int i) {
+    return array_[i].name_;
+  };
+  const State& get(const std::string& str) const{
+    for(unsigned int i=0;i<N;i++){
+      if(getName(i)==str){
+        return array_[i];
+      }
+    }
+    assert(0);
+    return array_[0].s_;
+  };
+  State& get(const std::string& str) {
+    for(unsigned int i=0;i<N;i++){
+      if(getName(i)==str){
+        return array_[i];
+      }
+    }
+    assert(0);
+    return array_[0];
+  }
+  void createDefaultNames(const std::string& str){
+    for(unsigned int i=0;i<N;i++){
+      getName(i) = str + std::to_string(i);
+    }
+  };
+  unsigned int getId(const std::string& str) const{
+    for(unsigned int i=0;i<N;i++){
+      if(getName(i)==str){
+        return i*State::D_;
+      }
+    }
+    assert(0);
+    return 0;
+  };
+  unsigned int getId(const State& var) const{
+    return IdMap_.at(static_cast<const void*>(&var));
+  };
+  void createVarLookup(){
+    for(unsigned int i=0;i<N;i++){
+      IdMap_[static_cast<const void*>(&array_[i])] = i*State::D_;
+    }
+  };
+  void registerToPropertyHandler(PropertyHandler* mtPropertyHandler, const std::string& str){
+    for(unsigned int i=0;i<N;i++){
+      array_[i].registerToPropertyHandler(mtPropertyHandler,str);
+    }
+  }
+  static StateArray<State,N> Identity(){
+    StateArray<State,N> identity;
+    return identity;
+  }
+  StateArray<State,N>& operator=(const StateArray<State,N>& state){
+    for(unsigned int i=0;i<N;i++){
+      array_[i] = state[i];
+    }
+    return *this;
+  }
 };
+
+
+//  TODO look at mpl sequence, look at variant
+//enum{
+//  TIME,
+//  SIZE,
+//  VEC
+//};
+//using Seq = mpl::sequence<double,int,std::vector<int> >;
+//
+// boost::mpl::at_c<Seq,TIME>::type a  = get<TIME>()
 
 template<typename State, typename... Arguments>
 class ComposedState{
@@ -67,15 +198,57 @@ class ComposedState{
   typedef Eigen::Matrix<double,D_,1> mtDifVec;
   typedef Eigen::Matrix<double,D_,D_> mtCovMat;
   State state_;
+
   ComposedState<Arguments...> subComposedState_;
   void boxPlus(const mtDifVec& vecIn, ComposedState<State,Arguments...>& stateOut){
     state_.boxPlus(vecIn.template block<State::D_,1>(0,0),stateOut.state_);
     subComposedState_.boxPlus(vecIn.template block<ComposedState<Arguments...>::D_,1>(State::D_,0),stateOut.subComposedState_);
   };
+  void print() const{
+    state_.print();
+    subComposedState_.print();
+  }
+  template<typename Out, unsigned int N>
+  typename std::enable_if<N==0,Out>::type get(){
+    return state_;
+  };
+  template<typename Out, unsigned int N>
+  typename std::enable_if<(N>0),Out>::type get(){
+    return subComposedState_.get<Out,N-1>();
+  };
 };
 
 template<typename State>
 class ComposedState<State>: public State{
+ public:
+  template<typename Out, unsigned int N>
+  typename std::enable_if<N==0,Out>::type get(){
+    return *this;
+  };
+};
+
+template<unsigned int S, unsigned int V, unsigned int Q>
+class StateSVQNew: public ComposedState<StateArray<ScalarState,S>,StateArray<Vector3dState,V>,StateArray<Vector3dState,Q>>{
+ public:
+  using ComposedState<StateArray<ScalarState,S>,StateArray<Vector3dState,V>,StateArray<Vector3dState,Q>>::state_;
+  const double& s(unsigned int i) const{
+    return state_[i].s_;
+  };
+  double& s(unsigned int i) {
+    return state_[i].s_;
+  };
+  const double& s(const std::string& str) const{
+    return state_.get(str).s_;
+  };
+  double& s(const std::string& str) {
+    return state_.get(str).s_;
+  }
+  const std::string& sName(unsigned int i) const{
+    return state_.getName(i);
+  };
+  std::string& sName(unsigned int i) {
+    return state_.getName(i);
+  };
 };
 
 template<unsigned int S, unsigned int V, unsigned int Q>
