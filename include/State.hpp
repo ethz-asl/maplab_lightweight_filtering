@@ -20,10 +20,11 @@ namespace rot = kindr::rotations::eigen_impl;
 
 namespace LWF{
 
-template<unsigned int D>
+template<unsigned int D, unsigned int N = 0>
 class StateBase{
  public:
   static const unsigned int D_ = D;
+  static const unsigned int N_ = N;
   typedef Eigen::Matrix<double,D_,1> mtDifVec;
   typedef Eigen::Matrix<double,D_,D_> mtCovMat;
   std::string name_;
@@ -47,6 +48,14 @@ class ScalarState: public StateBase<1>{
   void registerToPropertyHandler(PropertyHandler* mtPropertyHandler, const std::string& str){
     mtPropertyHandler->doubleRegister_.registerScalar(str + name_, s_);
   }
+  double& get(unsigned int i = 0){
+    assert(i==0);
+    return s_;
+  }
+  const double& get(unsigned int i = 0) const{
+    assert(i==0);
+    return s_;
+  }
 };
 
 class Vector3dState: public StateBase<3>{
@@ -67,14 +76,23 @@ class Vector3dState: public StateBase<3>{
   void registerToPropertyHandler(PropertyHandler* mtPropertyHandler, const std::string& str){
     mtPropertyHandler->doubleRegister_.registerVector(str + name_, v_);
   }
+  Eigen::Vector3d& get(unsigned int i = 0){
+    assert(i==0);
+    return v_;
+  }
+  const Eigen::Vector3d& get(unsigned int i = 0) const{
+    assert(i==0);
+    return v_;
+  }
 };
 
 template<typename State,unsigned int N>
-class StateArray{
+class StateArray: public StateBase<State::D_*N>{
  public:
-  static const unsigned int D_ = State::D_*N;
-  typedef Eigen::Matrix<double,D_,1> mtDifVec;
-  typedef Eigen::Matrix<double,D_,D_> mtCovMat;
+  using StateBase<State::D_*N>::D_;
+  using typename  StateBase<State::D_*N>::mtDifVec;
+  using typename StateBase<State::D_*N>::mtCovMat;
+  using StateBase<State::D_*N>::name_;
   State array_[N];
   std::unordered_map<const void*,unsigned int> IdMap_;
   StateArray(){
@@ -180,25 +198,14 @@ class StateArray{
   }
 };
 
-
-//  TODO look at mpl sequence, look at variant
-//enum{
-//  TIME,
-//  SIZE,
-//  VEC
-//};
-//using Seq = mpl::sequence<double,int,std::vector<int> >;
-//
-// boost::mpl::at_c<Seq,TIME>::type a  = get<TIME>()
-
 template<typename State, typename... Arguments>
-class ComposedState{
+class ComposedState: public StateBase<State::D_+ComposedState<Arguments...>::D_>{
  public:
-  static const unsigned int D_ = State::D_+ComposedState<Arguments...>::D_;
-  typedef Eigen::Matrix<double,D_,1> mtDifVec;
-  typedef Eigen::Matrix<double,D_,D_> mtCovMat;
+  using StateBase<State::D_+ComposedState<Arguments...>::D_>::D_;
+  using typename StateBase<State::D_+ComposedState<Arguments...>::D_>::mtDifVec;
+  using typename StateBase<State::D_+ComposedState<Arguments...>::D_>::mtCovMat;
+  using StateBase<State::D_+ComposedState<Arguments...>::D_>::name_;
   State state_;
-
   ComposedState<Arguments...> subComposedState_;
   void boxPlus(const mtDifVec& vecIn, ComposedState<State,Arguments...>& stateOut){
     state_.boxPlus(vecIn.template block<State::D_,1>(0,0),stateOut.state_);
@@ -208,22 +215,34 @@ class ComposedState{
     state_.print();
     subComposedState_.print();
   }
-  template<typename Out, unsigned int N>
-  typename std::enable_if<N==0,Out>::type get(){
+  template<unsigned int N, typename std::enable_if<(N==0)>::type* = nullptr>
+  auto get() -> decltype (state_){
     return state_;
   };
-  template<typename Out, unsigned int N>
-  typename std::enable_if<(N>0),Out>::type get(){
-    return subComposedState_.get<Out,N-1>();
+  template<unsigned int N, typename std::enable_if<(N>0)>::type* = nullptr>
+  auto get() -> decltype (subComposedState_.get<N-1>()){
+    return subComposedState_.get<N-1>();
+  };
+  const std::string& getName(unsigned int i) const{
+    if(i==0) return state_.name_;
+    else return subComposedState_.getName(i-1);
   };
 };
 
 template<typename State>
 class ComposedState<State>: public State{
  public:
-  template<typename Out, unsigned int N>
-  typename std::enable_if<N==0,Out>::type get(){
+  using State::D_;
+  using typename State::mtDifVec;
+  using typename State::mtCovMat;
+  using State::name_;
+  template<unsigned int N, typename std::enable_if<(N==0)>::type* = nullptr>
+  auto get() -> decltype (*this){
     return *this;
+  };
+  const std::string& getName(unsigned int i) const{
+    assert(i==0);
+    return name_;
   };
 };
 
@@ -262,6 +281,7 @@ class StateSVQ{
   typedef Eigen::Matrix<double,D_,D_> mtCovMat;
   std::unordered_map<const void*,unsigned int> IdMap_;
   std::array<std::string,S_+V_+Q_> names_;
+  std::string name_;
   StateSVQ(){
     setIdentity();
     createVarLookup();
@@ -545,6 +565,7 @@ class VectorState{
   static const unsigned int D_ = N;
   typedef Eigen::Matrix<double,D_,1> mtDifVec;
   typedef Eigen::Matrix<double,D_,D_> mtCovMat;
+  std::string name_;
   VectorState(){
     vector_.setZero();
     createVarLookup();

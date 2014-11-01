@@ -701,9 +701,9 @@ TEST_F(ComposedStateTest, constructors) {
   LWF::StateSVQ<S_,V_,Q_> stateSVQ;
   LWF::VectorState<D_> vectorState;
   stateSVQ = testState1.state_;
-  stateSVQ = testState1.get<LWF::StateSVQ<S_,V_,Q_>,0>();
+  stateSVQ = testState1.get<0>();
   vectorState = testState1.subComposedState_;
-  vectorState = testState1.get<LWF::VectorState<D_>,1>();
+  vectorState = testState1.get<1>();
 
   LWF::StateSVQNew<S_,V_,Q_> testState2;
   testState2.print();
