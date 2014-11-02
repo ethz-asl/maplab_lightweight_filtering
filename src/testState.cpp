@@ -691,24 +691,40 @@ class ComposedStateTest : public virtual ::testing::Test, public StateSVQTest, p
   }
   virtual ~ComposedStateTest() {
   }
-  LWF::ComposedState<LWF::StateSVQ<S_,V_,Q_>,LWF::VectorState<D_>> testState_;
-  LWF::ComposedState<LWF::StateSVQ<S_,V_,Q_>,LWF::VectorState<D_>>::mtDifVec difVecPairState_;
+//  LWF::ComposedState<LWF::StateSVQ<S_,V_,Q_>,LWF::VectorState<D_>> testState_;
+//  LWF::ComposedState<LWF::StateSVQ<S_,V_,Q_>,LWF::VectorState<D_>>::mtDifVec difVecPairState_;
 };
 
 // Test constructors
 TEST_F(ComposedStateTest, constructors) {
-  LWF::ComposedState<LWF::StateSVQ<S_,V_,Q_>,LWF::VectorState<D_>> testState1;
-  LWF::StateSVQ<S_,V_,Q_> stateSVQ;
-  LWF::VectorState<D_> vectorState;
-  stateSVQ = testState1.state_;
-  stateSVQ = testState1.get<0>();
-  vectorState = testState1.subComposedState_;
-  vectorState = testState1.get<1>();
+  enum StateNames {
+    State1,
+    State2,
+    State3
+  };
+  LWF::ComposedState<LWF::ScalarState,LWF::Vector3dState,LWF::Vector3dState> testState;
+  testState.print();
+  LWF::ScalarState scalarState;
+  double a;
+  LWF::Vector3dState vector3dState;
+  Eigen::Vector3d b;
+  scalarState = testState.state_;
+  scalarState = testState.get<State1>();
+  vector3dState = testState.subComposedState_.state_;
+  vector3dState = testState.get<State2>();
+  vector3dState = testState.subComposedState_.subComposedState_;
+  vector3dState = testState.get<State3>();
+  a = testState.getValue<0>();
+  testState.getValue<1>() = Eigen::Vector3d(5,2,3);
+  testState.getValue<2>() = Eigen::Vector3d(0,2,3);
+  b = testState.getValue<1>();
+  b = testState.getValue<2>();
+  testState.print();
 
-  LWF::StateSVQNew<S_,V_,Q_> testState2;
-  testState2.print();
-  testState2.s(0) = 2.3;
-  testState2.print();
+//  LWF::StateSVQNew<S_,V_,Q_> testState2;
+//  testState2.print();
+//  testState2.s(0) = 2.3;
+//  testState2.print();
 //  for(int i=0;i<S_;i++){
 //    ASSERT_EQ(testState1.first().scalarList[i],0.0);
 //  }
@@ -729,6 +745,26 @@ TEST_F(ComposedStateTest, constructors) {
 //  LWF::PairState<LWF::StateSVQ<S_,V_,Q_>,LWF::VectorState<D_>> testState2(testPairState2_);
 //  testState2.boxMinus(testPairState2_,difVecPairState_);
 //  ASSERT_NEAR(difVecPairState_.norm(),0.0,1e-6);
+}
+
+// Test constructors
+TEST_F(ComposedStateTest, constructors2) {
+  enum StateNames {
+    State1,
+    State2,
+    State3
+  };
+  LWF::ComposedState<LWF::ScalarState,LWF::StateArray<LWF::Vector3dState,2>> testState;
+  testState.print();
+  double a;
+  Eigen::Vector3d b;
+  a = testState.getValue<0>();
+  testState.getValue<1>() = Eigen::Vector3d(5,2,3);
+  testState.getValue<2>() = Eigen::Vector3d(0,2,3);
+  b = testState.getValue<1>();
+  b = testState.getValue<2>();
+  testState.print();
+  std::cout << "Indices: " << testState.getId<0>() << " " << testState.getId<1>() << " " << testState.getId<2>() << std::endl;
 }
 
 int main(int argc, char **argv) {

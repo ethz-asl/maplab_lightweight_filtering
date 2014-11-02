@@ -16,6 +16,13 @@ namespace LWFTest{
 
 class State: public LWF::StateSVQ<0,4,1>{
  public:
+  enum StateNames {
+    POS,
+    VEl,
+    ACB,
+    GYB,
+    ATT
+  };
   State(){};
   ~State(){};
 };
