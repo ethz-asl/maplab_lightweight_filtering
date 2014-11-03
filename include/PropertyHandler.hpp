@@ -37,28 +37,28 @@ class Register{
     registerMap_[&var] = str;
   }
   void registerVector(std::string str, Eigen::Matrix<TYPE,3,1>& var){
-    registerScalar(str + "x",var(0));
-    registerScalar(str + "y",var(1));
-    registerScalar(str + "z",var(2));
+    registerScalar(str + "_x",var(0));
+    registerScalar(str + "_y",var(1));
+    registerScalar(str + "_z",var(2));
   }
   void registerQuaternion(std::string str, rot::RotationQuaternion<TYPE, kindr::rotations::RotationUsage::PASSIVE>& var){
-    registerScalar(str + "w",var.toImplementation().w());
-    registerScalar(str + "x",var.toImplementation().x());
-    registerScalar(str + "y",var.toImplementation().y());
-    registerScalar(str + "z",var.toImplementation().z());
+    registerScalar(str + "_w",var.toImplementation().w());
+    registerScalar(str + "_x",var.toImplementation().x());
+    registerScalar(str + "_y",var.toImplementation().y());
+    registerScalar(str + "_z",var.toImplementation().z());
   }
   template<int N, int M>
   void registerMatrix(std::string str, Eigen::Matrix<TYPE,N,M>& var){
     for(unsigned int i=0;i<N;i++){
       for(unsigned int j=0;j<M;j++){
-        registerScalar(str + std::to_string(i) + "_" + std::to_string(j),var(i,j));
+        registerScalar(str + "_" + std::to_string(i) + "_" + std::to_string(j),var(i,j));
       }
     }
   }
   template<int N>
   void registerDiagonalMatrix(std::string str, Eigen::Matrix<TYPE,N,N>& var){
     for(unsigned int i=0;i<N;i++){
-      registerScalar(str + std::to_string(i),var(i,i));
+      registerScalar(str + "_" + std::to_string(i),var(i,i));
     }
     for(unsigned int i=0;i<N;i++){
       for(unsigned int j=0;j<N;j++){

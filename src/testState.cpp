@@ -319,9 +319,14 @@ class Auxillary{
 };
 
 // The fixture for testing class StateSVQ
-class AugmentedStateTest : public ::testing::Test {
+class StateSVQTest2 : public virtual ::testing::Test {
  protected:
-  AugmentedStateTest() {
+  enum StateNames{
+    s0, s1, s2, s3,
+    v0, v1, v2,
+    q0, q1
+  };
+  StateSVQTest2() {
     assert(V_>=Q_-1);
     testScalar1_[0] = 4.5;
     testScalar2_[0] = -17.34;
@@ -342,34 +347,35 @@ class AugmentedStateTest : public ::testing::Test {
       testQuat2_[i] = testQuat2_[i-1].boxPlus(testVector2_[i-1]);
     }
     for(int i=0;i<S_;i++){
-      testState1_.scalarList[i] = testScalar1_[i];
+      testState1_.getState<0>().array_[i].s_ = testScalar1_[i];
     }
     for(int i=0;i<V_;i++){
-      testState1_.vectorList[i] = testVector1_[i];
+      testState1_.getState<1>().array_[i].v_ = testVector1_[i];
     }
     for(int i=0;i<Q_;i++){
-      testState1_.quaternionList[i] = testQuat1_[i];
+      testState1_.getState<2>().array_[i].q_ = testQuat1_[i];
+    }
+    for(int i=0;i<S_;i++){
+      testState2_.getState<0>().array_[i].s_ = testScalar2_[i];
+    }
+    for(int i=0;i<V_;i++){
+      testState2_.getState<1>().array_[i].v_ = testVector2_[i];
+    }
+    for(int i=0;i<Q_;i++){
+      testState2_.getState<2>().array_[i].q_ = testQuat2_[i];
     }
     testState1_.aux().x_ = 2.3;
-    for(int i=0;i<S_;i++){
-      testState2_.scalarList[i] = testScalar2_[i];
-    }
-    for(int i=0;i<V_;i++){
-      testState2_.vectorList[i] = testVector2_[i];
-    }
-    for(int i=0;i<Q_;i++){
-      testState2_.quaternionList[i] = testQuat2_[i];
-    }
     testState2_.aux().x_ = 3.2;
   }
-  virtual ~AugmentedStateTest() {
+  virtual ~StateSVQTest2() {
   }
   static const unsigned int S_ = 4;
   static const unsigned int V_ = 3;
   static const unsigned int Q_ = 2;
-  LWF::AugmentedState<LWF::StateSVQ<S_,V_,Q_>,Auxillary> testState1_;
-  LWF::AugmentedState<LWF::StateSVQ<S_,V_,Q_>,Auxillary> testState2_;
-  LWF::AugmentedState<LWF::StateSVQ<S_,V_,Q_>,Auxillary>::mtDifVec difVec_;
+  typedef LWF::AugmentedState<LWF::ComposedState<LWF::StateArray<LWF::ScalarState,S_>,LWF::StateArray<LWF::VectorStateNew<3>,V_>,LWF::StateArray<LWF::QuaternionState,Q_>>,Auxillary> StateSVQAugmented;
+  StateSVQAugmented testState1_;
+  StateSVQAugmented testState2_;
+  StateSVQAugmented::mtDifVec difVec_;
   double testScalar1_[S_];
   double testScalar2_[S_];
   Eigen::Vector3d testVector1_[V_];
@@ -379,64 +385,50 @@ class AugmentedStateTest : public ::testing::Test {
 };
 
 // Test constructors
-TEST_F(AugmentedStateTest, constructors) {
-  LWF::AugmentedState<LWF::StateSVQ<S_,V_,Q_>,Auxillary> testState1;
-  for(int i=0;i<S_;i++){
-    ASSERT_EQ(testState1.scalarList[i],0.0);
-  }
-  for(int i=0;i<V_;i++){
-    ASSERT_EQ(testState1.vectorList[i](0),0.0);
-    ASSERT_EQ(testState1.vectorList[i](1),0.0);
-    ASSERT_EQ(testState1.vectorList[i](2),0.0);
-  }
-  for(int i=0;i<Q_;i++){
-    ASSERT_EQ(testState1.quaternionList[i].w(),1.0);
-    ASSERT_EQ(testState1.quaternionList[i].x(),0.0);
-    ASSERT_EQ(testState1.quaternionList[i].y(),0.0);
-    ASSERT_EQ(testState1.quaternionList[i].z(),0.0);
-  }
+TEST_F(StateSVQTest2, constructors) {
+  StateSVQAugmented testState1;
   ASSERT_EQ(testState1.aux().x_,1.0);
-  LWF::AugmentedState<LWF::StateSVQ<S_,V_,Q_>,Auxillary> testState2(testState2_);
+  StateSVQAugmented testState2(testState2_);
   testState2.boxMinus(testState2_,difVec_);
   ASSERT_NEAR(difVec_.norm(),0.0,1e-6);
   ASSERT_EQ(testState2.aux().x_,3.2);
 }
 
 // Test setIdentity and Identity
-TEST_F(AugmentedStateTest, setIdentity) {
+TEST_F(StateSVQTest2, setIdentity) {
   testState1_.setIdentity();
   for(int i=0;i<S_;i++){
-    ASSERT_EQ(testState1_.scalarList[i],0.0);
+    ASSERT_EQ(testState1_.getState<0>().array_[i].s_,0.0);
   }
   for(int i=0;i<V_;i++){
-    ASSERT_EQ(testState1_.vectorList[i](0),0.0);
-    ASSERT_EQ(testState1_.vectorList[i](1),0.0);
-    ASSERT_EQ(testState1_.vectorList[i](2),0.0);
+    ASSERT_EQ(testState1_.getState<1>().array_[i].v_(0),0.0);
+    ASSERT_EQ(testState1_.getState<1>().array_[i].v_(1),0.0);
+    ASSERT_EQ(testState1_.getState<1>().array_[i].v_(2),0.0);
   }
   for(int i=0;i<Q_;i++){
-    ASSERT_EQ(testState1_.quaternionList[i].w(),1.0);
-    ASSERT_EQ(testState1_.quaternionList[i].x(),0.0);
-    ASSERT_EQ(testState1_.quaternionList[i].y(),0.0);
-    ASSERT_EQ(testState1_.quaternionList[i].z(),0.0);
+    ASSERT_EQ(testState1_.getState<2>().array_[i].q_.w(),1.0);
+    ASSERT_EQ(testState1_.getState<2>().array_[i].q_.x(),0.0);
+    ASSERT_EQ(testState1_.getState<2>().array_[i].q_.y(),0.0);
+    ASSERT_EQ(testState1_.getState<2>().array_[i].q_.z(),0.0);
   }
   for(int i=0;i<S_;i++){
-    ASSERT_EQ(testState1_.Identity().scalarList[i],0.0);
+    ASSERT_EQ(StateSVQAugmented::Identity().getState<0>().array_[i].s_,0.0);
   }
   for(int i=0;i<V_;i++){
-    ASSERT_EQ(testState1_.Identity().vectorList[i](0),0.0);
-    ASSERT_EQ(testState1_.Identity().vectorList[i](1),0.0);
-    ASSERT_EQ(testState1_.Identity().vectorList[i](2),0.0);
+    ASSERT_EQ(StateSVQAugmented::Identity().getState<1>().array_[i].v_(0),0.0);
+    ASSERT_EQ(StateSVQAugmented::Identity().getState<1>().array_[i].v_(1),0.0);
+    ASSERT_EQ(StateSVQAugmented::Identity().getState<1>().array_[i].v_(2),0.0);
   }
   for(int i=0;i<Q_;i++){
-    ASSERT_EQ(testState1_.Identity().quaternionList[i].w(),1.0);
-    ASSERT_EQ(testState1_.Identity().quaternionList[i].x(),0.0);
-    ASSERT_EQ(testState1_.Identity().quaternionList[i].y(),0.0);
-    ASSERT_EQ(testState1_.Identity().quaternionList[i].z(),0.0);
+    ASSERT_EQ(StateSVQAugmented::Identity().getState<2>().array_[i].q_.w(),1.0);
+    ASSERT_EQ(StateSVQAugmented::Identity().getState<2>().array_[i].q_.x(),0.0);
+    ASSERT_EQ(StateSVQAugmented::Identity().getState<2>().array_[i].q_.y(),0.0);
+    ASSERT_EQ(StateSVQAugmented::Identity().getState<2>().array_[i].q_.z(),0.0);
   }
 }
 
 // Test plus and minus
-TEST_F(AugmentedStateTest, plusAndMinus) {
+TEST_F(StateSVQTest2, plusAndMinus) {
   testState2_.boxMinus(testState1_,difVec_);
   unsigned int index=0;
   for(int i=0;i<S_;i++){
@@ -461,64 +453,73 @@ TEST_F(AugmentedStateTest, plusAndMinus) {
   }
   testState1_.boxPlus(difVec_,testState2_);
   for(int i=0;i<S_;i++){
-    ASSERT_NEAR(testState2_.scalarList[i],testScalar2_[i],1e-6);
+    ASSERT_NEAR(testState2_.getState<0>().array_[i].s_,testScalar2_[i],1e-6);
   }
   for(int i=0;i<V_;i++){
-    ASSERT_NEAR(testState2_.vectorList[i](0),testVector2_[i](0),1e-6);
-    ASSERT_NEAR(testState2_.vectorList[i](1),testVector2_[i](1),1e-6);
-    ASSERT_NEAR(testState2_.vectorList[i](2),testVector2_[i](2),1e-6);
+    ASSERT_NEAR((testState2_.getState<1>().array_[i].v_-testVector2_[i]).norm(),0.0,1e-6);
   }
   for(int i=0;i<Q_;i++){
-    ASSERT_TRUE(testState2_.quaternionList[i].isNear(testQuat2_[i],1e-6));
+    ASSERT_TRUE(testState2_.getState<2>().array_[i].q_.isNear(testQuat2_[i],1e-6));
   }
   ASSERT_EQ(testState2_.aux().x_,testState1_.aux().x_);
 }
 
-// Test accessors
-TEST_F(AugmentedStateTest, accessors) {
-  for(int i=0;i<S_;i++){
-    ASSERT_TRUE(testState1_.s(i) == testScalar1_[i]);
-  }
-  for(int i=0;i<V_;i++){
-    ASSERT_TRUE(testState1_.v(i)(0) == testVector1_[i](0));
-    ASSERT_TRUE(testState1_.v(i)(1) == testVector1_[i](1));
-    ASSERT_TRUE(testState1_.v(i)(2) == testVector1_[i](2));
-  }
-  for(int i=0;i<Q_;i++){
-    ASSERT_TRUE(testState1_.q(i).isNear(testQuat1_[i],1e-6));
-  }
+// Test getValue, getId, and auxillary accessor
+TEST_F(StateSVQTest2, accessors) {
+  ASSERT_TRUE(testState1_.getValue<s0>() == testScalar1_[0]);
+  ASSERT_TRUE(testState1_.getValue<s1>() == testScalar1_[1]);
+  ASSERT_TRUE(testState1_.getValue<s2>() == testScalar1_[2]);
+  ASSERT_TRUE(testState1_.getValue<s3>() == testScalar1_[3]);
+  ASSERT_NEAR((testState1_.getValue<v0>()-testVector1_[0]).norm(),0.0,1e-6);
+  ASSERT_NEAR((testState1_.getValue<v1>()-testVector1_[1]).norm(),0.0,1e-6);
+  ASSERT_NEAR((testState1_.getValue<v2>()-testVector1_[2]).norm(),0.0,1e-6);
+  ASSERT_TRUE(testState1_.getValue<q0>().isNear(testQuat1_[0],1e-6));
+  ASSERT_TRUE(testState1_.getValue<q1>().isNear(testQuat1_[1],1e-6));
+
+  ASSERT_TRUE(testState1_.getId<s0>() == 0);
+  ASSERT_TRUE(testState1_.getId<s1>() == 1);
+  ASSERT_TRUE(testState1_.getId<s2>() == 2);
+  ASSERT_TRUE(testState1_.getId<s3>() == 3);
+  ASSERT_TRUE(testState1_.getId<v0>() == 4);
+  ASSERT_TRUE(testState1_.getId<v1>() == 7);
+  ASSERT_TRUE(testState1_.getId<v2>() == 10);
+  ASSERT_TRUE(testState1_.getId<q0>() == 13);
+  ASSERT_TRUE(testState1_.getId<q1>() == 16);
+
   ASSERT_EQ(testState1_.aux().x_,2.3);
 }
 
 // Test operator=
-TEST_F(AugmentedStateTest, operatorEQ) {
+TEST_F(StateSVQTest2, operatorEQ) {
   testState2_ = testState1_;
   for(int i=0;i<S_;i++){
-    ASSERT_TRUE(testState2_.s(i) == testScalar1_[i]);
+    ASSERT_NEAR(testState2_.getState<0>().array_[i].s_,testScalar1_[i],1e-6);
   }
   for(int i=0;i<V_;i++){
-    ASSERT_TRUE(testState2_.v(i)(0) == testVector1_[i](0));
-    ASSERT_TRUE(testState2_.v(i)(1) == testVector1_[i](1));
-    ASSERT_TRUE(testState2_.v(i)(2) == testVector1_[i](2));
+    ASSERT_NEAR((testState2_.getState<1>().array_[i].v_-testVector1_[i]).norm(),0.0,1e-6);
   }
   for(int i=0;i<Q_;i++){
-    ASSERT_TRUE(testState2_.q(i).isNear(testQuat1_[i],1e-6));
+    ASSERT_TRUE(testState2_.getState<2>().array_[i].q_.isNear(testQuat1_[i],1e-6));
   }
+  ASSERT_EQ(testState2_.aux().x_,testState1_.aux().x_);
 }
 
-// Test getId
-TEST_F(AugmentedStateTest, getId) {
-  testState1_.setIdentity();
-  testState1_ = testState2_;
-  for(int i=0;i<S_;i++){
-    ASSERT_TRUE(testState1_.getId(testState1_.s(i)) == i);
-  }
-  for(int i=0;i<V_;i++){
-    ASSERT_TRUE(testState1_.getId(testState1_.v(i)) == S_+3*i);
-  }
-  for(int i=0;i<Q_;i++){
-    ASSERT_TRUE(testState1_.getId(testState1_.q(i)) == S_+3*(V_+i));
-  }
+// Test createDefaultNames
+TEST_F(StateSVQTest2, naming) {
+  testState1_.createDefaultNames("test");
+  ASSERT_TRUE(testState1_.name_ == "test");
+  ASSERT_TRUE(testState1_.getState<0>().name_ == "test_0");
+  ASSERT_TRUE(testState1_.getState<1>().name_ == "test_1");
+  ASSERT_TRUE(testState1_.getState<2>().name_ == "test_2");
+  ASSERT_TRUE(testState1_.getState<0>().getState<0>().name_ == "test_0_0");
+  ASSERT_TRUE(testState1_.getState<0>().getState<1>().name_ == "test_0_1");
+  ASSERT_TRUE(testState1_.getState<0>().getState<2>().name_ == "test_0_2");
+  ASSERT_TRUE(testState1_.getState<0>().getState<3>().name_ == "test_0_3");
+  ASSERT_TRUE(testState1_.getState<1>().getState<0>().name_ == "test_1_0");
+  ASSERT_TRUE(testState1_.getState<1>().getState<1>().name_ == "test_1_1");
+  ASSERT_TRUE(testState1_.getState<1>().getState<2>().name_ == "test_1_2");
+  ASSERT_TRUE(testState1_.getState<2>().getState<0>().name_ == "test_2_0");
+  ASSERT_TRUE(testState1_.getState<2>().getState<1>().name_ == "test_2_1");
 }
 
 // The fixture for testing class StateSVQ
@@ -681,90 +682,6 @@ TEST_F(PairStateTest, operatorEQ) {
   for(int i=0;i<D_;i++){
     ASSERT_NEAR((testPairState2_.second()[i]),testVectorVector1_[i],1e-6);
   }
-}
-
-// The fixture for testing class ComposedState
-class ComposedStateTest : public virtual ::testing::Test, public StateSVQTest, public VectorStateTest{
- protected:
-  ComposedStateTest() {
-
-  }
-  virtual ~ComposedStateTest() {
-  }
-//  LWF::ComposedState<LWF::StateSVQ<S_,V_,Q_>,LWF::VectorState<D_>> testState_;
-//  LWF::ComposedState<LWF::StateSVQ<S_,V_,Q_>,LWF::VectorState<D_>>::mtDifVec difVecPairState_;
-};
-
-// Test constructors
-TEST_F(ComposedStateTest, constructors) {
-  enum StateNames {
-    State1,
-    State2,
-    State3
-  };
-  LWF::ComposedState<LWF::ScalarState,LWF::Vector3dState,LWF::Vector3dState> testState;
-  testState.print();
-  LWF::ScalarState scalarState;
-  double a;
-  LWF::Vector3dState vector3dState;
-  Eigen::Vector3d b;
-  scalarState = testState.state_;
-  scalarState = testState.get<State1>();
-  vector3dState = testState.subComposedState_.state_;
-  vector3dState = testState.get<State2>();
-  vector3dState = testState.subComposedState_.subComposedState_;
-  vector3dState = testState.get<State3>();
-  a = testState.getValue<0>();
-  testState.getValue<1>() = Eigen::Vector3d(5,2,3);
-  testState.getValue<2>() = Eigen::Vector3d(0,2,3);
-  b = testState.getValue<1>();
-  b = testState.getValue<2>();
-  testState.print();
-
-//  LWF::StateSVQNew<S_,V_,Q_> testState2;
-//  testState2.print();
-//  testState2.s(0) = 2.3;
-//  testState2.print();
-//  for(int i=0;i<S_;i++){
-//    ASSERT_EQ(testState1.first().scalarList[i],0.0);
-//  }
-//  for(int i=0;i<V_;i++){
-//    ASSERT_EQ(testState1.first().vectorList[i](0),0.0);
-//    ASSERT_EQ(testState1.first().vectorList[i](1),0.0);
-//    ASSERT_EQ(testState1.first().vectorList[i](2),0.0);
-//  }
-//  for(int i=0;i<Q_;i++){
-//    ASSERT_EQ(testState1.first().quaternionList[i].w(),1.0);
-//    ASSERT_EQ(testState1.first().quaternionList[i].x(),0.0);
-//    ASSERT_EQ(testState1.first().quaternionList[i].y(),0.0);
-//    ASSERT_EQ(testState1.first().quaternionList[i].z(),0.0);
-//  }
-//  for(int i=0;i<D_;i++){
-//    ASSERT_EQ(testState1.second()[i],0.0);
-//  }
-//  LWF::PairState<LWF::StateSVQ<S_,V_,Q_>,LWF::VectorState<D_>> testState2(testPairState2_);
-//  testState2.boxMinus(testPairState2_,difVecPairState_);
-//  ASSERT_NEAR(difVecPairState_.norm(),0.0,1e-6);
-}
-
-// Test constructors
-TEST_F(ComposedStateTest, constructors2) {
-  enum StateNames {
-    State1,
-    State2,
-    State3
-  };
-  LWF::ComposedState<LWF::ScalarState,LWF::StateArray<LWF::Vector3dState,2>> testState;
-  testState.print();
-  double a;
-  Eigen::Vector3d b;
-  a = testState.getValue<0>();
-  testState.getValue<1>() = Eigen::Vector3d(5,2,3);
-  testState.getValue<2>() = Eigen::Vector3d(0,2,3);
-  b = testState.getValue<1>();
-  b = testState.getValue<2>();
-  testState.print();
-  std::cout << "Indices: " << testState.getId<0>() << " " << testState.getId<1>() << " " << testState.getId<2>() << std::endl;
 }
 
 int main(int argc, char **argv) {
