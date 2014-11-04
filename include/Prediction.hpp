@@ -64,7 +64,6 @@ class Prediction: public ModelBase<State,State,Meas,Noise>{
     F_ = this->jacInput(state,meas,dt);
     Fn_ = this->jacNoise(state,meas,dt);
     state = this->eval(state,meas,dt);
-    state.fix();
     cov = F_*cov*F_.transpose() + Fn_*prenoiP_*Fn_.transpose();
     postProcess(state,cov,meas,dt);
     return 0;
@@ -79,7 +78,6 @@ class Prediction: public ModelBase<State,State,Meas,Noise>{
     }
     // Calculate mean and variance
     state = stateSigmaPointsPre_.getMean();
-    state.fix();
     cov = stateSigmaPointsPre_.getCovarianceMatrix(state);
     postProcess(state,cov,meas,dt);
     return 0;
@@ -119,7 +117,6 @@ class Prediction: public ModelBase<State,State,Meas,Noise>{
       state = this->eval(state,itMeas->second,itMeas->first-t);
       t = itMeas->first;
     }
-    state.fix();
     cov = F_*cov*F_.transpose() + Fn_*prenoiP_*Fn_.transpose();
     postProcess(state,cov,meanMeas,dT);
     return 0;
@@ -149,7 +146,6 @@ class Prediction: public ModelBase<State,State,Meas,Noise>{
       stateSigmaPointsPre_(i) = this->eval(stateSigmaPoints_(i),meanMeas,stateSigmaPointsNoi_(i),dT); // TODO: check
     }
     state = stateSigmaPointsPre_.getMean();
-    state.fix();
     cov = stateSigmaPointsPre_.getCovarianceMatrix(state);
     postProcess(state,cov,meanMeas,dT);
     return 0;

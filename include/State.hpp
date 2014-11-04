@@ -21,7 +21,7 @@ namespace rot = kindr::rotations::eigen_impl;
 namespace LWF{
 
 template<typename DERIVED, unsigned int D, unsigned int E = 1>
-class StateBase{
+class StateBase{ // TODO: normal vector
  public:
   StateBase(){};
   virtual ~StateBase(){};
@@ -105,24 +105,24 @@ class ScalarState: public StateBase<ScalarState,1>{
 };
 
 template<unsigned int N>
-class VectorStateNew: public StateBase<VectorStateNew<N>,N>{ // TODO: rename
+class VectorState: public StateBase<VectorState<N>,N>{ // TODO: rename
  public:
-  typedef StateBase<VectorStateNew<N>,N> Base;
+  typedef StateBase<VectorState<N>,N> Base;
   using Base::D_;
   using Base::E_;
   using typename  Base::mtDifVec;
   using typename Base::mtCovMat;
   using Base::name_;
   static const unsigned int N_ = N;
-  VectorStateNew(){}
-  VectorStateNew(const VectorStateNew<N>& other){
+  VectorState(){}
+  VectorState(const VectorState<N>& other){
     v_ = other.v_;
   }
   Eigen::Matrix<double,N_,1> v_;
-  void boxPlus(const mtDifVec& vecIn, VectorStateNew<N>& stateOut) const{
+  void boxPlus(const mtDifVec& vecIn, VectorState<N>& stateOut) const{
     stateOut.v_ = v_ + vecIn;
   }
-  void boxMinus(const VectorStateNew<N>& stateIn, mtDifVec& vecOut) const{
+  void boxMinus(const VectorState<N>& stateIn, mtDifVec& vecOut) const{
     vecOut = v_ - stateIn.v_;
   }
   void print() const{
@@ -140,11 +140,11 @@ class VectorStateNew: public StateBase<VectorStateNew<N>,N>{ // TODO: rename
     mtPropertyHandler->doubleRegister_.registerDiagonalMatrix(str + name_, const_cast<mtCovMat&>(cov));
   }
   template<unsigned int i, typename std::enable_if<(i==0)>::type* = nullptr>
-  VectorStateNew<N>& getState(){
+  VectorState<N>& getState(){
     return *this;
   };
   template<unsigned int i, typename std::enable_if<(i==0)>::type* = nullptr>
-  const VectorStateNew<N>& getState() const{
+  const VectorState<N>& getState() const{
     return *this;
   };
   template<unsigned int i, typename std::enable_if<(i==0)>::type* = nullptr>
@@ -152,7 +152,7 @@ class VectorStateNew: public StateBase<VectorStateNew<N>,N>{ // TODO: rename
     return v_;
   };
   template<unsigned int i, typename std::enable_if<(i==0)>::type* = nullptr>
-  Eigen::Matrix<double,N_,1>& getValue() const{
+  const Eigen::Matrix<double,N_,1>& getValue() const{
     return v_;
   };
   template<unsigned int i, typename std::enable_if<(i==0)>::type* = nullptr>
@@ -237,17 +237,39 @@ class StateArray: public StateBase<StateArray<State,N>,State::D_*N,State::E_*N>{
     }
   }
   void boxPlus(const mtDifVec& vecIn, StateArray<State,N>& stateOut) const{
-    for(unsigned int i=0;i<N;i++){
+//    for(unsigned int i=0;i<N;i++){
+//      array_[i].boxPlus(vecIn.template block<State::D_,1>(State::D_*i,0),stateOut.array_[i]);
+//    }
+    boxPlusRecursive<0>(vecIn,stateOut);
+  }
+  template<unsigned int i, typename std::enable_if<(i<N)>::type* = nullptr>
+  void boxPlusRecursive(const mtDifVec& vecIn, StateArray<State,N>& stateOut) const{
+    if(State::D_>0){
       array_[i].boxPlus(vecIn.template block<State::D_,1>(State::D_*i,0),stateOut.array_[i]);
     }
+    boxPlusRecursive<i+1>(vecIn,stateOut);
   }
+  template<unsigned int i, typename std::enable_if<(i>=N)>::type* = nullptr>
+  void boxPlusRecursive(const mtDifVec& vecIn, StateArray<State,N>& stateOut) const{}
   void boxMinus(const StateArray<State,N>& stateIn, mtDifVec& vecOut) const{
+//    typename State::mtDifVec difVec;
+//    for(unsigned int i=0;i<N;i++){
+//      array_[i].boxMinus(stateIn.array_[i],difVec);
+//      vecOut.template block<State::D_,1>(State::D_*i,0) = difVec; // TODO: fix for N = 0
+//    }
+    boxMinusRecursive<0>(stateIn,vecOut);
+  }
+  template<unsigned int i, typename std::enable_if<(i<N)>::type* = nullptr>
+  void boxMinusRecursive(const StateArray<State,N>& stateIn, mtDifVec& vecOut) const{
     typename State::mtDifVec difVec;
-    for(unsigned int i=0;i<N;i++){
-      array_[i].boxMinus(stateIn.array_[i],difVec);
+    array_[i].boxMinus(stateIn.array_[i],difVec);
+    if(State::D_>0){
       vecOut.template block<State::D_,1>(State::D_*i,0) = difVec;
     }
+    boxMinusRecursive<i+1>(stateIn,vecOut);
   }
+  template<unsigned int i, typename std::enable_if<(i>=N)>::type* = nullptr>
+  void boxMinusRecursive(const StateArray<State,N>& stateIn, mtDifVec& vecOut) const{}
   void print() const{
     for(unsigned int i=0;i<N;i++){
       array_[i].print();
@@ -270,10 +292,20 @@ class StateArray: public StateBase<StateArray<State,N>,State::D_*N,State::E_*N>{
     }
   }
   void registerDiagonalMatrixToPropertyHandler(PropertyHandler* mtPropertyHandler, const std::string& str, const mtCovMat& cov){
-    for(unsigned int i=0;i<N;i++){
+//    for(unsigned int i=0;i<N;i++){
+//      array_[i].registerDiagonalMatrixToPropertyHandler(mtPropertyHandler,str,cov.template block<State::D_,State::D_>(i*State::D_,i*State::D_));
+//    }
+    registerDiagonalMatrixToPropertyHandlerRecursive<0>(mtPropertyHandler,str,cov);
+  }
+  template<unsigned int i, typename std::enable_if<(i<N)>::type* = nullptr>
+  void registerDiagonalMatrixToPropertyHandlerRecursive(PropertyHandler* mtPropertyHandler, const std::string& str, const mtCovMat& cov){
+    if(State::D_>0){
       array_[i].registerDiagonalMatrixToPropertyHandler(mtPropertyHandler,str,cov.template block<State::D_,State::D_>(i*State::D_,i*State::D_));
     }
+    registerDiagonalMatrixToPropertyHandlerRecursive<i+1>(mtPropertyHandler,str,cov);
   }
+  template<unsigned int i, typename std::enable_if<(i>=N)>::type* = nullptr>
+  void registerDiagonalMatrixToPropertyHandlerRecursive(PropertyHandler* mtPropertyHandler, const std::string& str, const mtCovMat& cov){}
   template<unsigned int i, typename std::enable_if<(i<N)>::type* = nullptr>
   State& getState(){
     return array_[i];
@@ -287,7 +319,7 @@ class StateArray: public StateBase<StateArray<State,N>,State::D_*N,State::E_*N>{
     return array_[i/State::E_].getValue<i%State::E_>();
   };
   template<unsigned int i, typename std::enable_if<(i<E_)>::type* = nullptr>
-  auto getValue() const -> const decltype (array_[i/State::E_].template getValue<i%State::E_>())& {
+  const auto getValue() const -> decltype (array_[i/State::E_].template getValue<i%State::E_>())& {
     return array_[i/State::E_].getValue<i%State::E_>();
   };
   template<unsigned int i, typename std::enable_if<(i<E_)>::type* = nullptr>
@@ -310,16 +342,24 @@ class ComposedState: public StateBase<ComposedState<State,Arguments...>,State::D
   ComposedState(){}
   ComposedState(const ComposedState<State,Arguments...>& other): state_(other.state_), subComposedState_(other.subComposedState_){}
   void boxPlus(const mtDifVec& vecIn, ComposedState<State,Arguments...>& stateOut) const{
-    state_.boxPlus(vecIn.template block<State::D_,1>(0,0),stateOut.state_);
-    subComposedState_.boxPlus(vecIn.template block<ComposedState<Arguments...>::D_,1>(State::D_,0),stateOut.subComposedState_);
+    if(State::D_>0){
+      state_.boxPlus(vecIn.template block<State::D_,1>(0,0),stateOut.state_);
+    }
+    if(ComposedState<Arguments...>::D_>0){
+      subComposedState_.boxPlus(vecIn.template block<ComposedState<Arguments...>::D_,1>(State::D_,0),stateOut.subComposedState_);
+    }
   };
   void boxMinus(const ComposedState<State,Arguments...>& stateIn, mtDifVec& vecOut) const{
-    typename State::mtDifVec difVec1;
-    state_.boxMinus(stateIn.state_,difVec1);
-    vecOut.template block<State::D_,1>(0,0) = difVec1;
-    typename ComposedState<Arguments...>::mtDifVec difVec2;
-    subComposedState_.boxMinus(stateIn.subComposedState_,difVec2);
-    vecOut.template block<ComposedState<Arguments...>::D_,1>(State::D_,0) = difVec2;
+    if(State::D_>0){
+      typename State::mtDifVec difVec1;
+      state_.boxMinus(stateIn.state_,difVec1);
+      vecOut.template block<State::D_,1>(0,0) = difVec1;
+    }
+    if(ComposedState<Arguments...>::D_>0){
+      typename ComposedState<Arguments...>::mtDifVec difVec2;
+      subComposedState_.boxMinus(stateIn.subComposedState_,difVec2);
+      vecOut.template block<ComposedState<Arguments...>::D_,1>(State::D_,0) = difVec2;
+    }
   };
   void print() const{
     state_.print();
@@ -334,8 +374,12 @@ class ComposedState: public StateBase<ComposedState<State,Arguments...>,State::D
     subComposedState_.registerToPropertyHandler(mtPropertyHandler,str);
   }
   void registerDiagonalMatrixToPropertyHandler(PropertyHandler* mtPropertyHandler, const std::string& str, const mtCovMat& cov){
-    state_.registerDiagonalMatrixToPropertyHandler(mtPropertyHandler,str,cov.template block<State::D_,State::D_>(0,0));
-    subComposedState_.registerDiagonalMatrixToPropertyHandler(mtPropertyHandler,str,cov.template block<ComposedState<Arguments...>::D_,ComposedState<Arguments...>::D_>(State::D_,State::D_));
+    if(State::D_>0){
+      state_.registerDiagonalMatrixToPropertyHandler(mtPropertyHandler,str,cov.template block<State::D_,State::D_>(0,0));
+    }
+    if(ComposedState<Arguments...>::D_>0){
+      subComposedState_.registerDiagonalMatrixToPropertyHandler(mtPropertyHandler,str,cov.template block<ComposedState<Arguments...>::D_,ComposedState<Arguments...>::D_>(State::D_,State::D_));
+    }
   }
   void createDefaultNames(const std::string& str){
     createDefaultNamesWithIndex(str);
@@ -350,7 +394,7 @@ class ComposedState: public StateBase<ComposedState<State,Arguments...>,State::D
     return state_;
   };
   template<unsigned int i, typename std::enable_if<(i==0)>::type* = nullptr>
-  auto getState() const -> const decltype (state_)& {
+  const auto getState() const -> decltype (state_)& {
     return state_;
   };
   template<unsigned int i, typename std::enable_if<(i>0)>::type* = nullptr>
@@ -358,7 +402,7 @@ class ComposedState: public StateBase<ComposedState<State,Arguments...>,State::D
     return subComposedState_.getState<i-1>();
   };
   template<unsigned int i, typename std::enable_if<(i>0)>::type* = nullptr>
-  auto getState() const -> const decltype (subComposedState_.getState<i-1>())& {
+  const auto getState() const -> decltype (subComposedState_.getState<i-1>())& {
     return subComposedState_.getState<i-1>();
   };
   template<unsigned int i, typename std::enable_if<(i<State::E_)>::type* = nullptr>
@@ -366,7 +410,7 @@ class ComposedState: public StateBase<ComposedState<State,Arguments...>,State::D
     return state_.getValue<i>();
   };
   template<unsigned int i, typename std::enable_if<(i<State::E_)>::type* = nullptr>
-  auto getValue() const -> const decltype (state_.template getValue<i>())& {
+  const auto getValue() const -> decltype (state_.template getValue<i>())& {
     return state_.getValue<i>();
   };
   template<unsigned int i, typename std::enable_if<(i>=State::E_)>::type* = nullptr>
@@ -374,7 +418,7 @@ class ComposedState: public StateBase<ComposedState<State,Arguments...>,State::D
     return subComposedState_.getValue<i-State::E_>();
   };
   template<unsigned int i, typename std::enable_if<(i>=State::E_)>::type* = nullptr>
-  auto getValue() const -> const decltype (subComposedState_.getValue<i-State::E_>())& {
+  const auto getValue() const -> decltype (subComposedState_.getValue<i-State::E_>())& {
     return subComposedState_.getValue<i-State::E_>();
   };
   template<unsigned int i, typename std::enable_if<(i<State::E_)>::type* = nullptr>
@@ -400,7 +444,9 @@ class ComposedState<State>: public StateBase<ComposedState<State>,State::D_,Stat
   ComposedState(){}
   ComposedState(const ComposedState<State>& other): state_(other.state_){}
   void boxPlus(const mtDifVec& vecIn, ComposedState<State>& stateOut) const{
-    state_.boxPlus(vecIn.template block<State::D_,1>(0,0),stateOut.state_);
+    if(State::D_>0){
+      state_.boxPlus(vecIn.template block<State::D_,1>(0,0),stateOut.state_);
+    }
   };
   void boxMinus(const ComposedState<State>& stateIn, mtDifVec& vecOut) const{
     state_.boxMinus(stateIn.state_,vecOut);
@@ -429,7 +475,7 @@ class ComposedState<State>: public StateBase<ComposedState<State>,State::D_,Stat
     return state_;
   };
   template<unsigned int i, typename std::enable_if<(i==0)>::type* = nullptr>
-  auto getState() const -> const decltype (state_)& {
+  const auto getState() const -> decltype (state_)& {
     return state_;
   };
   template<unsigned int i, typename std::enable_if<(i<State::E_)>::type* = nullptr>
@@ -437,7 +483,7 @@ class ComposedState<State>: public StateBase<ComposedState<State>,State::D_,Stat
     return state_.getValue<i>();
   };
   template<unsigned int i, typename std::enable_if<(i<State::E_)>::type* = nullptr>
-  auto getValue() const -> const decltype (state_.template getValue<i>())& {
+  const auto getValue() const -> decltype (state_.template getValue<i>())& {
     return state_.getValue<i>();
   };
   template<unsigned int i, typename std::enable_if<(i<State::E_)>::type* = nullptr>
@@ -471,444 +517,190 @@ class ComposedState<State>: public StateBase<ComposedState<State>,State::D_,Stat
 //};
 
 template<unsigned int S, unsigned int V, unsigned int Q>
-class StateSVQ{
+class StateSVQ: public ComposedState<StateArray<ScalarState,S>,StateArray<VectorState<3>,V>,StateArray<QuaternionState,Q>>{
  public:
   static const unsigned int S_ = S;
   static const unsigned int V_ = V;
   static const unsigned int Q_ = Q;
-  static const unsigned int D_ = S_+(V_+Q_)*3;
-  typedef Eigen::Matrix<double,D_,1> mtDifVec;
-  typedef Eigen::Matrix<double,D_,D_> mtCovMat;
-  std::unordered_map<const void*,unsigned int> IdMap_;
-  std::array<std::string,S_+V_+Q_> names_;
-  std::string name_;
-  StateSVQ(){
-    setIdentity();
-    createVarLookup();
-    createDefaultNames();
-  };
-  StateSVQ(const StateSVQ<S,V,Q>& other){
-    for(unsigned int i=0;i<S_;i++){
-      s(i) = other.s(i);
-    }
-    for(unsigned int i=0;i<V_;i++){
-      v(i) = other.v(i);
-    }
-    for(unsigned int i=0;i<Q_;i++){
-      q(i) = other.q(i);
-    };
-    createVarLookup();
-    createDefaultNames();
-  }
-  double scalarList[S_];
-  Eigen::Vector3d vectorList[V_];
-  rot::RotationQuaternionPD quaternionList[Q_];
-  void boxPlus(const mtDifVec& vecIn, StateSVQ<S_,V_,Q_>& stateOut) const{
-    unsigned int index = 0;
-    for(unsigned int i=0;i<S_;i++){
-      stateOut.scalarList[i] = scalarList[i]+vecIn(index);
-      index += 1;
-    }
-    for(unsigned int i=0;i<V_;i++){
-      stateOut.vectorList[i] = vectorList[i]+vecIn.block(index,0,3,1);
-      index += 3;
-    }
-    for(unsigned int i=0;i<Q_;i++){
-      stateOut.quaternionList[i] = quaternionList[i].boxPlus(vecIn.block(index,0,3,1));
-      index += 3;
-    }
-  }
-  void boxMinus(const StateSVQ<S_,V_,Q_>& stateIn, mtDifVec& vecOut) const{
-    unsigned int index = 0;
-    for(unsigned int i=0;i<S_;i++){
-      vecOut(index) = scalarList[i]-stateIn.scalarList[i];
-      index += 1;
-    }
-    for(unsigned int i=0;i<V_;i++){
-      vecOut.block(index,0,3,1) = vectorList[i]-stateIn.vectorList[i];
-      index += 3;
-    }
-    for(unsigned int i=0;i<Q_;i++){
-      vecOut.block(index,0,3,1) = quaternionList[i].boxMinus(stateIn.quaternionList[i]);
-      index += 3;
-    }
-  }
-  void print() const{
-    std::cout << "Scalars:" << std::endl;
-    for(unsigned int i=0;i<S_;i++){
-      std::cout << s(i) << std::endl;
-    }
-    std::cout << "Vectors:" << std::endl;
-    for(unsigned int i=0;i<V_;i++){
-      std::cout << v(i).transpose() << std::endl;
-    }
-    std::cout << "Quaternions:" << std::endl;
-    for(unsigned int i=0;i<Q_;i++){
-      std::cout << q(i) << std::endl;
-    }
-  }
-  void setIdentity(){
-    for(unsigned int i=0;i<S_;i++){
-      scalarList[i] = 0.0;
-    }
-    for(unsigned int i=0;i<V_;i++){
-      vectorList[i].setZero();
-    }
-    for(unsigned int i=0;i<Q_;i++){
-      quaternionList[i].setIdentity();
-    }
-  }
-  void fix(){
-    for(unsigned int i=0;i<Q_;i++){
-      q(i).fix();
-    }
-  }
+  typedef ComposedState<StateArray<ScalarState,S>,StateArray<VectorState<3>,V>,StateArray<QuaternionState,Q>> Base;
+  using Base::D_;
+  using Base::E_;
+  using typename Base::mtDifVec;
+  using typename Base::mtCovMat;
+  using Base::name_;
+  using Base::getState;
+  StateSVQ(){}
+  StateSVQ(const StateSVQ& other): Base(other){}
   const double& s(unsigned int i) const{
-    assert(i<S_);
-    return scalarList[i];
+    return this->template getState<0>().array_[i].s_;
   };
   double& s(unsigned int i) {
-    assert(i<S_);
-    return scalarList[i];
-  };
-  const double& s(const std::string& str) const{
-    for(unsigned int i=0;i<S_;i++){
-      if(names_[i]==str){
-        return s(i);
-      }
-    }
-    assert(0);
-    return s(0);
-  };
-  double& s(const std::string& str) {
-    for(unsigned int i=0;i<S_;i++){
-      if(names_[i]==str){
-        return s(i);
-      }
-    }
-    assert(0);
-    return s(0);
+    return this->template getState<0>().array_[i].s_;
   };
   const Eigen::Matrix<double,3,1>& v(unsigned int i) const{
-    assert(i<V_);
-    return vectorList[i];
+    return this->template getState<1>().array_[i].v_;
   };
   Eigen::Matrix<double,3,1>& v(unsigned int i) {
-    assert(i<V_);
-    return vectorList[i];
-  };
-  const Eigen::Matrix<double,3,1>& v(const std::string& str) const{
-    for(unsigned int i=0;i<V_;i++){
-      if(names_[i+S_]==str){
-        return v(i);
-      }
-    }
-    assert(0);
-    return v(0);
-  };
-  Eigen::Matrix<double,3,1>& v(const std::string& str) {
-    for(unsigned int i=0;i<V_;i++){
-      if(names_[i+S_]==str){
-        return v(i);
-      }
-    }
-    assert(0);
-    return v(0);
+    return this->template getState<1>().array_[i].v_;
   };
   const rot::RotationQuaternionPD& q(unsigned int i) const{
-    assert(i<Q_);
-    return quaternionList[i];
+    return this->template getState<2>().array_[i].q_;
   };
   rot::RotationQuaternionPD& q(unsigned int i) {
-    assert(i<Q_);
-    return quaternionList[i];
+    return this->template getState<2>().array_[i].q_;
   };
-  const rot::RotationQuaternionPD& q(const std::string& str) const{
-    for(unsigned int i=0;i<Q_;i++){
-      if(names_[i+S_+V_]==str){
-        return q(i);
-      }
-    }
-    assert(0);
-    return q(0);
-  };
-  rot::RotationQuaternionPD& q(const std::string& str) {
-    for(unsigned int i=0;i<Q_;i++){
-      if(names_[i+S_+V_]==str){
-        return q(i);
-      }
-    }
-    assert(0);
-    return q(0);
-  };
-  unsigned int getId(const double& var) const{
-    return IdMap_.at(static_cast<const void*>(&var));
-  };
-  unsigned int getId(const Eigen::Matrix<double,3,1>& var) const{
-    return IdMap_.at(static_cast<const void*>(&var));
-  };
-  unsigned int getId(const rot::RotationQuaternionPD& var) const{
-    return IdMap_.at(static_cast<const void*>(&var));
-  };
-  unsigned int getId(const std::string& str) const{
-    for(unsigned int i=0;i<S_;i++){
-      if(names_[i]==str){
-        return i;
-      }
-    }
-    for(unsigned int i=S_;i<S_+V_;i++){
-      if(names_[i]==str){
-        return S_+(i-S_)*3;
-      }
-    }
-    for(unsigned int i=S_+V_;i<S_+V_+Q_;i++){
-      if(names_[i]==str){
-        return S_+3*V_+(i-S_-V_)*3;
-      }
-    }
-    assert(0);
-    return 0;
-  };
-  void createVarLookup(){
-    for(unsigned int i=0;i<S_;i++){
-      IdMap_[static_cast<const void*>(&s(i))] = i;
-    }
-    for(unsigned int i=0;i<V_;i++){
-      IdMap_[static_cast<const void*>(&v(i))] = S_+3*i;
-    }
-    for(unsigned int i=0;i<Q_;i++){
-      IdMap_[static_cast<const void*>(&q(i))] = S_+3*V_+3*i;
-    }
-  };
-  void createDefaultNames(){
-    for(unsigned int i=0;i<S_;i++){
-      sName(i) = "s" + std::to_string(i);
-    }
-    for(unsigned int i=0;i<V_;i++){
-      vName(i) = "v" + std::to_string(i);
-    }
-    for(unsigned int i=0;i<Q_;i++){
-      qName(i) = "q" + std::to_string(i);
-    }
-  };
-  const std::string& sName(unsigned int i) const{
-    assert(i<S_);
-    return names_[i];
-  };
-  std::string& sName(unsigned int i) {
-    assert(i<S_);
-    return names_[i];
-  };
-  const std::string& vName(unsigned int i) const{
-    assert(i<V_);
-    return names_[i+S_];
-  };
-  std::string& vName(unsigned int i) {
-    assert(i<V_);
-    return names_[i+S_];
-  };
-  const std::string& qName(unsigned int i) const{
-    assert(i<Q_);
-    return names_[i+S_+V_];
-  };
-  std::string& qName(unsigned int i) {
-    assert(i<Q_);
-    return names_[i+S_+V_];
-  };
-  StateSVQ<S,V,Q>& operator=(const StateSVQ<S,V,Q>& state){
-    for(unsigned int i=0;i<S_;i++){
-      s(i) = state.s(i);
-    }
-    for(unsigned int i=0;i<V_;i++){
-      v(i) = state.v(i);
-    }
-    for(unsigned int i=0;i<Q_;i++){
-      q(i) = state.q(i);
-    }
-    return *this;
-  }
-  static StateSVQ<S,V,Q> Identity(){
-    StateSVQ<S,V,Q> identity;
-    return identity;
-  }
-  void registerToPropertyHandler(PropertyHandler* mtPropertyHandler, const std::string& str){
-    for(unsigned int i=0;i<S_;i++){
-      mtPropertyHandler->doubleRegister_.registerScalar(str + sName(i), s(i));
-    }
-    for(unsigned int i=0;i<V_;i++){
-      mtPropertyHandler->doubleRegister_.registerVector(str + vName(i), v(i));
-    }
-    for(unsigned int i=0;i<Q_;i++){
-      mtPropertyHandler->doubleRegister_.registerQuaternion(str + qName(i), q(i));
-    };
-  }
-  void registerDiagonalMatrixToPropertyHandler(PropertyHandler* mtPropertyHandler, const std::string& str, mtCovMat& cov){
-    for(unsigned int i=0;i<S_;i++){
-      mtPropertyHandler->doubleRegister_.registerScalar(str + sName(i), cov(i,i));
-    }
-    for(unsigned int i=0;i<V_;i++){
-      mtPropertyHandler->doubleRegister_.registerScalar(str + vName(i) + "x", cov(S_+3*i+0,S_+3*i+0));
-      mtPropertyHandler->doubleRegister_.registerScalar(str + vName(i) + "y", cov(S_+3*i+1,S_+3*i+1));
-      mtPropertyHandler->doubleRegister_.registerScalar(str + vName(i) + "z", cov(S_+3*i+2,S_+3*i+2));
-    }
-    for(unsigned int i=0;i<Q_;i++){
-      mtPropertyHandler->doubleRegister_.registerScalar(str + qName(i) + "x", cov(S_+3*(V_+i)+0,S_+3*(V_+i)+0));
-      mtPropertyHandler->doubleRegister_.registerScalar(str + qName(i) + "y", cov(S_+3*(V_+i)+1,S_+3*(V_+i)+1));
-      mtPropertyHandler->doubleRegister_.registerScalar(str + qName(i) + "z", cov(S_+3*(V_+i)+2,S_+3*(V_+i)+2));
-    };
-  }
 };
 
-template<unsigned int N>
-class VectorState{
- public:
-  static const unsigned int D_ = N;
-  typedef Eigen::Matrix<double,D_,1> mtDifVec;
-  typedef Eigen::Matrix<double,D_,D_> mtCovMat;
-  std::string name_;
-  VectorState(){
-    vector_.setZero();
-    createVarLookup();
-  };
-  VectorState(const VectorState<N>& other){
-    vector_ = other.vector_;
-    createVarLookup();
-  };
-  Eigen::Matrix<double,D_,1> vector_;
-  std::unordered_map<const void*,unsigned int> IdMap_;
-  void boxPlus(const mtDifVec& vecIn, VectorState<N>& stateOut) const{
-    stateOut.vector_ = vector_+vecIn;
-  }
-  void boxMinus(const VectorState<N>& stateIn, mtDifVec& vecOut) const{
-    vecOut = vector_-stateIn.vector_;
-  }
-  void print() const{
-    std::cout << "Vector:" << vector_.transpose() << std::endl;
-  }
-  void setIdentity(){
-    vector_.setZero();
-  }
-  const double& operator[](unsigned int i) const{
-    assert(i<D_);
-    return vector_(i);
-  };
-  double& operator[](unsigned int i){
-    assert(i<D_);
-    return vector_(i);
-  };
-  VectorState<N>& operator=(const Eigen::Matrix<double,D_,1>& vec){
-    vector_ = vec;
-    return *this;
-  };
-  VectorState<N>& operator=(const VectorState<N>& state){
-    vector_ = state.vector_;
-    return *this;
-  };
-  template<unsigned int M>
-  Eigen::Block<Eigen::Matrix<double,D_,1>,M,1> block(unsigned int i){
-    assert(M+i<=N);
-    return vector_.block<M,1>(i,0);
-  }
-  template<unsigned int M>
-  const Eigen::Block<const Eigen::Matrix<double,D_,1>,M,1> block(unsigned int i) const{
-    assert(M+i<=N);
-    return vector_.block<M,1>(i,0);
-  }
-  unsigned int getId(const double& var) const{
-    return IdMap_.at(static_cast<const void*>(&var));
-  };
-  template<int M>
-  unsigned int getId(const Eigen::Block<const Eigen::Matrix<double,D_,1>,M,1> var) const{
-    return IdMap_.at(static_cast<const void*>(&var(0)));
-  };
-  template<int M>
-  unsigned int getId(Eigen::Block<Eigen::Matrix<double,D_,1>,M,1> var) const{
-    return IdMap_.at(static_cast<const void*>(&var(0)));
-  };
-  void createVarLookup(){
-    for(unsigned int i=0;i<D_;i++){
-      IdMap_[static_cast<const void*>(&vector_(i))] = i;
-    }
-  };
-  static VectorState<N> Identity(){
-    VectorState<N> identity;
-    return identity;
-  }
-  void registerToPropertyHandler(PropertyHandler* mtPropertyHandler, const std::string& str){
-    for(unsigned int i=0;i<D_;i++){
-      mtPropertyHandler->doubleRegister_.registerScalar(str + "v" + std::to_string(i), vector_(i));
-    }
-  }
-  void registerDiagonalMatrixToPropertyHandler(PropertyHandler* mtPropertyHandler, const std::string& str, mtCovMat& cov){
-    for(unsigned int i=0;i<D_;i++){
-      mtPropertyHandler->doubleRegister_.registerScalar(str + "v" + std::to_string(i), cov(i,i));
-    }
-  }
-};
-
-template<typename State1, typename State2>
-class PairState{
- public:
-  static const unsigned int D_ = State1::D_+State2::D_;
-  typedef Eigen::Matrix<double,D_,1> mtDifVec;
-  typedef Eigen::Matrix<double,D_,D_> mtCovMat;
-  PairState(){};
-  PairState(const PairState<State1,State2>& other){
-    state1_ = other.state1_;
-    state2_ = other.state2_;
-  };
-  State1 state1_;
-  State2 state2_;
-  void boxPlus(const mtDifVec& vecIn, PairState<State1,State2>& stateOut) const{
-    state1_.boxPlus(vecIn.template block<State1::D_,1>(0,0),stateOut.state1_);
-    state2_.boxPlus(vecIn.template block<State2::D_,1>(State1::D_,0),stateOut.state2_);
-  }
-  void boxMinus(const PairState<State1,State2>& stateIn, mtDifVec& vecOut) const{
-    typename State1::mtDifVec difVec1;
-    state1_.boxMinus(stateIn.state1_,difVec1);
-    vecOut.template block<State1::D_,1>(0,0) = difVec1;
-    typename State2::mtDifVec difVec2;
-    state2_.boxMinus(stateIn.state2_,difVec2);
-    vecOut.template block<State2::D_,1>(State1::D_,0) = difVec2;
-  }
-  void print() const{
-    state1_.print();
-    state2_.print();
-  }
-  void setIdentity(){
-    state1_.setIdentity();
-    state2_.setIdentity();
-  }
-  const State1& first() const{
-    return state1_;
-  };
-  State1& first(){
-    return state1_;
-  };
-  const State1& second() const{
-    return state2_;
-  };
-  State2& second(){
-    return state2_;
-  };
-  PairState<State1,State2>& operator=(const PairState<State1,State2>& state){
-    state1_ = state.state1_;
-    state2_ = state.state2_;
-    return *this;
-  };
-  static PairState<State1,State2> Identity(){
-    PairState<State1,State2> identity;
-    return identity;
-  }
-  void registerToPropertyHandler(PropertyHandler* mtPropertyHandler, const std::string& str){
-    first().registerToPropertyHandler(mtPropertyHandler,str + "first.");
-    second().registerToPropertyHandler(mtPropertyHandler,str + "second.");
-  }
-  void registerDiagonalMatrixToPropertyHandler(PropertyHandler* mtPropertyHandler, const std::string& str, mtCovMat& cov){
-    first().registerDiagonalMatrixToPropertyHandler(mtPropertyHandler,str + "first.",cov);
-    second().registerDiagonalMatrixToPropertyHandler(mtPropertyHandler,str + "second.",cov);
-  }
-};
+//template<unsigned int N>
+//class VectorState{
+// public:
+//  static const unsigned int D_ = N;
+//  typedef Eigen::Matrix<double,D_,1> mtDifVec;
+//  typedef Eigen::Matrix<double,D_,D_> mtCovMat;
+//  std::string name_;
+//  VectorState(){
+//    vector_.setZero();
+//    createVarLookup();
+//  };
+//  VectorState(const VectorState<N>& other){
+//    vector_ = other.vector_;
+//    createVarLookup();
+//  };
+//  Eigen::Matrix<double,D_,1> vector_;
+//  std::unordered_map<const void*,unsigned int> IdMap_;
+//  void boxPlus(const mtDifVec& vecIn, VectorState<N>& stateOut) const{
+//    stateOut.vector_ = vector_+vecIn;
+//  }
+//  void boxMinus(const VectorState<N>& stateIn, mtDifVec& vecOut) const{
+//    vecOut = vector_-stateIn.vector_;
+//  }
+//  void print() const{
+//    std::cout << "Vector:" << vector_.transpose() << std::endl;
+//  }
+//  void setIdentity(){
+//    vector_.setZero();
+//  }
+//  const double& operator[](unsigned int i) const{
+//    assert(i<D_);
+//    return vector_(i);
+//  };
+//  double& operator[](unsigned int i){
+//    assert(i<D_);
+//    return vector_(i);
+//  };
+//  VectorState<N>& operator=(const Eigen::Matrix<double,D_,1>& vec){
+//    vector_ = vec;
+//    return *this;
+//  };
+//  VectorState<N>& operator=(const VectorState<N>& state){
+//    vector_ = state.vector_;
+//    return *this;
+//  };
+//  template<unsigned int M>
+//  Eigen::Block<Eigen::Matrix<double,D_,1>,M,1> block(unsigned int i){
+//    assert(M+i<=N);
+//    return vector_.block<M,1>(i,0);
+//  }
+//  template<unsigned int M>
+//  const Eigen::Block<const Eigen::Matrix<double,D_,1>,M,1> block(unsigned int i) const{
+//    assert(M+i<=N);
+//    return vector_.block<M,1>(i,0);
+//  }
+//  unsigned int getId(const double& var) const{
+//    return IdMap_.at(static_cast<const void*>(&var));
+//  };
+//  template<int M>
+//  unsigned int getId(const Eigen::Block<const Eigen::Matrix<double,D_,1>,M,1> var) const{
+//    return IdMap_.at(static_cast<const void*>(&var(0)));
+//  };
+//  template<int M>
+//  unsigned int getId(Eigen::Block<Eigen::Matrix<double,D_,1>,M,1> var) const{
+//    return IdMap_.at(static_cast<const void*>(&var(0)));
+//  };
+//  void createVarLookup(){
+//    for(unsigned int i=0;i<D_;i++){
+//      IdMap_[static_cast<const void*>(&vector_(i))] = i;
+//    }
+//  };
+//  static VectorState<N> Identity(){
+//    VectorState<N> identity;
+//    return identity;
+//  }
+//  void registerToPropertyHandler(PropertyHandler* mtPropertyHandler, const std::string& str){
+//    for(unsigned int i=0;i<D_;i++){
+//      mtPropertyHandler->doubleRegister_.registerScalar(str + "v" + std::to_string(i), vector_(i));
+//    }
+//  }
+//  void registerDiagonalMatrixToPropertyHandler(PropertyHandler* mtPropertyHandler, const std::string& str, mtCovMat& cov){
+//    for(unsigned int i=0;i<D_;i++){
+//      mtPropertyHandler->doubleRegister_.registerScalar(str + "v" + std::to_string(i), cov(i,i));
+//    }
+//  }
+//};
+//
+//template<typename State1, typename State2>
+//class PairState{
+// public:
+//  static const unsigned int D_ = State1::D_+State2::D_;
+//  typedef Eigen::Matrix<double,D_,1> mtDifVec;
+//  typedef Eigen::Matrix<double,D_,D_> mtCovMat;
+//  PairState(){};
+//  PairState(const PairState<State1,State2>& other){
+//    state1_ = other.state1_;
+//    state2_ = other.state2_;
+//  };
+//  State1 state1_;
+//  State2 state2_;
+//  void boxPlus(const mtDifVec& vecIn, PairState<State1,State2>& stateOut) const{
+//    state1_.boxPlus(vecIn.template block<State1::D_,1>(0,0),stateOut.state1_);
+//    state2_.boxPlus(vecIn.template block<State2::D_,1>(State1::D_,0),stateOut.state2_);
+//  }
+//  void boxMinus(const PairState<State1,State2>& stateIn, mtDifVec& vecOut) const{
+//    typename State1::mtDifVec difVec1;
+//    state1_.boxMinus(stateIn.state1_,difVec1);
+//    vecOut.template block<State1::D_,1>(0,0) = difVec1;
+//    typename State2::mtDifVec difVec2;
+//    state2_.boxMinus(stateIn.state2_,difVec2);
+//    vecOut.template block<State2::D_,1>(State1::D_,0) = difVec2;
+//  }
+//  void print() const{
+//    state1_.print();
+//    state2_.print();
+//  }
+//  void setIdentity(){
+//    state1_.setIdentity();
+//    state2_.setIdentity();
+//  }
+//  const State1& first() const{
+//    return state1_;
+//  };
+//  State1& first(){
+//    return state1_;
+//  };
+//  const State1& second() const{
+//    return state2_;
+//  };
+//  State2& second(){
+//    return state2_;
+//  };
+//  PairState<State1,State2>& operator=(const PairState<State1,State2>& state){
+//    state1_ = state.state1_;
+//    state2_ = state.state2_;
+//    return *this;
+//  };
+//  static PairState<State1,State2> Identity(){
+//    PairState<State1,State2> identity;
+//    return identity;
+//  }
+//  void registerToPropertyHandler(PropertyHandler* mtPropertyHandler, const std::string& str){
+//    first().registerToPropertyHandler(mtPropertyHandler,str + "first.");
+//    second().registerToPropertyHandler(mtPropertyHandler,str + "second.");
+//  }
+//  void registerDiagonalMatrixToPropertyHandler(PropertyHandler* mtPropertyHandler, const std::string& str, mtCovMat& cov){
+//    first().registerDiagonalMatrixToPropertyHandler(mtPropertyHandler,str + "first.",cov);
+//    second().registerDiagonalMatrixToPropertyHandler(mtPropertyHandler,str + "second.",cov);
+//  }
+//};
 
 template<typename State, typename Aux> // Takes care of passing auxilliary data through boxplus, copy constructor and assignement
 class AugmentedState: public State{

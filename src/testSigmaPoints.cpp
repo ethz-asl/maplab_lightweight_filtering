@@ -51,7 +51,7 @@ class SigmaPointTest : public ::testing::Test {
   static const unsigned int O_ = 2;
   static const unsigned int L_ = N_+O_+2;
   typedef LWF::StateSVQ<S_,V_,Q_> mtState;
-  typedef LWF::StateSVQ<0,1,0> mtStateVector;
+  typedef LWF::VectorState<3> mtStateVector;
   typedef mtState::mtDifVec mtDifVec;
   typedef mtState::mtCovMat mtCovMat;
   LWF::SigmaPoints<mtState,N_,L_,O_> sigmaPoints_;
@@ -149,7 +149,7 @@ TEST_F(SigmaPointTest, getCovariance2) {
 
   // Apply simple linear transformation
   for(int i=0;i<L_;i++){
-    sigmaPointsVector_(i).v(0) = sigmaPoints_(i).v(0)*2.45+Eigen::Vector3d::Ones()*sigmaPoints_(i).s(0)*0.51;
+    sigmaPointsVector_(i).v_ = sigmaPoints_(i).v(0)*2.45+Eigen::Vector3d::Ones()*sigmaPoints_(i).s(0)*0.51;
   }
 
   Eigen::Matrix<double,mtStateVector::D_,mtState::D_> M = sigmaPointsVector_.getCovarianceMatrix(sigmaPoints_);

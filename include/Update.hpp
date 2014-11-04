@@ -69,7 +69,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>{
   typename mtInnovation::mtCovMat Py_;
   typename mtInnovation::mtCovMat Pyinv_;
   typename mtInnovation::mtDifVec innVector_;
-  const mtInnovation yIdentity_;
+  mtInnovation yIdentity_;
   typename mtState::mtDifVec updateVec_;
   Eigen::Matrix<double,mtState::D_,mtInnovation::D_> K_;
   Eigen::Matrix<double,mtState::D_,mtInnovation::D_> Pxy_;
@@ -81,6 +81,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>{
   std::vector<UpdateOutlierDetection<Innovation>> outlierDetectionVector_;
   Update(){
     resetUpdate();
+    yIdentity_.setIdentity();
   };
   virtual void preProcess(mtState& state, mtCovMat& cov, const mtMeas& meas){};
   virtual void postProcess(mtState& state, mtCovMat& cov, const mtMeas& meas){};
@@ -136,7 +137,6 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>{
     cov = cov - K_*Py_*K_.transpose();
     updateVec_ = -K_*innVector_;
     state.boxPlus(updateVec_,state);
-    state.fix();
     postProcess(state,cov,meas);
     return 0;
   }
@@ -174,7 +174,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>{
     // Adapt for proper linearization point
     updateVecSP_.computeFromZeroMeanGaussian(cov);
     for(unsigned int i=0;i<2*mtState::D_+1;i++){
-      state.boxPlus(updateVec_+updateVecSP_(i).vector_,posterior_(i));
+      state.boxPlus(updateVec_+updateVecSP_(i).v_,posterior_(i));
     }
     state = posterior_.getMean();
     cov = posterior_.getCovarianceMatrix(state);
@@ -193,7 +193,7 @@ class PredictionUpdate: public ModelBase<State,Innovation,Meas,Noise>{
   typedef typename Prediction::mtMeas mtPredictionMeas;
   typedef Noise mtNoise;
   typedef typename Prediction::mtNoise mtPredictionNoise;
-  typedef PairState<mtPredictionNoise,mtNoise> mtJointNoise;
+  typedef ComposedState<mtPredictionNoise,mtNoise> mtJointNoise;
   typename ModelBase<State,Innovation,Meas,Noise>::mtJacInput H_;
   typename ModelBase<State,Innovation,Meas,Noise>::mtJacNoise Hn_;
   typename Prediction::mtJacInput F_;
@@ -206,7 +206,7 @@ class PredictionUpdate: public ModelBase<State,Innovation,Meas,Noise>{
   typename mtInnovation::mtCovMat Py_;
   typename mtInnovation::mtCovMat Pyinv_;
   typename mtInnovation::mtDifVec innVector_;
-  const mtInnovation yIdentity_;
+  mtInnovation yIdentity_;
   typename mtState::mtDifVec updateVec_;
   Eigen::Matrix<double,mtState::D_,mtInnovation::D_> K_;
   Eigen::Matrix<double,mtState::D_,mtInnovation::D_> Pxy_;
@@ -219,6 +219,7 @@ class PredictionUpdate: public ModelBase<State,Innovation,Meas,Noise>{
   std::vector<UpdateOutlierDetection<Innovation>> outlierDetectionVector_;
   PredictionUpdate(){
     resetUpdate();
+    yIdentity_.setIdentity();
   };
   virtual void preProcess(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt){};
   virtual void postProcess(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt){};
@@ -254,7 +255,6 @@ class PredictionUpdate: public ModelBase<State,Innovation,Meas,Noise>{
     F_ = prediction.jacInput(state,predictionMeas,dt);
     Fn_ = prediction.jacNoise(state,predictionMeas,dt);
     state = prediction.eval(state,predictionMeas,dt);
-    state.fix();
     cov = F_*cov*F_.transpose() + Fn_*prediction.prenoiP_*Fn_.transpose();
 
     // Update
@@ -283,7 +283,6 @@ class PredictionUpdate: public ModelBase<State,Innovation,Meas,Noise>{
     cov = cov - K_*Py_*K_.transpose();
     updateVec_ = -K_*innVector_;
     state.boxPlus(updateVec_,state);
-    state.fix();
     postProcess(state,cov,meas,prediction,predictionMeas,dt);
     return 0;
   }
@@ -299,17 +298,16 @@ class PredictionUpdate: public ModelBase<State,Innovation,Meas,Noise>{
 
     // Prediction
     for(unsigned int i=0;i<stateSigmaPointsPre_.L_;i++){
-      stateSigmaPointsPre_(i) = prediction.eval(stateSigmaPoints_(i),predictionMeas,stateSigmaPointsNoi_(i).first(),dt);
+      stateSigmaPointsPre_(i) = prediction.eval(stateSigmaPoints_(i),predictionMeas,stateSigmaPointsNoi_(i).template getState<0>(),dt);
     }
 
     // Calculate mean and variance
     state = stateSigmaPointsPre_.getMean();
-    state.fix();
     cov = stateSigmaPointsPre_.getCovarianceMatrix(state);
 
     // Update
     for(unsigned int i=0;i<innSigmaPoints_.L_;i++){
-      innSigmaPoints_(i) = this->eval(stateSigmaPointsPre_(i),meas,stateSigmaPointsNoi_(i).second());
+      innSigmaPoints_(i) = this->eval(stateSigmaPointsPre_(i),meas,stateSigmaPointsNoi_(i).template getState<1>());
     }
     y_ = innSigmaPoints_.getMean();
     Py_ = innSigmaPoints_.getCovarianceMatrix(y_);
@@ -337,7 +335,7 @@ class PredictionUpdate: public ModelBase<State,Innovation,Meas,Noise>{
     // Adapt for proper linearization point
     updateVecSP_.computeFromZeroMeanGaussian(cov);
     for(unsigned int i=0;i<2*mtState::D_+1;i++){
-      state.boxPlus(updateVec_+updateVecSP_(i).vector_,posterior_(i));
+      state.boxPlus(updateVec_+updateVecSP_(i).v_,posterior_(i));
     }
     state = posterior_.getMean();
     cov = posterior_.getCovarianceMatrix(state);

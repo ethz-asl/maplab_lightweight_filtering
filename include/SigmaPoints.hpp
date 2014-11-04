@@ -130,6 +130,7 @@ class SigmaPoints{
   };
   void computeFromZeroMeanGaussian(const typename mtState::mtCovMat &P){
     mtState identity;		// is initialized to 0 by default constructors
+    identity.setIdentity();
     computeFromGaussian(identity,P);
   };
   const mtState& operator()(unsigned int i) const{
