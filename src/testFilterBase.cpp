@@ -20,7 +20,16 @@ class FilterBaseTest : public ::testing::Test, public TestClass {
     this->testFilter_.registerUpdateManager(this->updateManager1_,"Update1");
     this->testFilter_.registerUpdateManager(this->updateManager2_,"Update2");
     this->testFilter_.registerPredictionManager(this->predictionManager_,"Prediction");
-    this->testFilter_.readFromInfo("test.info");
+    switch(id_){
+      case 0:
+        this->testFilter_.readFromInfo("test_nonlinear.info");
+        break;
+      case 1:
+        this->testFilter_.readFromInfo("test_linear.info");
+        break;
+      default:
+        this->testFilter_.readFromInfo("test_nonlinear.info");
+    };
   }
   virtual ~FilterBaseTest() {
   }
@@ -33,6 +42,7 @@ class FilterBaseTest : public ::testing::Test, public TestClass {
   using typename TestClass::mtUpdateExample;
   using typename TestClass::mtPredictionExample;
   using typename TestClass::mtPredictAndUpdateExample;
+  using TestClass::id_;
   LWF::FilterBase<mtPredictionExample> testFilter_;
   mtState testState_;
   mtUpdateMeas testUpdateMeas_;

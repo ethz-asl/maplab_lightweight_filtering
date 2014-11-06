@@ -25,7 +25,13 @@ class State: public LWF::StateSVQ<0,4,1>{
     GYB,
     ATT
   };
-  State(){};
+  State(){
+    getState<1>().getState<0>().name_ = "pos";
+    getState<1>().getState<1>().name_ = "vel";
+    getState<1>().getState<2>().name_ = "acb";
+    getState<1>().getState<3>().name_ = "gyb";
+    getState<2>().getState<0>().name_ = "att";
+  }
   ~State(){};
 };
 class UpdateMeas: public LWF::StateSVQ<0,1,1>{
@@ -215,7 +221,9 @@ class State: public LWF::StateSVQ<0,2,0>{
     POS,
     VEL
   };
-  State(){};
+  State(){
+    createDefaultNames("s"); // TODO: change to automatic calling
+  };
   ~State(){};
 };
 class UpdateMeas: public LWF::StateSVQ<1,1,0>{

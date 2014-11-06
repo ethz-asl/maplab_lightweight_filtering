@@ -36,7 +36,7 @@ class StateBase{ // TODO: normal vector
   virtual void setIdentity() = 0;
   virtual void registerToPropertyHandler(PropertyHandler* mtPropertyHandler, const std::string& str) = 0;
   virtual void registerDiagonalMatrixToPropertyHandler(PropertyHandler* mtPropertyHandler, const std::string& str, const mtCovMat& cov) = 0; // TODO, fix, cov is chosen as const in order to handle block matrices
-  virtual void createDefaultNames(const std::string& str) = 0;
+  virtual void createDefaultNames(const std::string& str = "") = 0;
   static DERIVED Identity(){
     DERIVED identity;
     identity.setIdentity();
@@ -99,7 +99,7 @@ class ScalarState: public StateBase<ScalarState,1>{
   static unsigned int getId(){
     return 0;
   };
-  void createDefaultNames(const std::string& str){
+  void createDefaultNames(const std::string& str = ""){
     name_ = str;
   };
 };
@@ -159,7 +159,7 @@ class VectorState: public StateBase<VectorState<N>,N>{
   static unsigned int getId(){
     return 0;
   };
-  void createDefaultNames(const std::string& str){
+  void createDefaultNames(const std::string& str = ""){
     name_ = str;
   };
 };
@@ -215,7 +215,7 @@ class QuaternionState: public StateBase<QuaternionState,3>{
   static unsigned int getId(){
     return 0;
   };
-  void createDefaultNames(const std::string& str){
+  void createDefaultNames(const std::string& str = ""){
     name_ = str;
   };
 };
@@ -272,7 +272,7 @@ class StateArray: public StateBase<StateArray<State,N>,State::D_*N,State::E_*N>{
       array_[i].setIdentity();
     }
   }
-  void createDefaultNames(const std::string& str){
+  void createDefaultNames(const std::string& str = ""){
     name_ = str;
     for(unsigned int i=0;i<N;i++){
       array_[i].createDefaultNames(str + "_" + std::to_string(i));
@@ -370,7 +370,7 @@ class ComposedState: public StateBase<ComposedState<State,Arguments...>,State::D
       subComposedState_.registerDiagonalMatrixToPropertyHandler(mtPropertyHandler,str,cov.template block<ComposedState<Arguments...>::D_,ComposedState<Arguments...>::D_>(State::D_,State::D_));
     }
   }
-  void createDefaultNames(const std::string& str){
+  void createDefaultNames(const std::string& str = ""){
     createDefaultNamesWithIndex(str);
   };
   void createDefaultNamesWithIndex(const std::string& str, unsigned int i = 0){
@@ -452,7 +452,7 @@ class ComposedState<State>: public StateBase<ComposedState<State>,State::D_,Stat
   void registerDiagonalMatrixToPropertyHandler(PropertyHandler* mtPropertyHandler, const std::string& str, const mtCovMat& cov){
     state_.registerDiagonalMatrixToPropertyHandler(mtPropertyHandler,str,cov);
   }
-  void createDefaultNames(const std::string& str){
+  void createDefaultNames(const std::string& str = ""){
     createDefaultNamesWithIndex(str);
   };
   void createDefaultNamesWithIndex(const std::string& str, unsigned int i = 0){
