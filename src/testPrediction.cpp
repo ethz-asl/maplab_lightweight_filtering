@@ -4,149 +4,214 @@
 
 using namespace LWFTest;
 
+typedef ::testing::Types<
+    NonlinearTest,
+    LinearTest
+> TestClasses;
+
 // The fixture for testing class PredictionModel
-class PredictionModelTest : public ::testing::Test {
+template<typename TestClass>
+class PredictionModelTest : public ::testing::Test, public TestClass {
  protected:
   PredictionModelTest() {
-    testState_.v(0) = Eigen::Vector3d(2.1,-0.2,-1.9);
-    testState_.v(1) = Eigen::Vector3d(0.3,10.9,2.3);
-    testState_.v(2) = Eigen::Vector3d(0.3,10.9,2.3);
-    testState_.v(3) = Eigen::Vector3d(0.3,10.9,2.3);
-    testState_.q(0) = rot::RotationQuaternionPD(4.0/sqrt(30.0),3.0/sqrt(30.0),1.0/sqrt(30.0),2.0/sqrt(30.0));
-    testMeas_.v(0) = Eigen::Vector3d(2.3,5.6,3.1);
-    testMeas_.v(1) = Eigen::Vector3d(-2,2,-2);
-    measMap_[0.1] = testMeas_;
-    testMeas_.v(0) = Eigen::Vector3d(-1.5,12,15.23);
-    testMeas_.v(1) = Eigen::Vector3d(-5,2,5.2);
-    measMap_[0.2] = testMeas_;
-    testMeas_.v(0) = Eigen::Vector3d(3,-4.5,0.0);
-    testMeas_.v(1) = Eigen::Vector3d(-1.2,2.1,1.1);
-    measMap_[0.4] = testMeas_;
+    this->init(this->testState_,this->testUpdateMeas_,this->testPredictionMeas_);
+    this->measMap_[0.1] = this->testPredictionMeas_;
+    this->measMap_[0.2] = this->testPredictionMeas_;
+    this->measMap_[0.4] = this->testPredictionMeas_;
   }
   virtual ~PredictionModelTest() {
   }
-  PredictionExample testPrediction_;
-  State testState_;
-  PredictionMeas testMeas_;
+  using typename TestClass::mtState;
+  using typename TestClass::mtUpdateMeas;
+  using typename TestClass::mtUpdateNoise;
+  using typename TestClass::mtInnovation;
+  using typename TestClass::mtPredictionNoise;
+  using typename TestClass::mtPredictionMeas;
+  using typename TestClass::mtUpdateExample;
+  using typename TestClass::mtPredictionExample;
+  using typename TestClass::mtPredictAndUpdateExample;
+  mtPredictionExample testPrediction_;
+  mtState testState_;
+  mtPredictionMeas testPredictionMeas_;
+  mtUpdateMeas testUpdateMeas_;
   const double dt_ = 0.1;
-  std::map<double,PredictionMeas> measMap_;
+  std::map<double,mtPredictionMeas> measMap_;
 };
 
+TYPED_TEST_CASE(PredictionModelTest, TestClasses);
+
 // Test constructors
-TEST_F(PredictionModelTest, constructors) {
-  PredictionExample testPrediction;
-  ASSERT_EQ((testPrediction.prenoiP_-PredictionExample::mtNoise::mtCovMat::Identity()*0.0001).norm(),0.0);
-  typename PredictionExample::mtNoise::mtDifVec dif;
-  testPrediction.stateSigmaPointsNoi_.getMean().boxMinus(typename PredictionExample::mtNoise(),dif);
+TYPED_TEST(PredictionModelTest, constructors) {
+  typename TestFixture::mtPredictionExample testPrediction;
+  ASSERT_EQ((testPrediction.prenoiP_-TestFixture::mtPredictionExample::mtNoise::mtCovMat::Identity()*0.0001).norm(),0.0);
+  typename TestFixture::mtPredictionExample::mtNoise::mtDifVec dif;
+  typename TestFixture::mtPredictionExample::mtNoise noise;
+  noise.setIdentity();
+  testPrediction.stateSigmaPointsNoi_.getMean().boxMinus(noise,dif);
   ASSERT_NEAR(dif.norm(),0.0,1e-6);
   ASSERT_NEAR((testPrediction.prenoiP_-testPrediction.stateSigmaPointsNoi_.getCovarianceMatrix()).norm(),0.0,1e-8);
 }
 
 // Test finite difference Jacobians
-TEST_F(PredictionModelTest, FDjacobians) {
-  PredictionExample::mtJacInput F = testPrediction_.jacInputFD(testState_,testMeas_,dt_,0.0000001);
-  ASSERT_NEAR((F-testPrediction_.jacInput(testState_,testMeas_,dt_)).norm(),0.0,1e-5);
-  PredictionExample::mtJacNoise Fn = testPrediction_.jacNoiseFD(testState_,testMeas_,dt_,0.0000001);
-  ASSERT_NEAR((Fn-testPrediction_.jacNoise(testState_,testMeas_,dt_)).norm(),0.0,1e-5);
+TYPED_TEST(PredictionModelTest, FDjacobians) {
+  typename TestFixture::mtPredictionExample::mtJacInput F = this->testPrediction_.jacInputFD(this->testState_,this->testPredictionMeas_,this->dt_,0.0000001);
+  typename TestFixture::mtPredictionExample::mtJacNoise Fn = this->testPrediction_.jacNoiseFD(this->testState_,this->testPredictionMeas_,this->dt_,0.0000001);
+  switch(TestFixture::id_){
+    case 0:
+      ASSERT_NEAR((F-this->testPrediction_.jacInput(this->testState_,this->testPredictionMeas_,this->dt_)).norm(),0.0,1e-5);
+      ASSERT_NEAR((Fn-this->testPrediction_.jacNoise(this->testState_,this->testPredictionMeas_,this->dt_)).norm(),0.0,1e-5);
+      break;
+    case 1:
+      ASSERT_NEAR((F-this->testPrediction_.jacInput(this->testState_,this->testPredictionMeas_,this->dt_)).norm(),0.0,1e-8);
+      ASSERT_NEAR((Fn-this->testPrediction_.jacNoise(this->testState_,this->testPredictionMeas_,this->dt_)).norm(),0.0,1e-8);
+      break;
+    default:
+      ASSERT_NEAR((F-this->testPrediction_.jacInput(this->testState_,this->testPredictionMeas_,this->dt_)).norm(),0.0,1e-5);
+      ASSERT_NEAR((Fn-this->testPrediction_.jacNoise(this->testState_,this->testPredictionMeas_,this->dt_)).norm(),0.0,1e-5);
+  };
 }
 
 // Test predictEKF
-TEST_F(PredictionModelTest, predictEKF) {
-  PredictionExample::mtState::mtCovMat cov;
+TYPED_TEST(PredictionModelTest, predictEKF) {
+  typename TestFixture::mtPredictionExample::mtState::mtCovMat cov;
   cov.setIdentity();
-  PredictionExample::mtJacInput F = testPrediction_.jacInput(testState_,testMeas_,dt_);
-  PredictionExample::mtJacNoise Fn = testPrediction_.jacNoise(testState_,testMeas_,dt_);
-  PredictionExample::mtState::mtCovMat predictedCov = F*cov*F.transpose() + Fn*testPrediction_.prenoiP_*Fn.transpose();
-  PredictionExample::mtState state;
-  state = testState_;
-  testPrediction_.predictEKF(state,cov,testMeas_,dt_);
-  PredictionExample::mtState::mtDifVec dif;
-  state.boxMinus(testPrediction_.eval(testState_,testMeas_,dt_),dif);
-  ASSERT_NEAR(dif.norm(),0.0,1e-6);
-  ASSERT_NEAR((cov-predictedCov).norm(),0.0,1e-6);
+  typename TestFixture::mtPredictionExample::mtJacInput F = this->testPrediction_.jacInput(this->testState_,this->testPredictionMeas_,this->dt_);
+  typename TestFixture::mtPredictionExample::mtJacNoise Fn = this->testPrediction_.jacNoise(this->testState_,this->testPredictionMeas_,this->dt_);
+  typename TestFixture::mtPredictionExample::mtState::mtCovMat predictedCov = F*cov*F.transpose() + Fn*this->testPrediction_.prenoiP_*Fn.transpose();
+  typename TestFixture::mtPredictionExample::mtState state;
+  state = this->testState_;
+  this->testPrediction_.predictEKF(state,cov,this->testPredictionMeas_,this->dt_);
+  typename TestFixture::mtPredictionExample::mtState::mtDifVec dif;
+  state.boxMinus(this->testPrediction_.eval(this->testState_,this->testPredictionMeas_,this->dt_),dif);
+  switch(TestFixture::id_){
+    case 0:
+      ASSERT_NEAR(dif.norm(),0.0,1e-6);
+      ASSERT_NEAR((cov-predictedCov).norm(),0.0,1e-6);
+      break;
+    case 1:
+      ASSERT_NEAR(dif.norm(),0.0,1e-10);
+      ASSERT_NEAR((cov-predictedCov).norm(),0.0,1e-10);
+      break;
+    default:
+      ASSERT_NEAR(dif.norm(),0.0,1e-6);
+      ASSERT_NEAR((cov-predictedCov).norm(),0.0,1e-6);
+  };
 }
 
 // Test comparePredict
-TEST_F(PredictionModelTest, comparePredict) {
-  PredictionExample::mtState::mtCovMat cov1 = PredictionExample::mtState::mtCovMat::Identity()*0.000001;
-  PredictionExample::mtState::mtCovMat cov2 = PredictionExample::mtState::mtCovMat::Identity()*0.000001;
-  PredictionExample::mtState state1 = testState_;
-  PredictionExample::mtState state2 = testState_;
-  testPrediction_.predictEKF(state1,cov1,testMeas_,dt_);
-  testPrediction_.predictUKF(state2,cov2,testMeas_,dt_);
-  PredictionExample::mtState::mtDifVec dif;
+TYPED_TEST(PredictionModelTest, comparePredict) {
+  typename TestFixture::mtPredictionExample::mtState::mtCovMat cov1 = TestFixture::mtPredictionExample::mtState::mtCovMat::Identity()*0.000001;
+  typename TestFixture::mtPredictionExample::mtState::mtCovMat cov2 = cov1;
+  typename TestFixture::mtPredictionExample::mtState state1 = this->testState_;
+  typename TestFixture::mtPredictionExample::mtState state2 = this->testState_;
+  this->testPrediction_.predictEKF(state1,cov1,this->testPredictionMeas_,this->dt_);
+  this->testPrediction_.predictUKF(state2,cov2,this->testPredictionMeas_,this->dt_);
+  typename TestFixture::mtPredictionExample::mtState::mtDifVec dif;
   state1.boxMinus(state2,dif);
-  ASSERT_NEAR(dif.norm(),0.0,1e-5); // Careful, will differ depending on the magnitude of the covariance
-  ASSERT_NEAR((cov1-cov2).norm(),0.0,1e-6); // Careful, will differ depending on the magnitude of the covariance
+  switch(TestFixture::id_){
+    case 0:
+      ASSERT_NEAR(dif.norm(),0.0,1e-5);
+      ASSERT_NEAR((cov1-cov2).norm(),0.0,1e-6);
+      break;
+    case 1:
+      ASSERT_NEAR(dif.norm(),0.0,1e-9);
+      ASSERT_NEAR((cov1-cov2).norm(),0.0,1e-10);
+      break;
+    default:
+      ASSERT_NEAR(dif.norm(),0.0,1e-5);
+      ASSERT_NEAR((cov1-cov2).norm(),0.0,1e-6);
+  };
 }
 
 // Test predictMergedEKF
-TEST_F(PredictionModelTest, predictMergedEKF) {
-  PredictionExample::mtState::mtCovMat cov;
+TYPED_TEST(PredictionModelTest, predictMergedEKF) {
+  typename TestFixture::mtPredictionExample::mtState::mtCovMat cov;
   cov.setIdentity();
   double t = 0;
-  double dt = measMap_.rbegin()->first-t;
+  double dt = this->measMap_.rbegin()->first-t;
 
-  PredictionExample::mtMeas meanMeas;
-  typename PredictionExample::mtMeas::mtDifVec vec;
-  typename PredictionExample::mtMeas::mtDifVec difVec;
+  typename TestFixture::mtPredictionExample::mtMeas meanMeas;
+  typename TestFixture::mtPredictionExample::mtMeas::mtDifVec vec;
+  typename TestFixture::mtPredictionExample::mtMeas::mtDifVec difVec;
   vec.setZero();
-  for(std::map<double,PredictionMeas>::iterator it = next(measMap_.begin());it != measMap_.end();it++){
-    measMap_.begin()->second.boxMinus(it->second,difVec);
+  for(typename std::map<double,typename TestFixture::mtPredictionExample::mtMeas>::iterator it = next(this->measMap_.begin());it != this->measMap_.end();it++){
+    this->measMap_.begin()->second.boxMinus(it->second,difVec);
     vec = vec + difVec;
   }
-  vec = vec/measMap_.size();
-  measMap_.begin()->second.boxPlus(vec,meanMeas);
+  vec = vec/this->measMap_.size();
+  this->measMap_.begin()->second.boxPlus(vec,meanMeas);
 
-  PredictionExample::mtJacInput F = testPrediction_.jacInput(testState_,meanMeas,dt);
-  PredictionExample::mtJacNoise Fn = testPrediction_.jacNoise(testState_,meanMeas,dt);
-  PredictionExample::mtState::mtCovMat predictedCov = F*cov*F.transpose() + Fn*testPrediction_.prenoiP_*Fn.transpose();
-  PredictionExample::mtState state1;
-  state1 = testState_;
-  testPrediction_.predictMergedEKF(state1,cov,0.0,measMap_.begin(),measMap_.size());
-  PredictionExample::mtState state2;
-  state2 = testState_;
-  for(std::map<double,PredictionMeas>::iterator it = measMap_.begin();it != measMap_.end();it++){
-    state2 = testPrediction_.eval(state2,it->second,it->first-t);
+  typename TestFixture::mtPredictionExample::mtJacInput F = this->testPrediction_.jacInput(this->testState_,meanMeas,dt);
+  typename TestFixture::mtPredictionExample::mtJacNoise Fn = this->testPrediction_.jacNoise(this->testState_,meanMeas,dt);
+  typename TestFixture::mtPredictionExample::mtState::mtCovMat predictedCov = F*cov*F.transpose() + Fn*this->testPrediction_.prenoiP_*Fn.transpose();
+  typename TestFixture::mtPredictionExample::mtState state1;
+  state1 = this->testState_;
+  this->testPrediction_.predictMergedEKF(state1,cov,0.0,this->measMap_.begin(),this->measMap_.size());
+  typename TestFixture::mtPredictionExample::mtState state2;
+  state2 = this->testState_;
+  for(typename std::map<double,typename TestFixture::mtPredictionExample::mtMeas>::iterator it = this->measMap_.begin();it != this->measMap_.end();it++){
+    state2 = this->testPrediction_.eval(state2,it->second,it->first-t);
     t = it->first;
   }
-  PredictionExample::mtState::mtDifVec dif;
+  typename TestFixture::mtPredictionExample::mtState::mtDifVec dif;
   state1.boxMinus(state2,dif);
-  ASSERT_NEAR(dif.norm(),0.0,1e-6);
-  ASSERT_NEAR((cov-predictedCov).norm(),0.0,1e-6);
+  switch(TestFixture::id_){
+    case 0:
+      ASSERT_NEAR(dif.norm(),0.0,1e-6);
+      ASSERT_NEAR((cov-predictedCov).norm(),0.0,1e-6);
+      break;
+    case 1:
+      ASSERT_NEAR(dif.norm(),0.0,1e-10);
+      ASSERT_NEAR((cov-predictedCov).norm(),0.0,1e-10);
+      break;
+    default:
+      ASSERT_NEAR(dif.norm(),0.0,1e-6);
+      ASSERT_NEAR((cov-predictedCov).norm(),0.0,1e-6);
+  };
 }
 
 // Test predictMergedUKF
-TEST_F(PredictionModelTest, predictMergedUKF) {
-  PredictionExample::mtState::mtCovMat cov;
+TYPED_TEST(PredictionModelTest, predictMergedUKF) {
+  typename TestFixture::mtPredictionExample::mtState::mtCovMat cov;
   cov.setIdentity();
   double t = 0;
-  double dt = measMap_.rbegin()->first-t;
+  double dt = this->measMap_.rbegin()->first-t;
 
-  PredictionExample::mtMeas meanMeas;
-  typename PredictionExample::mtMeas::mtDifVec vec;
-  typename PredictionExample::mtMeas::mtDifVec difVec;
+  typename TestFixture::mtPredictionExample::mtMeas meanMeas;
+  typename TestFixture::mtPredictionExample::mtMeas::mtDifVec vec;
+  typename TestFixture::mtPredictionExample::mtMeas::mtDifVec difVec;
   vec.setZero();
-  for(std::map<double,PredictionMeas>::iterator it = next(measMap_.begin());it != measMap_.end();it++){
-    measMap_.begin()->second.boxMinus(it->second,difVec);
+  for(typename std::map<double,typename TestFixture::mtPredictionExample::mtMeas>::iterator it = next(this->measMap_.begin());it != this->measMap_.end();it++){
+    this->measMap_.begin()->second.boxMinus(it->second,difVec);
     vec = vec + difVec;
   }
-  vec = vec/measMap_.size();
-  measMap_.begin()->second.boxPlus(vec,meanMeas);
+  vec = vec/this->measMap_.size();
+  this->measMap_.begin()->second.boxPlus(vec,meanMeas);
 
-  testPrediction_.stateSigmaPoints_.computeFromGaussian(testState_,cov);
-  for(unsigned int i=0;i<testPrediction_.stateSigmaPoints_.L_;i++){
-    testPrediction_.stateSigmaPointsPre_(i) = testPrediction_.eval(testPrediction_.stateSigmaPoints_(i),meanMeas,testPrediction_.stateSigmaPointsNoi_(i),dt);
+  this->testPrediction_.stateSigmaPoints_.computeFromGaussian(this->testState_,cov);
+  for(unsigned int i=0;i<this->testPrediction_.stateSigmaPoints_.L_;i++){
+    this->testPrediction_.stateSigmaPointsPre_(i) = this->testPrediction_.eval(this->testPrediction_.stateSigmaPoints_(i),meanMeas,this->testPrediction_.stateSigmaPointsNoi_(i),dt);
   }
-  PredictionExample::mtState state1 = testPrediction_.stateSigmaPointsPre_.getMean();
-  PredictionExample::mtState::mtCovMat predictedCov = testPrediction_.stateSigmaPointsPre_.getCovarianceMatrix(state1);
-  PredictionExample::mtState state2;
-  state2 = testState_;
-  testPrediction_.predictMergedUKF(state2,cov,0.0,measMap_.begin(),measMap_.size());
-  PredictionExample::mtState::mtDifVec dif;
+  typename TestFixture::mtPredictionExample::mtState state1 = this->testPrediction_.stateSigmaPointsPre_.getMean();
+  typename TestFixture::mtPredictionExample::mtState::mtCovMat predictedCov = this->testPrediction_.stateSigmaPointsPre_.getCovarianceMatrix(state1);
+  typename TestFixture::mtPredictionExample::mtState state2;
+  state2 = this->testState_;
+  this->testPrediction_.predictMergedUKF(state2,cov,0.0,this->measMap_.begin(),this->measMap_.size());
+  typename TestFixture::mtPredictionExample::mtState::mtDifVec dif;
   state1.boxMinus(state2,dif);
-  ASSERT_NEAR(dif.norm(),0.0,1e-6);
-  ASSERT_NEAR((cov-predictedCov).norm(),0.0,1e-6);
+  switch(TestFixture::id_){
+    case 0:
+      ASSERT_NEAR(dif.norm(),0.0,1e-6);
+      ASSERT_NEAR((cov-predictedCov).norm(),0.0,1e-6);
+      break;
+    case 1:
+      ASSERT_NEAR(dif.norm(),0.0,1e-10);
+      ASSERT_NEAR((cov-predictedCov).norm(),0.0,1e-10);
+      break;
+    default:
+      ASSERT_NEAR(dif.norm(),0.0,1e-6);
+      ASSERT_NEAR((cov-predictedCov).norm(),0.0,1e-6);
+  };
 }
 
 int main(int argc, char **argv) {

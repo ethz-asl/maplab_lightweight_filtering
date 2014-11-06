@@ -80,12 +80,12 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>{
   SigmaPoints<mtState,2*mtState::D_+1,2*mtState::D_+1,0> posterior_;
   std::vector<UpdateOutlierDetection<Innovation>> outlierDetectionVector_;
   Update(){
-    resetUpdate();
-    yIdentity_.setIdentity();
+    initUpdate();
   };
   virtual void preProcess(mtState& state, mtCovMat& cov, const mtMeas& meas){};
   virtual void postProcess(mtState& state, mtCovMat& cov, const mtMeas& meas){};
-  void resetUpdate(){
+  void initUpdate(){
+    yIdentity_.setIdentity();
     updateVec_.setIdentity();
     updnoiP_ = mtNoise::mtCovMat::Identity()*0.0001;
     stateSigmaPoints_.computeParameter(1e-3,2.0,0.0);
@@ -218,12 +218,12 @@ class PredictionUpdate: public ModelBase<State,Innovation,Meas,Noise>{
   SigmaPoints<mtState,2*mtState::D_+1,2*mtState::D_+1,0> posterior_;
   std::vector<UpdateOutlierDetection<Innovation>> outlierDetectionVector_;
   PredictionUpdate(){
-    resetUpdate();
-    yIdentity_.setIdentity();
+    initUpdate();
   };
   virtual void preProcess(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt){};
   virtual void postProcess(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt){};
-  void resetUpdate(){
+  void initUpdate(){
+    yIdentity_.setIdentity();
     updateVec_.setIdentity();
     updnoiP_ = mtNoise::mtCovMat::Identity()*0.0001;
     preupdnoiP_.setZero();
@@ -289,7 +289,7 @@ class PredictionUpdate: public ModelBase<State,Innovation,Meas,Noise>{
   int predictAndUpdateUKF(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt){
     preProcess(state,cov,meas,prediction,predictionMeas,dt);
     // Predict
-    noiP_.template block<mtPredictionNoise::D_,mtPredictionNoise::D_>(0,0) = prediction.prenoiP_;
+    noiP_.template block<mtPredictionNoise::D_,mtPredictionNoise::D_>(0,0) = prediction.prenoiP_; // TODO: only if necessary
     noiP_.template block<mtPredictionNoise::D_,mtNoise::D_>(0,mtPredictionNoise::D_) = preupdnoiP_;
     noiP_.template block<mtNoise::D_,mtPredictionNoise::D_>(mtPredictionNoise::D_,0) = preupdnoiP_.transpose();
     noiP_.template block<mtNoise::D_,mtNoise::D_>(mtPredictionNoise::D_,mtPredictionNoise::D_) = updnoiP_;
