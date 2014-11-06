@@ -143,7 +143,7 @@ class Prediction: public ModelBase<State,State,Meas,Noise>{
 
     // Prediction
     for(unsigned int i=0;i<stateSigmaPoints_.L_;i++){
-      stateSigmaPointsPre_(i) = this->eval(stateSigmaPoints_(i),meanMeas,stateSigmaPointsNoi_(i),dT); // TODO: check
+      stateSigmaPointsPre_(i) = this->eval(stateSigmaPoints_(i),meanMeas,stateSigmaPointsNoi_(i),dT);
     }
     state = stateSigmaPointsPre_.getMean();
     cov = stateSigmaPointsPre_.getCovarianceMatrix(state);

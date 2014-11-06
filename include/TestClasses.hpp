@@ -378,9 +378,7 @@ class NonlinearTest{
   void init(mtState& state,mtUpdateMeas& updateMeas,mtPredictionMeas& predictionMeas){
     state.v(0) = Eigen::Vector3d(2.1,-0.2,-1.9);
     state.v(1) = Eigen::Vector3d(0.3,10.9,2.3);
-    state.v(2) = Eigen::Vector3d(0.1,2.9,7.3);
-    state.v(3) = Eigen::Vector3d(2,4,-2.3);
-    state.v(2) = Eigen::Vector3d(0.3,10.9,2.3); // TODO
+    state.v(2) = Eigen::Vector3d(0.3,10.9,2.3);
     state.v(3) = Eigen::Vector3d(0.3,10.9,2.3);
     state.q(0) = rot::RotationQuaternionPD(4.0/sqrt(30.0),3.0/sqrt(30.0),1.0/sqrt(30.0),2.0/sqrt(30.0));
     updateMeas.v(0) = Eigen::Vector3d(-1.5,12,5.23);

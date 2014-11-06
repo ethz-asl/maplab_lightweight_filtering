@@ -12,14 +12,14 @@ class Auxillary{
 };
 
 // The fixture for testing class StateSVQ
-class StateSVQTest2 : public virtual ::testing::Test {
+class StateTesting : public virtual ::testing::Test {
  protected:
   enum StateNames{
     s0, s1, s2, s3,
     v0, v1, v2,
     q0, q1
   };
-  StateSVQTest2() {
+  StateTesting() {
     assert(V_>=Q_-1);
     testScalar1_[0] = 4.5;
     testScalar2_[0] = -17.34;
@@ -60,7 +60,7 @@ class StateSVQTest2 : public virtual ::testing::Test {
     testState1_.aux().x_ = 2.3;
     testState2_.aux().x_ = 3.2;
   }
-  virtual ~StateSVQTest2() {
+  virtual ~StateTesting() {
   }
   static const unsigned int S_ = 4;
   static const unsigned int V_ = 3;
@@ -78,7 +78,7 @@ class StateSVQTest2 : public virtual ::testing::Test {
 };
 
 // Test constructors
-TEST_F(StateSVQTest2, constructors) {
+TEST_F(StateTesting, constructors) {
   StateSVQAugmented testState1;
   ASSERT_EQ(testState1.aux().x_,1.0);
   StateSVQAugmented testState2(testState2_);
@@ -88,7 +88,7 @@ TEST_F(StateSVQTest2, constructors) {
 }
 
 // Test setIdentity and Identity
-TEST_F(StateSVQTest2, setIdentity) {
+TEST_F(StateTesting, setIdentity) {
   testState1_.setIdentity();
   for(int i=0;i<S_;i++){
     ASSERT_EQ(testState1_.getState<0>().array_[i].s_,0.0);
@@ -121,7 +121,7 @@ TEST_F(StateSVQTest2, setIdentity) {
 }
 
 // Test plus and minus
-TEST_F(StateSVQTest2, plusAndMinus) {
+TEST_F(StateTesting, plusAndMinus) {
   testState2_.boxMinus(testState1_,difVec_);
   unsigned int index=0;
   for(int i=0;i<S_;i++){
@@ -158,7 +158,7 @@ TEST_F(StateSVQTest2, plusAndMinus) {
 }
 
 // Test getValue, getId, and auxillary accessor
-TEST_F(StateSVQTest2, accessors) {
+TEST_F(StateTesting, accessors) {
   ASSERT_TRUE(testState1_.getValue<s0>() == testScalar1_[0]);
   ASSERT_TRUE(testState1_.getValue<s1>() == testScalar1_[1]);
   ASSERT_TRUE(testState1_.getValue<s2>() == testScalar1_[2]);
@@ -183,7 +183,7 @@ TEST_F(StateSVQTest2, accessors) {
 }
 
 // Test operator=
-TEST_F(StateSVQTest2, operatorEQ) {
+TEST_F(StateTesting, operatorEQ) {
   testState2_ = testState1_;
   for(int i=0;i<S_;i++){
     ASSERT_NEAR(testState2_.getState<0>().array_[i].s_,testScalar1_[i],1e-6);
@@ -198,7 +198,7 @@ TEST_F(StateSVQTest2, operatorEQ) {
 }
 
 // Test createDefaultNames
-TEST_F(StateSVQTest2, naming) {
+TEST_F(StateTesting, naming) {
   testState1_.createDefaultNames("test");
   ASSERT_TRUE(testState1_.name_ == "test");
   ASSERT_TRUE(testState1_.getState<0>().name_ == "test_0");
@@ -216,14 +216,37 @@ TEST_F(StateSVQTest2, naming) {
 }
 
 // Test ZeroArray
-TEST_F(StateSVQTest2, ZeroArray) {
+TEST_F(StateTesting, ZeroArray) {
   LWF::StateArray<LWF::ScalarState,0> testState1;
 }
 
 // Test Constness
-TEST_F(StateSVQTest2, Constness) {
+TEST_F(StateTesting, Constness) {
   const StateSVQAugmented testState1(testState1_);
   std::cout << testState1.getValue<q1>() << std::endl;
+}
+
+// Test LMat
+TEST_F(StateTesting, LMat) {
+  double d = 0.00001;
+  LWF::StateSVQ<0,0,1> att;
+  LWF::StateSVQ<0,1,0> vec;
+  vec.v(0) = Eigen::Vector3d(0.4,-0.2,1.7);
+  Eigen::Matrix3d J;
+  LWF::StateSVQ<0,0,1> attDisturbed;
+  LWF::StateSVQ<0,1,0> vecDisturbed;
+  Eigen::Matrix3d I;
+  I.setIdentity();
+  Eigen::Vector3d dif;
+  I = d*I;
+  att.q(0) = att.q(0).exponentialMap(vec.v(0));
+  for(unsigned int i=0;i<3;i++){
+    vec.boxPlus(I.col(i),vecDisturbed);
+    attDisturbed.q(0) = attDisturbed.q(0).exponentialMap(vecDisturbed.v(0));
+    attDisturbed.boxMinus(att,dif);
+    J.col(i) = dif*1/d;
+  }
+  ASSERT_NEAR((J-LWF::Lmat(vec.v(0))).norm(),0.0,1e-5);
 }
 
 int main(int argc, char **argv) {
