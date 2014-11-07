@@ -26,12 +26,11 @@ template<typename Innovation>
 class UpdateOutlierDetection{
  public:
   UpdateOutlierDetection(int startIndex,int endIndex,double mahalanobisTh){
-    outlier_ = false;
     startIndex_ = startIndex;
     endIndex_ = endIndex;
     N_ = endIndex_ - startIndex_ + 1;
     mahalanobisTh_ = mahalanobisTh;
-    outlierCount_ = 0;
+    reset();
   }
   void check(const typename Innovation::mtDifVec& innVector,const Eigen::Matrix<double,Innovation::D_,Innovation::D_>& Py){
     const double d = ((innVector.block(startIndex_,0,N_,1)).transpose()*Py.block(startIndex_,startIndex_,N_,N_).inverse()*innVector.block(startIndex_,0,N_,1))(0,0);
@@ -65,6 +64,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>{
   typename ModelBase<State,Innovation,Meas,Noise>::mtJacInput H_;
   typename ModelBase<State,Innovation,Meas,Noise>::mtJacNoise Hn_;
   typename mtNoise::mtCovMat updnoiP_;
+  typename mtNoise::mtCovMat noiP_; // automatic change tracking
   mtInnovation y_;
   typename mtInnovation::mtCovMat Py_;
   typename mtInnovation::mtCovMat Pyinv_;
@@ -82,18 +82,28 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>{
   Update(){
     initUpdate();
   };
+  void refreshNoiseSigmaPoints(){
+    if(noiP_ != updnoiP_){
+      noiP_ = updnoiP_;
+      stateSigmaPointsNoi_.computeFromZeroMeanGaussian(noiP_);
+    }
+  }
+  void setUKFParameter(double alpha,double beta, double kappa){
+    stateSigmaPoints_.computeParameter(alpha,beta,kappa);
+    innSigmaPoints_.computeParameter(alpha,beta,kappa);
+    updateVecSP_.computeParameter(alpha,beta,kappa);
+    posterior_.computeParameter(alpha,beta,kappa);
+    stateSigmaPointsNoi_.computeParameter(alpha,beta,kappa);
+    stateSigmaPointsNoi_.computeFromZeroMeanGaussian(noiP_);
+  }
   virtual void preProcess(mtState& state, mtCovMat& cov, const mtMeas& meas){};
   virtual void postProcess(mtState& state, mtCovMat& cov, const mtMeas& meas){};
   void initUpdate(){
     yIdentity_.setIdentity();
     updateVec_.setIdentity();
     updnoiP_ = mtNoise::mtCovMat::Identity()*0.0001;
-    stateSigmaPoints_.computeParameter(1e-3,2.0,0.0);
-    stateSigmaPointsNoi_.computeParameter(1e-3,2.0,0.0);
-    innSigmaPoints_.computeParameter(1e-3,2.0,0.0);
-    updateVecSP_.computeParameter(1e-3,2.0,0.0);
-    posterior_.computeParameter(1e-3,2.0,0.0);
-    stateSigmaPointsNoi_.computeFromZeroMeanGaussian(updnoiP_);
+    refreshNoiseSigmaPoints();
+    setUKFParameter(1e-3,2.0,0.0);
     for(unsigned int i=0;i<outlierDetectionVector_.size();i++){
       outlierDetectionVector_[i].reset();
     }
@@ -141,6 +151,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>{
     return 0;
   }
   int updateUKF(mtState& state, mtCovMat& cov, const mtMeas& meas){
+    refreshNoiseSigmaPoints();
     preProcess(state,cov,meas);
     stateSigmaPoints_.computeFromGaussian(state,cov);
 
@@ -200,7 +211,7 @@ class PredictionUpdate: public ModelBase<State,Innovation,Meas,Noise>{
   typename Prediction::mtJacNoise Fn_;
   typename mtNoise::mtCovMat updnoiP_;
   Eigen::Matrix<double,mtPredictionNoise::D_,mtNoise::D_> preupdnoiP_;
-  Eigen::Matrix<double,mtPredictionNoise::D_+mtNoise::D_,mtPredictionNoise::D_+mtNoise::D_> noiP_;
+  Eigen::Matrix<double,mtPredictionNoise::D_+mtNoise::D_,mtPredictionNoise::D_+mtNoise::D_> noiP_; // automatic change tracking
   Eigen::Matrix<double,mtState::D_,mtInnovation::D_> C_;
   mtInnovation y_;
   typename mtInnovation::mtCovMat Py_;
@@ -220,20 +231,35 @@ class PredictionUpdate: public ModelBase<State,Innovation,Meas,Noise>{
   PredictionUpdate(){
     initUpdate();
   };
+  void refreshNoiseSigmaPoints(const typename mtPredictionNoise::mtCovMat& prenoiP){
+    if(noiP_.template block<mtPredictionNoise::D_,mtPredictionNoise::D_>(0,0) != prenoiP ||
+        noiP_.template block<mtPredictionNoise::D_,mtNoise::D_>(0,mtPredictionNoise::D_) != preupdnoiP_ ||
+        noiP_.template block<mtNoise::D_,mtNoise::D_>(mtPredictionNoise::D_,mtPredictionNoise::D_) != updnoiP_){
+      noiP_.template block<mtPredictionNoise::D_,mtPredictionNoise::D_>(0,0) = prenoiP;
+      noiP_.template block<mtPredictionNoise::D_,mtNoise::D_>(0,mtPredictionNoise::D_) = preupdnoiP_;
+      noiP_.template block<mtNoise::D_,mtPredictionNoise::D_>(mtPredictionNoise::D_,0) = preupdnoiP_.transpose();
+      noiP_.template block<mtNoise::D_,mtNoise::D_>(mtPredictionNoise::D_,mtPredictionNoise::D_) = updnoiP_;
+      stateSigmaPointsNoi_.computeFromZeroMeanGaussian(noiP_);
+    }
+  }
+  void setUKFParameter(double alpha,double beta, double kappa){
+    stateSigmaPoints_.computeParameter(alpha,beta,kappa);
+    stateSigmaPointsPre_.computeParameter(alpha,beta,kappa);
+    stateSigmaPointsNoi_.computeParameter(alpha,beta,kappa);
+    innSigmaPoints_.computeParameter(alpha,beta,kappa);
+    updateVecSP_.computeParameter(alpha,beta,kappa);
+    posterior_.computeParameter(alpha,beta,kappa);
+    stateSigmaPointsNoi_.computeFromZeroMeanGaussian(noiP_);
+  }
   virtual void preProcess(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt){};
   virtual void postProcess(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt){};
   void initUpdate(){
     yIdentity_.setIdentity();
     updateVec_.setIdentity();
     updnoiP_ = mtNoise::mtCovMat::Identity()*0.0001;
-    preupdnoiP_.setZero();
-    noiP_.setIdentity();
-    stateSigmaPoints_.computeParameter(1e-3,2.0,0.0);
-    stateSigmaPointsPre_.computeParameter(1e-3,2.0,0.0);
-    stateSigmaPointsNoi_.computeParameter(1e-3,2.0,0.0);
-    innSigmaPoints_.computeParameter(1e-3,2.0,0.0);
-    updateVecSP_.computeParameter(1e-3,2.0,0.0);
-    posterior_.computeParameter(1e-3,2.0,0.0);
+    preupdnoiP_ = Eigen::Matrix<double,mtPredictionNoise::D_,mtNoise::D_>::Zero();
+    refreshNoiseSigmaPoints(mtPredictionNoise::mtCovMat::Identity());
+    setUKFParameter(1e-3,2.0,0.0);
     for(unsigned int i=0;i<outlierDetectionVector_.size();i++){
       outlierDetectionVector_[i].reset();
     }
@@ -287,13 +313,9 @@ class PredictionUpdate: public ModelBase<State,Innovation,Meas,Noise>{
     return 0;
   }
   int predictAndUpdateUKF(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt){
+    refreshNoiseSigmaPoints(prediction.prenoiP_);
     preProcess(state,cov,meas,prediction,predictionMeas,dt);
     // Predict
-    noiP_.template block<mtPredictionNoise::D_,mtPredictionNoise::D_>(0,0) = prediction.prenoiP_; // TODO: only if necessary + handle sigma points
-    noiP_.template block<mtPredictionNoise::D_,mtNoise::D_>(0,mtPredictionNoise::D_) = preupdnoiP_;
-    noiP_.template block<mtNoise::D_,mtPredictionNoise::D_>(mtPredictionNoise::D_,0) = preupdnoiP_.transpose();
-    noiP_.template block<mtNoise::D_,mtNoise::D_>(mtPredictionNoise::D_,mtPredictionNoise::D_) = updnoiP_;
-    stateSigmaPointsNoi_.computeFromZeroMeanGaussian(noiP_);
     stateSigmaPoints_.computeFromGaussian(state,cov);
 
     // Prediction

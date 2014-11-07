@@ -153,11 +153,15 @@ class UpdateAndPredictManager:public MeasurementTimeline<typename Update::mtMeas
  public:
   using MeasurementTimeline<typename Update::mtMeas>::measMap_;
   using UpdateAndPredictManagerBase<typename Update::mtState, Prediction>::filteringMode_;
+  using UpdateAndPredictManagerBase<typename Update::mtState, Prediction>::doubleRegister_;
   typedef typename Update::mtState mtState;
   typedef typename Update::mtMeas mtMeas;
   typedef typename mtState::mtCovMat mtCovMat;
   Update update_;
-  UpdateAndPredictManager(UpdateFilteringMode filteringMode = UpdateEKF): UpdateAndPredictManagerBase<typename Update::mtState, Prediction>(filteringMode){};
+  UpdateAndPredictManager(UpdateFilteringMode filteringMode = UpdateEKF): UpdateAndPredictManagerBase<typename Update::mtState, Prediction>(filteringMode){
+    doubleRegister_.registerDiagonalMatrix("UpdateNoise",update_.updnoiP_);
+    doubleRegister_.registerMatrix("CorrelatedNoise",update_.preupdnoiP_);
+  };
   ~UpdateAndPredictManager(){};
   void update(FilterState<mtState>& filterState){
     assert(0);
