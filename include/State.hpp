@@ -35,7 +35,6 @@ class StateBase{ // TODO: normal vector
   virtual void print() const = 0;
   virtual void setIdentity() = 0;
   virtual void registerToPropertyHandler(PropertyHandler* mtPropertyHandler, const std::string& str) = 0;
-  virtual void registerDiagonalMatrixToPropertyHandler(PropertyHandler* mtPropertyHandler, const std::string& str, const mtCovMat& cov) = 0; // TODO, fix, cov is chosen as const in order to handle block matrices
   virtual void createDefaultNames(const std::string& str = "") = 0;
   static DERIVED Identity(){
     DERIVED identity;
@@ -75,9 +74,6 @@ class ScalarState: public StateBase<ScalarState,1>{
   }
   void registerToPropertyHandler(PropertyHandler* mtPropertyHandler, const std::string& str){
     mtPropertyHandler->doubleRegister_.registerScalar(str + name_, s_);
-  }
-  void registerDiagonalMatrixToPropertyHandler(PropertyHandler* mtPropertyHandler, const std::string& str, const mtCovMat& cov){
-    mtPropertyHandler->doubleRegister_.registerDiagonalMatrix(str + name_, const_cast<mtCovMat&>(cov));
   }
   template<unsigned int i, typename std::enable_if<(i==0)>::type* = nullptr>
   ScalarState& getState(){
@@ -136,9 +132,6 @@ class VectorState: public StateBase<VectorState<N>,N>{
       mtPropertyHandler->doubleRegister_.registerScalar(str + name_ + "_" + std::to_string(i), v_(i));
     }
   }
-  void registerDiagonalMatrixToPropertyHandler(PropertyHandler* mtPropertyHandler, const std::string& str, const mtCovMat& cov){
-    mtPropertyHandler->doubleRegister_.registerDiagonalMatrix(str + name_, const_cast<mtCovMat&>(cov));
-  }
   template<unsigned int i, typename std::enable_if<(i==0)>::type* = nullptr>
   VectorState<N>& getState(){
     return *this;
@@ -191,9 +184,6 @@ class QuaternionState: public StateBase<QuaternionState,3>{
   }
   void registerToPropertyHandler(PropertyHandler* mtPropertyHandler, const std::string& str){
     mtPropertyHandler->doubleRegister_.registerQuaternion(str + name_, q_);
-  }
-  void registerDiagonalMatrixToPropertyHandler(PropertyHandler* mtPropertyHandler, const std::string& str, const mtCovMat& cov){
-    mtPropertyHandler->doubleRegister_.registerDiagonalMatrix(str + name_, const_cast<mtCovMat&>(cov));
   }
   template<unsigned int i, typename std::enable_if<(i==0)>::type* = nullptr>
   QuaternionState& getState(){
@@ -283,18 +273,6 @@ class StateArray: public StateBase<StateArray<State,N>,State::D_*N,State::E_*N>{
       array_[i].registerToPropertyHandler(mtPropertyHandler,str);
     }
   }
-  void registerDiagonalMatrixToPropertyHandler(PropertyHandler* mtPropertyHandler, const std::string& str, const mtCovMat& cov){
-    registerDiagonalMatrixToPropertyHandlerRecursive<0>(mtPropertyHandler,str,cov);
-  }
-  template<unsigned int i, typename std::enable_if<(i<N)>::type* = nullptr>
-  void registerDiagonalMatrixToPropertyHandlerRecursive(PropertyHandler* mtPropertyHandler, const std::string& str, const mtCovMat& cov){
-    if(State::D_>0){
-      array_[i].registerDiagonalMatrixToPropertyHandler(mtPropertyHandler,str,cov.template block<State::D_,State::D_>(i*State::D_,i*State::D_));
-    }
-    registerDiagonalMatrixToPropertyHandlerRecursive<i+1>(mtPropertyHandler,str,cov);
-  }
-  template<unsigned int i, typename std::enable_if<(i>=N)>::type* = nullptr>
-  void registerDiagonalMatrixToPropertyHandlerRecursive(PropertyHandler* mtPropertyHandler, const std::string& str, const mtCovMat& cov){}
   template<unsigned int i, typename std::enable_if<(i<N)>::type* = nullptr>
   State& getState(){
     return array_[i];
@@ -361,14 +339,6 @@ class ComposedState: public StateBase<ComposedState<State,Arguments...>,State::D
   void registerToPropertyHandler(PropertyHandler* mtPropertyHandler, const std::string& str){
     state_.registerToPropertyHandler(mtPropertyHandler,str);
     subComposedState_.registerToPropertyHandler(mtPropertyHandler,str);
-  }
-  void registerDiagonalMatrixToPropertyHandler(PropertyHandler* mtPropertyHandler, const std::string& str, const mtCovMat& cov){
-    if(State::D_>0){
-      state_.registerDiagonalMatrixToPropertyHandler(mtPropertyHandler,str,cov.template block<State::D_,State::D_>(0,0));
-    }
-    if(ComposedState<Arguments...>::D_>0){
-      subComposedState_.registerDiagonalMatrixToPropertyHandler(mtPropertyHandler,str,cov.template block<ComposedState<Arguments...>::D_,ComposedState<Arguments...>::D_>(State::D_,State::D_));
-    }
   }
   void createDefaultNames(const std::string& str = ""){
     createDefaultNamesWithIndex(str);
@@ -448,9 +418,6 @@ class ComposedState<State>: public StateBase<ComposedState<State>,State::D_,Stat
   }
   void registerToPropertyHandler(PropertyHandler* mtPropertyHandler, const std::string& str){
     state_.registerToPropertyHandler(mtPropertyHandler,str);
-  }
-  void registerDiagonalMatrixToPropertyHandler(PropertyHandler* mtPropertyHandler, const std::string& str, const mtCovMat& cov){
-    state_.registerDiagonalMatrixToPropertyHandler(mtPropertyHandler,str,cov);
   }
   void createDefaultNames(const std::string& str = ""){
     createDefaultNamesWithIndex(str);

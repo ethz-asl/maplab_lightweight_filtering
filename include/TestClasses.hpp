@@ -222,7 +222,7 @@ class State: public LWF::StateSVQ<0,2,0>{
     VEL
   };
   State(){
-    createDefaultNames("s"); // TODO: change to automatic calling
+    createDefaultNames("s");
   };
   ~State(){};
 };

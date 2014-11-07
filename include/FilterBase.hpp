@@ -255,8 +255,8 @@ class FilterBase: public PropertyHandler{
   std::vector<UpdateManagerBase<mtState>*> mUpdateVector_;
   FilterBase(){
     mpPredictionManager_ = nullptr;
-    init_.state_.registerToPropertyHandler(this,"Init.State_");
-    init_.state_.registerDiagonalMatrixToPropertyHandler(this,"Init.Covariance_",init_.cov_);
+    init_.state_.registerToPropertyHandler(this,"Init.State.");
+    doubleRegister_.registerDiagonalMatrix("Init.Covariance.p",init_.cov_);
   };
   virtual ~FilterBase(){
   };
