@@ -32,6 +32,7 @@ class Prediction: public ModelBase<State,State,Meas,Noise>{
   typename ModelBase<State,State,Meas,Noise>::mtJacInput F_;
   typename ModelBase<State,State,Meas,Noise>::mtJacNoise Fn_;
   typename mtNoise::mtCovMat prenoiP_;
+  typename mtNoise::mtCovMat noiP_; // automatic change tracking
   SigmaPoints<mtState,2*mtState::D_+1,2*(mtState::D_+mtNoise::D_)+1,0> stateSigmaPoints_;
   SigmaPoints<mtNoise,2*mtNoise::D_+1,2*(mtState::D_+mtNoise::D_)+1,2*mtState::D_> stateSigmaPointsNoi_;
   SigmaPoints<mtState,2*(mtState::D_+mtNoise::D_)+1,2*(mtState::D_+mtNoise::D_)+1,0> stateSigmaPointsPre_;
@@ -39,14 +40,24 @@ class Prediction: public ModelBase<State,State,Meas,Noise>{
   Prediction(bool mbMergePredictions = false): mbMergePredictions_(mbMergePredictions){
     resetPrediction();
   };
+  void refreshNoiseSigmaPoints(){
+    if(noiP_ != prenoiP_){
+      noiP_ = prenoiP_;
+      stateSigmaPointsNoi_.computeFromZeroMeanGaussian(noiP_);
+    }
+  }
+  void setUKFParameter(double alpha,double beta, double kappa){
+    stateSigmaPoints_.computeParameter(alpha,beta,kappa);
+    stateSigmaPointsNoi_.computeParameter(alpha,beta,kappa);
+    stateSigmaPointsPre_.computeParameter(alpha,beta,kappa);
+    stateSigmaPointsNoi_.computeFromZeroMeanGaussian(noiP_);
+  }
   virtual void preProcess(mtState& state, mtCovMat& cov, const mtMeas& meas, double dt){};
   virtual void postProcess(mtState& state, mtCovMat& cov, const mtMeas& meas, double dt){};
   void resetPrediction(){
     prenoiP_ = mtNoise::mtCovMat::Identity()*0.0001;
-    stateSigmaPoints_.computeParameter(1e-3,2.0,0.0);
-    stateSigmaPointsNoi_.computeParameter(1e-3,2.0,0.0);
-    stateSigmaPointsPre_.computeParameter(1e-3,2.0,0.0);
-    stateSigmaPointsNoi_.computeFromZeroMeanGaussian(prenoiP_);
+    refreshNoiseSigmaPoints();
+    setUKFParameter(1e-3,2.0,0.0);
   }
   virtual ~Prediction(){};
   int predict(mtState& state, mtCovMat& cov, const mtMeas& meas, double dt, PredictionFilteringMode mode = PredictionEKF){
@@ -69,6 +80,7 @@ class Prediction: public ModelBase<State,State,Meas,Noise>{
     return 0;
   }
   int predictUKF(mtState& state, mtCovMat& cov, const mtMeas& meas, double dt){
+    refreshNoiseSigmaPoints();
     preProcess(state,cov,meas,dt);
     stateSigmaPoints_.computeFromGaussian(state,cov);
 
@@ -122,6 +134,7 @@ class Prediction: public ModelBase<State,State,Meas,Noise>{
     return 0;
   }
   virtual int predictMergedUKF(mtState& state, mtCovMat& cov, double tStart, const typename std::map<double,mtMeas>::iterator itMeasStart, unsigned int N){
+    refreshNoiseSigmaPoints();
     const typename std::map<double,mtMeas>::iterator itMeasEnd = next(itMeasStart,N);
     typename std::map<double,mtMeas>::iterator itMeas = itMeasStart;
     double dT = next(itMeasStart,N-1)->first-tStart;
