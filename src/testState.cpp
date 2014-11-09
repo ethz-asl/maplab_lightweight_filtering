@@ -6,22 +6,53 @@
 class ScalarStateTest : public virtual ::testing::Test {
  protected:
   ScalarStateTest() {
-    testScalar1_ = 0.1;
-    testScalar2_ = -3.4;
-    testState1_.s_ = testScalar1_;
-    testState2_.s_ = testScalar2_;
+    testState1_.setRandom(1);
+    testState2_.setRandom(2);
   }
   virtual ~ScalarStateTest() {
   }
   LWF::ScalarState testState1_;
   LWF::ScalarState testState2_;
-  double testScalar1_;
-  double testScalar2_;
+  LWF::ScalarState::mtDifVec difVec_;
 };
 
 // Test constructors
 TEST_F(ScalarStateTest, constructor) {
   LWF::ScalarState testState1;
+}
+
+// Test setIdentity and Identity
+TEST_F(ScalarStateTest, setIdentity) {
+  testState1_.setIdentity();
+  ASSERT_EQ(testState1_.s_,0.0);
+  ASSERT_EQ(LWF::ScalarState::Identity().s_,0.0);
+}
+
+// Test plus and minus
+TEST_F(ScalarStateTest, plusAndMinus) {
+  testState2_.boxMinus(testState1_,difVec_);
+  ASSERT_EQ(difVec_(0),testState2_.s_-testState1_.s_);
+  LWF::ScalarState testState3;
+  testState1_.boxPlus(difVec_,testState3);
+  ASSERT_NEAR(testState2_.s_,testState3.s_,1e-6);
+}
+
+// Test getValue, getId
+TEST_F(ScalarStateTest, accessors) {
+  ASSERT_TRUE(testState1_.getValue<0>() == testState1_.s_);
+  ASSERT_TRUE(testState1_.getId<0>() == 0);
+}
+
+// Test operator=
+TEST_F(ScalarStateTest, operatorEQ) {
+  testState2_ = testState1_;
+  ASSERT_NEAR(testState2_.s_,testState1_.s_,1e-6);
+}
+
+// Test createDefaultNames
+TEST_F(ScalarStateTest, naming) {
+  testState1_.createDefaultNames("test");
+  ASSERT_TRUE(testState1_.name_ == "test");
 }
 
 class Auxillary{
