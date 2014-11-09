@@ -22,19 +22,6 @@ class ScalarStateTest : public virtual ::testing::Test {
 // Test constructors
 TEST_F(ScalarStateTest, constructor) {
   LWF::ScalarState testState1;
-  std::default_random_engine generator (-1);
-  std::normal_distribution<double> distribution (0.0,1.0);
-  std::cout << distribution(generator) << std::endl;
-  std::cout << distribution(generator) << std::endl;
-  std::cout << distribution(generator) << std::endl;
-  std::srand(1);
-  std::cout << std::rand() << std::endl;
-  std::cout << std::rand() << std::endl;
-  std::cout << std::rand() << std::endl;
-  std::srand(1);
-  std::cout << std::rand() << std::endl;
-  std::cout << std::rand() << std::endl;
-  std::cout << std::rand() << std::endl;
 }
 
 class Auxillary{
