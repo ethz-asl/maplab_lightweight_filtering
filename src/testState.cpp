@@ -2,6 +2,41 @@
 #include "gtest/gtest.h"
 #include <assert.h>
 
+// The fixture for testing class StateSVQ
+class ScalarStateTest : public virtual ::testing::Test {
+ protected:
+  ScalarStateTest() {
+    testScalar1_ = 0.1;
+    testScalar2_ = -3.4;
+    testState1_.s_ = testScalar1_;
+    testState2_.s_ = testScalar2_;
+  }
+  virtual ~ScalarStateTest() {
+  }
+  LWF::ScalarState testState1_;
+  LWF::ScalarState testState2_;
+  double testScalar1_;
+  double testScalar2_;
+};
+
+// Test constructors
+TEST_F(ScalarStateTest, constructor) {
+  LWF::ScalarState testState1;
+  std::default_random_engine generator (-1);
+  std::normal_distribution<double> distribution (0.0,1.0);
+  std::cout << distribution(generator) << std::endl;
+  std::cout << distribution(generator) << std::endl;
+  std::cout << distribution(generator) << std::endl;
+  std::srand(1);
+  std::cout << std::rand() << std::endl;
+  std::cout << std::rand() << std::endl;
+  std::cout << std::rand() << std::endl;
+  std::srand(1);
+  std::cout << std::rand() << std::endl;
+  std::cout << std::rand() << std::endl;
+  std::cout << std::rand() << std::endl;
+}
+
 class Auxillary{
  public:
   Auxillary(){

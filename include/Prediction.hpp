@@ -77,6 +77,7 @@ class Prediction: public ModelBase<State,State,Meas,Noise>{
     state = this->eval(state,meas,dt);
     cov = F_*cov*F_.transpose() + Fn_*prenoiP_*Fn_.transpose();
     postProcess(state,cov,meas,dt);
+    state.fix();
     return 0;
   }
   int predictUKF(mtState& state, mtCovMat& cov, const mtMeas& meas, double dt){
@@ -92,6 +93,7 @@ class Prediction: public ModelBase<State,State,Meas,Noise>{
     state = stateSigmaPointsPre_.getMean();
     cov = stateSigmaPointsPre_.getCovarianceMatrix(state);
     postProcess(state,cov,meas,dt);
+    state.fix();
     return 0;
   }
   int predictMerged(mtState& state, mtCovMat& cov, double tStart, const typename std::map<double,mtMeas>::iterator itMeasStart, unsigned int N, PredictionFilteringMode mode = PredictionEKF){
@@ -131,6 +133,7 @@ class Prediction: public ModelBase<State,State,Meas,Noise>{
     }
     cov = F_*cov*F_.transpose() + Fn_*prenoiP_*Fn_.transpose();
     postProcess(state,cov,meanMeas,dT);
+    state.fix();
     return 0;
   }
   virtual int predictMergedUKF(mtState& state, mtCovMat& cov, double tStart, const typename std::map<double,mtMeas>::iterator itMeasStart, unsigned int N){
@@ -161,6 +164,7 @@ class Prediction: public ModelBase<State,State,Meas,Noise>{
     state = stateSigmaPointsPre_.getMean();
     cov = stateSigmaPointsPre_.getCovarianceMatrix(state);
     postProcess(state,cov,meanMeas,dT);
+    state.fix();
     return 0;
   }
 };

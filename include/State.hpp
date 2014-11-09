@@ -21,7 +21,7 @@ namespace rot = kindr::rotations::eigen_impl;
 namespace LWF{
 
 template<typename DERIVED, unsigned int D, unsigned int E = 1>
-class StateBase{ // TODO: normal vector
+class StateBase{
  public:
   StateBase(){};
   virtual ~StateBase(){};
@@ -34,6 +34,8 @@ class StateBase{ // TODO: normal vector
   virtual void boxMinus(const DERIVED& stateIn, mtDifVec& vecOut) const = 0;
   virtual void print() const = 0;
   virtual void setIdentity() = 0;
+  virtual void setRandom(unsigned int s) = 0;
+  virtual void fix() = 0;
   virtual void registerToPropertyHandler(PropertyHandler* mtPropertyHandler, const std::string& str) = 0;
   virtual void createDefaultNames(const std::string& str = "") = 0;
   static DERIVED Identity(){
@@ -71,6 +73,13 @@ class ScalarState: public StateBase<ScalarState,1>{
   }
   void setIdentity(){
     s_ = 0.0;
+  }
+  void setRandom(unsigned int s){
+    std::default_random_engine generator (s);
+    std::normal_distribution<double> distribution (0.0,1.0);
+    s_ = distribution(generator);
+  }
+  void fix(){
   }
   void registerToPropertyHandler(PropertyHandler* mtPropertyHandler, const std::string& str){
     mtPropertyHandler->doubleRegister_.registerScalar(str + name_, s_);
@@ -127,6 +136,15 @@ class VectorState: public StateBase<VectorState<N>,N>{
   void setIdentity(){
     v_.setZero();
   }
+  void setRandom(unsigned int s){
+    std::default_random_engine generator (s);
+    std::normal_distribution<double> distribution (0.0,1.0);
+    for(unsigned int i=0;i<N_;i++){
+      v_(i) = distribution(generator);
+    }
+  }
+  void fix(){
+  }
   void registerToPropertyHandler(PropertyHandler* mtPropertyHandler, const std::string& str){
     for(unsigned int i = 0;i<N_;i++){
       mtPropertyHandler->doubleRegister_.registerScalar(str + name_ + "_" + std::to_string(i), v_(i));
@@ -182,6 +200,18 @@ class QuaternionState: public StateBase<QuaternionState,3>{
   void setIdentity(){
     q_.setIdentity();
   }
+  void setRandom(unsigned int s){
+    std::default_random_engine generator (s);
+    std::normal_distribution<double> distribution (0.0,1.0);
+    q_.toImplementation().w() = distribution(generator);
+    q_.toImplementation().x() = distribution(generator);
+    q_.toImplementation().y() = distribution(generator);
+    q_.toImplementation().z() = distribution(generator);
+    fix();
+  }
+  void fix(){
+    q_.fix();
+  }
   void registerToPropertyHandler(PropertyHandler* mtPropertyHandler, const std::string& str){
     mtPropertyHandler->doubleRegister_.registerQuaternion(str + name_, q_);
   }
@@ -208,6 +238,97 @@ class QuaternionState: public StateBase<QuaternionState,3>{
   void createDefaultNames(const std::string& str = ""){
     name_ = str;
   };
+};
+
+class NormalVectorState: public StateBase<NormalVectorState,2>{ // TODO: fix (also for quaternion)
+ public:
+  typedef StateBase<NormalVectorState,2> Base;
+  using Base::D_;
+  using Base::E_;
+  using typename  Base::mtDifVec;
+  using typename Base::mtCovMat;
+  using Base::name_;
+  NormalVectorState(){}
+  NormalVectorState(const NormalVectorState& other){
+    n_ = other.n_;
+  }
+  Eigen::Vector3d n_;
+  void boxPlus(const mtDifVec& vecIn, NormalVectorState& stateOut) const{
+    Eigen::Vector3d m0;
+    Eigen::Vector3d m1;
+    getTwoNormals(m0,m1);
+    stateOut.n_ = rot::RotationVectorPD(vecIn(0)*m0+vecIn(1)*m1).rotate(n_);
+  }
+  void boxMinus(const NormalVectorState& stateIn, mtDifVec& vecOut) const{
+    double angle = 0.0;
+    Eigen::Vector3d vec = n_.cross(stateIn.n_);
+    double norm = vec.norm();
+    if(norm>1e-6){
+      vec/norm*asin(norm);
+    }
+    Eigen::Vector3d m0;
+    Eigen::Vector3d m1;
+    getTwoNormals(m0,m1);
+    vecOut(0) = m0.dot(vec);
+    vecOut(1) = m1.dot(vec);
+  }
+  void print() const{
+    std::cout << n_.transpose() << std::endl;
+  }
+  void setIdentity(){
+    n_ = Eigen::Vector3d(1.0,0.0,0.0);
+  }
+  void setRandom(unsigned int s){
+    std::default_random_engine generator (s);
+    std::normal_distribution<double> distribution (0.0,1.0);
+    n_(0) = distribution(generator);
+    n_(1) = distribution(generator);
+    n_(2) = distribution(generator);
+    fix();
+  }
+  void fix(){
+    n_.normalize();
+  }
+  void registerToPropertyHandler(PropertyHandler* mtPropertyHandler, const std::string& str){
+    mtPropertyHandler->doubleRegister_.registerVector(str + name_, n_);
+  }
+  template<unsigned int i, typename std::enable_if<(i==0)>::type* = nullptr>
+  NormalVectorState& getState(){
+    return *this;
+  };
+  template<unsigned int i, typename std::enable_if<(i==0)>::type* = nullptr>
+  const NormalVectorState& getState() const{
+    return *this;
+  };
+  template<unsigned int i, typename std::enable_if<(i==0)>::type* = nullptr>
+  Eigen::Vector3d& getValue(){
+    return n_;
+  };
+  template<unsigned int i, typename std::enable_if<(i==0)>::type* = nullptr>
+  const Eigen::Vector3d& getValue() const{
+    return n_;
+  };
+  template<unsigned int i, typename std::enable_if<(i==0)>::type* = nullptr>
+  static unsigned int getId(){
+    return 0;
+  };
+  void createDefaultNames(const std::string& str = ""){
+    name_ = str;
+  };
+  void getTwoNormals(Eigen::Vector3d& m0,Eigen::Vector3d& m1) const {
+    Eigen::Vector3d vec = Eigen::Vector3d(1.0,0.0,0.0);
+    double min = n_(0);
+    if(n_(1)<min){
+      Eigen::Vector3d(0.0,1.0,0.0);
+      min = n_(1);
+    }
+    if(n_(2)<min){
+      Eigen::Vector3d(0.0,0.0,1.0);
+    }
+    m0 = vec.cross(n_);
+    m0.normalize();
+    m1 = m0.cross(n_);
+  }
 };
 
 template<typename State,unsigned int N>
@@ -260,6 +381,16 @@ class StateArray: public StateBase<StateArray<State,N>,State::D_*N,State::E_*N>{
   void setIdentity(){
     for(unsigned int i=0;i<N;i++){
       array_[i].setIdentity();
+    }
+  }
+  void setRandom(unsigned int s){
+    for(unsigned int i=0;i<N;i++){
+      array_[i].setRandom(s+i);
+    }
+  }
+  void fix(){
+    for(unsigned int i=0;i<N;i++){
+      array_[i].fix();
     }
   }
   void createDefaultNames(const std::string& str = ""){
@@ -335,6 +466,14 @@ class ComposedState: public StateBase<ComposedState<State,Arguments...>,State::D
   void setIdentity(){
     state_.setIdentity();
     subComposedState_.setIdentity();
+  }
+  void setRandom(unsigned int s){
+    state_.setRandom(s);
+    subComposedState_.setRandom(s+1);
+  }
+  void fix(){
+    state_.fix();
+    subComposedState_.fix();
   }
   void registerToPropertyHandler(PropertyHandler* mtPropertyHandler, const std::string& str){
     state_.registerToPropertyHandler(mtPropertyHandler,str);
@@ -415,6 +554,12 @@ class ComposedState<State>: public StateBase<ComposedState<State>,State::D_,Stat
   }
   void setIdentity(){
     state_.setIdentity();
+  }
+  void setRandom(unsigned int s){
+    state_.setRandom(s);
+  }
+  void fix(){
+    state_.fix();
   }
   void registerToPropertyHandler(PropertyHandler* mtPropertyHandler, const std::string& str){
     state_.registerToPropertyHandler(mtPropertyHandler,str);
