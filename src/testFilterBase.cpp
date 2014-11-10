@@ -10,6 +10,65 @@ typedef ::testing::Types<
     LinearTest
 > TestClasses;
 
+// The fixture for testing class MeasurementTimeline
+class MeasurementTimelineTest : public ::testing::Test {
+ protected:
+  MeasurementTimelineTest() {
+    for(unsigned int i=0;i<N_;i++){
+      times_[i] = i*i*0.1+i*0.3;
+      values_[i] = (i*345665)%10+i*0.34;
+    }
+  }
+  virtual ~MeasurementTimelineTest() {
+  }
+  LWF::MeasurementTimeline<double> timeline_;
+  static const unsigned int N_ = 5;
+  double times_[N_];
+  double values_[N_];
+};
+
+// Test constructors
+TEST_F(MeasurementTimelineTest, constructors) {
+  LWF::MeasurementTimeline<double> timeline;
+  ASSERT_EQ(timeline.maxWaitTime_,1.0);
+  ASSERT_EQ(timeline.safeWarningTime_,0.0);
+  ASSERT_EQ(timeline.frontWarningTime_,0.0);
+  ASSERT_EQ(timeline.gotFrontWarning_,false);
+}
+
+// Test addMeas
+TEST_F(MeasurementTimelineTest, addMeas) {
+  timeline_.frontWarningTime_ = times_[N_-2];
+  for(unsigned int i=0;i<N_;i++){
+    timeline_.addMeas(values_[i],times_[i]);
+    for(unsigned int j=0;j<=i;j++){
+      ASSERT_EQ(timeline_.measMap_.at(times_[i]),values_[i]);
+    }
+    std::cout << i << std::endl;
+    ASSERT_EQ(timeline_.gotFrontWarning_,i>=(N_-2));
+  }
+}
+
+// Test clean
+TEST_F(MeasurementTimelineTest, clean) {
+  for(unsigned int i=0;i<N_;i++){
+    timeline_.addMeas(values_[i],times_[i]);
+  }
+  timeline_.clean(times_[N_-2]);
+  ASSERT_EQ(timeline_.measMap_.size(),1);
+  ASSERT_EQ(timeline_.measMap_.at(times_[N_-1]),values_[N_-1]);
+}
+
+// Test getNextTime
+TEST_F(MeasurementTimelineTest, getNextTime) {
+  for(unsigned int i=0;i<N_;i++){
+    timeline_.addMeas(values_[i],times_[i]);
+  }
+//  timeline_.clean(times_[N_-2]); // TODO
+//  ASSERT_EQ(timeline_.measMap_.size(),1);
+//  ASSERT_EQ(timeline_.measMap_.at(times_[N_-1]),values_[N_-1]);
+}
+
 // The fixture for testing class FilterBase
 template<typename TestClass>
 class FilterBaseTest : public ::testing::Test, public TestClass {
