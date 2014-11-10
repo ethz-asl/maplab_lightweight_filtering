@@ -223,6 +223,22 @@ TEST_F(NormalVectorStateTest, getTwoNormals) {
   ASSERT_NEAR(m1.dot(testState1_.n_),0.0,1e-6);
 }
 
+// Test derivative of boxplus
+TEST_F(NormalVectorStateTest, derivative) {
+  const double d  = 1e-6;
+  Eigen::Vector3d m0;
+  Eigen::Vector3d m1;
+  testState1_.getTwoNormals(m0,m1);
+  difVec_.setZero();
+  difVec_(0) = d;
+  testState1_.boxPlus(difVec_,testState2_);
+  ASSERT_NEAR(((testState2_.n_-testState1_.n_)/d-(-m1)).norm(),0.0,1e-6);
+  difVec_.setZero();
+  difVec_(1) = d;
+  testState1_.boxPlus(difVec_,testState2_);
+  ASSERT_NEAR(((testState2_.n_-testState1_.n_)/d-m0).norm(),0.0,1e-6);
+}
+
 class Auxillary{
  public:
   Auxillary(){

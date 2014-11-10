@@ -240,7 +240,7 @@ class QuaternionState: public StateBase<QuaternionState,3>{
   };
 };
 
-class NormalVectorState: public StateBase<NormalVectorState,2>{ // TODO: fix (also for quaternion)
+class NormalVectorState: public StateBase<NormalVectorState,2>{
  public:
   typedef StateBase<NormalVectorState,2> Base;
   using Base::D_;
@@ -257,16 +257,18 @@ class NormalVectorState: public StateBase<NormalVectorState,2>{ // TODO: fix (al
     Eigen::Vector3d m0;
     Eigen::Vector3d m1;
     getTwoNormals(m0,m1);
-    stateOut.n_ = rot::RotationVectorAD(vecIn(0)*m0+vecIn(1)*m1).rotate(n_);
+    rot::RotationQuaternionPD q = q.exponentialMap(vecIn(0)*m0+vecIn(1)*m1);
+    stateOut.n_ = q.rotate(n_);
   }
   void boxMinus(const NormalVectorState& stateIn, mtDifVec& vecOut) const{
-    rot::RotationVectorAD rotVec;
-    rotVec.setFromVectors(stateIn.n_,n_);
+    rot::RotationQuaternionPD q;
+    q.setFromVectors(stateIn.n_,n_);
+    Eigen::Vector3d vec = -q.logarithmicMap(); // Minus required (active/passiv messes things up probably)
     Eigen::Vector3d m0;
     Eigen::Vector3d m1;
     stateIn.getTwoNormals(m0,m1);
-    vecOut(0) = m0.dot(rotVec.vector());
-    vecOut(1) = m1.dot(rotVec.vector());
+    vecOut(0) = m0.dot(vec);
+    vecOut(1) = m1.dot(vec);
   }
   void print() const{
     std::cout << n_.transpose() << std::endl;
