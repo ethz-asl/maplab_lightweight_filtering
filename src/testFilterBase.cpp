@@ -39,13 +39,12 @@ TEST_F(MeasurementTimelineTest, constructors) {
 // Test addMeas
 TEST_F(MeasurementTimelineTest, addMeas) {
   timeline_.frontWarningTime_ = times_[N_-2];
-  for(unsigned int i=0;i<N_;i++){
+  for(int i=N_-1;i>=0;i--){ // Reverse for detecting FrontWarning
     timeline_.addMeas(values_[i],times_[i]);
-    for(unsigned int j=0;j<=i;j++){
-      ASSERT_EQ(timeline_.measMap_.at(times_[i]),values_[i]);
+    for(int j=N_-1;j>=i;j--){
+      ASSERT_EQ(timeline_.measMap_.at(times_[j]),values_[j]);
     }
-    std::cout << i << std::endl;
-    ASSERT_EQ(timeline_.gotFrontWarning_,i>=(N_-2));
+    ASSERT_EQ(timeline_.gotFrontWarning_,i<=(N_-2));
   }
 }
 
@@ -64,9 +63,68 @@ TEST_F(MeasurementTimelineTest, getNextTime) {
   for(unsigned int i=0;i<N_;i++){
     timeline_.addMeas(values_[i],times_[i]);
   }
-//  timeline_.clean(times_[N_-2]); // TODO
-//  ASSERT_EQ(timeline_.measMap_.size(),1);
-//  ASSERT_EQ(timeline_.measMap_.at(times_[N_-1]),values_[N_-1]);
+  bool r;
+  double nextTime;
+  r = timeline_.getNextTime(times_[0]-1e-6,nextTime);
+  ASSERT_EQ(r,true);
+  ASSERT_EQ(nextTime,times_[0]);
+  for(unsigned int i=0;i<N_-1;i++){
+    r = timeline_.getNextTime(0.5*(times_[i]+times_[i+1]),nextTime);
+    ASSERT_EQ(r,true);
+    ASSERT_EQ(nextTime,times_[i+1]);
+  }
+  r = timeline_.getNextTime(times_[N_-1]+1e-6,nextTime);
+  ASSERT_EQ(r,false);
+}
+
+// Test waitTime
+TEST_F(MeasurementTimelineTest, waitTime) {
+  for(unsigned int i=0;i<N_;i++){
+    timeline_.addMeas(values_[i],times_[i]);
+  }
+  double time;
+  for(unsigned int i=0;i<N_;i++){
+    time = times_[i];
+    timeline_.waitTime(times_[i],time);
+    ASSERT_EQ(time,times_[i]);
+  }
+  time = times_[N_-1]+2.0;
+  timeline_.waitTime(time,time);
+  ASSERT_EQ(time,times_[N_-1]+1.0);
+  time = times_[N_-1]+0.5;
+  timeline_.waitTime(time,time);
+  ASSERT_EQ(time,times_[N_-1]);
+  time = times_[N_-1]-0.5;
+  timeline_.waitTime(time,time);
+  ASSERT_EQ(time,times_[N_-1]-0.5);
+}
+
+// Test getLastTime
+TEST_F(MeasurementTimelineTest, getLastTime) {
+  bool r;
+  double lastTime;
+  r = timeline_.getLastTime(lastTime);
+  ASSERT_EQ(r,false);
+  for(unsigned int i=0;i<N_;i++){
+    timeline_.addMeas(values_[i],times_[i]);
+  }
+  r = timeline_.getLastTime(lastTime);
+  ASSERT_EQ(r,true);
+  ASSERT_EQ(lastTime,times_[N_-1]);
+}
+
+// Test hasMeasurementAt
+TEST_F(MeasurementTimelineTest, hasMeasurementAt) {
+  for(unsigned int i=0;i<N_;i++){
+    timeline_.addMeas(values_[i],times_[i]);
+  }
+  bool r;
+  for(unsigned int i=0;i<N_;i++){
+    r = timeline_.hasMeasurementAt(times_[i]);
+    ASSERT_EQ(r,true);
+  }
+  r = timeline_.hasMeasurementAt(0.5*(times_[0]+times_[1]));
+  ASSERT_EQ(r,false);
 }
 
 // The fixture for testing class FilterBase
@@ -117,6 +175,9 @@ TYPED_TEST_CASE(FilterBaseTest, TestClasses);
 // Test constructors
 TYPED_TEST(FilterBaseTest, constructors) {
   LWF::FilterBase<typename TestFixture::mtPredictionExample> testFilter;
+  LWF::UpdateManager<typename TestFixture::mtUpdateExample> updateManager;
+  LWF::UpdateAndPredictManager<typename TestFixture::mtPredictAndUpdateExample,typename TestFixture::mtPredictionExample> predictionUpdateManager;
+  LWF::PredictionManager<typename TestFixture::mtPredictionExample> predictionManager;
 }
 //
 //// Test measurement adder

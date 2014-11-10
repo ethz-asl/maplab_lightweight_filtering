@@ -44,7 +44,7 @@ class MeasurementTimelineBase{
   virtual ~MeasurementTimelineBase(){};
   virtual bool getNextTime(double actualTime, double& nextTime) = 0;
   virtual void clean(double t) = 0;
-  virtual void constrainTime(double actualTime, double& time) = 0;
+  virtual void waitTime(double actualTime, double& time) = 0;
   virtual bool getLastTime(double& lastTime) = 0;
   virtual bool hasMeasurementAt(double t) = 0;
   double safeWarningTime_;
@@ -82,7 +82,7 @@ class MeasurementTimeline: public virtual MeasurementTimelineBase{
       return false;
     }
   }
-  void constrainTime(double actualTime, double& time){
+  void waitTime(double actualTime, double& time){
     double measurementTime = actualTime-maxWaitTime_;
     if(!measMap_.empty() && measMap_.rbegin()->first > measurementTime){
       measurementTime = measMap_.rbegin()->first;
@@ -152,6 +152,7 @@ template<typename Update, typename Prediction>
 class UpdateAndPredictManager:public MeasurementTimeline<typename Update::mtMeas>, public UpdateAndPredictManagerBase<typename Update::mtState, Prediction>{
  public:
   using MeasurementTimeline<typename Update::mtMeas>::measMap_;
+  using MeasurementTimeline<typename Update::mtMeas>::hasMeasurementAt;
   using UpdateAndPredictManagerBase<typename Update::mtState, Prediction>::filteringMode_;
   using UpdateAndPredictManagerBase<typename Update::mtState, Prediction>::doubleRegister_;
   typedef typename Update::mtState mtState;
@@ -168,7 +169,7 @@ class UpdateAndPredictManager:public MeasurementTimeline<typename Update::mtMeas
   }
   void predictAndUpdate(FilterState<mtState>& filterState, Prediction& prediction, const typename Prediction::mtMeas& predictionMeas, double dt){
     if(hasMeasurementAt(filterState.t_)){
-      int r = update_.predictAndUpdate(filterState.state_,filterState.cov_,measMap_[filterState.t_],prediction,predictionMeas,dt,filteringMode_());
+      int r = update_.predictAndUpdate(filterState.state_,filterState.cov_,measMap_[filterState.t_],prediction,predictionMeas,dt,filteringMode_);
       if(r!=0) std::cout << "Error during predictAndUpdate: " << r << std::endl;
     }
   }
@@ -278,7 +279,7 @@ class FilterBase: public PropertyHandler{
     safeTime = maxPredictionTime;
     // Check if we have to wait for update measurements
     for(unsigned int i=0;i<mUpdateVector_.size();i++){
-      mUpdateVector_[i]->constrainTime(maxPredictionTime,safeTime);
+      mUpdateVector_[i]->waitTime(maxPredictionTime,safeTime);
     }
     if(safeTime <= safe_.t_) return false;
     return true;
