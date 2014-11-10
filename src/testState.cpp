@@ -2,7 +2,7 @@
 #include "gtest/gtest.h"
 #include <assert.h>
 
-// The fixture for testing class StateSVQ
+// The fixture for testing class ScalarState
 class ScalarStateTest : public virtual ::testing::Test {
  protected:
   ScalarStateTest() {
@@ -53,6 +53,174 @@ TEST_F(ScalarStateTest, operatorEQ) {
 TEST_F(ScalarStateTest, naming) {
   testState1_.createDefaultNames("test");
   ASSERT_TRUE(testState1_.name_ == "test");
+}
+
+// The fixture for testing class VectorState
+class VectorStateTest : public virtual ::testing::Test {
+ protected:
+  VectorStateTest() {
+    testState1_.setRandom(1);
+    testState2_.setRandom(2);
+  }
+  virtual ~VectorStateTest() {
+  }
+  static const unsigned int N_ = 4;
+  LWF::VectorState<N_> testState1_;
+  LWF::VectorState<N_> testState2_;
+  LWF::VectorState<N_>::mtDifVec difVec_;
+};
+
+// Test constructors
+TEST_F(VectorStateTest, constructor) {
+  LWF::VectorState<N_> testState1;
+}
+
+// Test setIdentity and Identity
+TEST_F(VectorStateTest, setIdentity) {
+  testState1_.setIdentity();
+  ASSERT_EQ(testState1_.v_.norm(),0.0);
+  ASSERT_EQ(LWF::VectorState<N_>::Identity().v_.norm(),0.0);
+}
+
+// Test plus and minus
+TEST_F(VectorStateTest, plusAndMinus) {
+  testState2_.boxMinus(testState1_,difVec_);
+  ASSERT_NEAR((difVec_-(testState2_.v_-testState1_.v_)).norm(),0.0,1e-6);
+  LWF::VectorState<N_> testState3;
+  testState1_.boxPlus(difVec_,testState3);
+  ASSERT_NEAR((testState2_.v_-testState3.v_).norm(),0.0,1e-6);
+}
+
+// Test getValue, getId
+TEST_F(VectorStateTest, accessors) {
+  ASSERT_TRUE(testState1_.getValue<0>() == testState1_.v_);
+  ASSERT_TRUE(testState1_.getId<0>() == 0);
+}
+
+// Test operator=
+TEST_F(VectorStateTest, operatorEQ) {
+  testState2_ = testState1_;
+  ASSERT_NEAR((testState2_.v_-testState1_.v_).norm(),0.0,1e-6);
+}
+
+// Test createDefaultNames
+TEST_F(VectorStateTest, naming) {
+  testState1_.createDefaultNames("test");
+  ASSERT_TRUE(testState1_.name_ == "test");
+}
+
+// The fixture for testing class VectorState
+class QuaternionStateTest : public virtual ::testing::Test {
+ protected:
+  QuaternionStateTest() {
+    testState1_.setRandom(1);
+    testState2_.setRandom(2);
+  }
+  virtual ~QuaternionStateTest() {
+  }
+  LWF::QuaternionState testState1_;
+  LWF::QuaternionState testState2_;
+  LWF::QuaternionState::mtDifVec difVec_;
+};
+
+// Test constructors
+TEST_F(QuaternionStateTest, constructor) {
+  LWF::QuaternionState testState1;
+}
+
+// Test setIdentity and Identity
+TEST_F(QuaternionStateTest, setIdentity) {
+  testState1_.setIdentity();
+  ASSERT_TRUE(testState1_.q_.isNear(rot::RotationQuaternionPD(),1e-6));
+  ASSERT_TRUE(LWF::QuaternionState::Identity().q_.isNear(rot::RotationQuaternionPD(),1e-6));
+}
+
+// Test plus and minus
+TEST_F(QuaternionStateTest, plusAndMinus) {
+  testState2_.boxMinus(testState1_,difVec_);
+  ASSERT_NEAR((difVec_-testState2_.q_.boxMinus(testState1_.q_)).norm(),0.0,1e-6);
+  LWF::QuaternionState testState3;
+  testState1_.boxPlus(difVec_,testState3);
+  ASSERT_TRUE(testState2_.q_.isNear(testState3.q_,1e-6));
+}
+
+// Test getValue, getId
+TEST_F(QuaternionStateTest, accessors) {
+  ASSERT_TRUE(testState1_.getValue<0>().isNear(testState1_.q_,1e-6));
+  ASSERT_TRUE(testState1_.getId<0>() == 0);
+}
+
+// Test operator=
+TEST_F(QuaternionStateTest, operatorEQ) {
+  testState2_ = testState1_;
+  ASSERT_TRUE(testState2_.q_.isNear(testState1_.q_,1e-6));
+}
+
+// Test createDefaultNames
+TEST_F(QuaternionStateTest, naming) {
+  testState1_.createDefaultNames("test");
+  ASSERT_TRUE(testState1_.name_ == "test");
+}
+
+// The fixture for testing class VectorState
+class NormalVectorStateTest : public virtual ::testing::Test {
+ protected:
+  NormalVectorStateTest() {
+    testState1_.setRandom(1);
+    testState2_.setRandom(2);
+  }
+  virtual ~NormalVectorStateTest() {
+  }
+  LWF::NormalVectorState testState1_;
+  LWF::NormalVectorState testState2_;
+  LWF::NormalVectorState::mtDifVec difVec_;
+};
+
+// Test constructors
+TEST_F(NormalVectorStateTest, constructor) {
+  LWF::NormalVectorState testState1;
+}
+
+// Test setIdentity and Identity
+TEST_F(NormalVectorStateTest, setIdentity) {
+  testState1_.setIdentity();
+  ASSERT_TRUE(testState1_.n_ == Eigen::Vector3d(1,0,0));
+  ASSERT_TRUE(LWF::NormalVectorState::Identity().n_ == Eigen::Vector3d(1,0,0));
+}
+
+// Test plus and minus
+TEST_F(NormalVectorStateTest, plusAndMinus) {
+  testState2_.boxMinus(testState1_,difVec_);
+  LWF::NormalVectorState testState3;
+  testState1_.boxPlus(difVec_,testState3);
+  ASSERT_NEAR((testState2_.n_-testState3.n_).norm(),0.0,1e-6);
+}
+
+// Test getValue, getId
+TEST_F(NormalVectorStateTest, accessors) {
+  ASSERT_TRUE(testState1_.getValue<0>() == testState1_.n_);
+  ASSERT_TRUE(testState1_.getId<0>() == 0);
+}
+
+// Test operator=
+TEST_F(NormalVectorStateTest, operatorEQ) {
+  testState2_ = testState1_;
+  ASSERT_TRUE(testState2_.n_ == testState1_.n_);
+}
+
+// Test createDefaultNames
+TEST_F(NormalVectorStateTest, naming) {
+  testState1_.createDefaultNames("test");
+  ASSERT_TRUE(testState1_.name_ == "test");
+}
+
+// Test getTwoNormals
+TEST_F(NormalVectorStateTest, getTwoNormals) {
+  Eigen::Vector3d m0;
+  Eigen::Vector3d m1;
+  testState1_.getTwoNormals(m0,m1);
+  ASSERT_NEAR(m0.dot(testState1_.n_),0.0,1e-6);
+  ASSERT_NEAR(m1.dot(testState1_.n_),0.0,1e-6);
 }
 
 class Auxillary{

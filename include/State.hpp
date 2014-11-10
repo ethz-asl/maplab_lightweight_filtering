@@ -257,20 +257,16 @@ class NormalVectorState: public StateBase<NormalVectorState,2>{ // TODO: fix (al
     Eigen::Vector3d m0;
     Eigen::Vector3d m1;
     getTwoNormals(m0,m1);
-    stateOut.n_ = rot::RotationVectorPD(vecIn(0)*m0+vecIn(1)*m1).rotate(n_);
+    stateOut.n_ = rot::RotationVectorAD(vecIn(0)*m0+vecIn(1)*m1).rotate(n_);
   }
   void boxMinus(const NormalVectorState& stateIn, mtDifVec& vecOut) const{
-    double angle = 0.0;
-    Eigen::Vector3d vec = n_.cross(stateIn.n_);
-    double norm = vec.norm();
-    if(norm>1e-6){
-      vec/norm*asin(norm);
-    }
+    rot::RotationVectorAD rotVec;
+    rotVec.setFromVectors(stateIn.n_,n_);
     Eigen::Vector3d m0;
     Eigen::Vector3d m1;
-    getTwoNormals(m0,m1);
-    vecOut(0) = m0.dot(vec);
-    vecOut(1) = m1.dot(vec);
+    stateIn.getTwoNormals(m0,m1);
+    vecOut(0) = m0.dot(rotVec.vector());
+    vecOut(1) = m1.dot(rotVec.vector());
   }
   void print() const{
     std::cout << n_.transpose() << std::endl;
@@ -328,6 +324,7 @@ class NormalVectorState: public StateBase<NormalVectorState,2>{ // TODO: fix (al
     m0 = vec.cross(n_);
     m0.normalize();
     m1 = m0.cross(n_);
+    m1.normalize();
   }
 };
 
