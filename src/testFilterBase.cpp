@@ -133,9 +133,9 @@ class FilterBaseTest : public ::testing::Test, public TestClass {
  protected:
   FilterBaseTest() {
     this->init(this->testState_,this->testUpdateMeas_,this->testPredictionMeas_);
-    this->updateManager2_.maxWaitTime_ = 0.0;
-    this->testFilter_.registerUpdateManager(this->updateManager1_,"Update1");
-    this->testFilter_.registerUpdateManager(this->updateManager2_,"Update2");
+    this->predictionUpdateManager_.maxWaitTime_ = 0.0;
+    this->testFilter_.registerUpdateManager(this->updateManager_,"Update1");
+    this->testFilter_.registerUpdateManager(this->predictionUpdateManager_,"Update2");
     this->testFilter_.registerPredictionManager(this->predictionManager_,"Prediction");
     switch(id_){
       case 0:
@@ -165,8 +165,8 @@ class FilterBaseTest : public ::testing::Test, public TestClass {
   mtUpdateMeas testUpdateMeas_;
   mtPredictionMeas testPredictionMeas_;
   LWF::PredictionManager<mtPredictionExample> predictionManager_;
-  LWF::UpdateManager<mtUpdateExample> updateManager1_;
-  LWF::UpdateManager<mtUpdateExample> updateManager2_;
+  LWF::UpdateManager<mtUpdateExample> updateManager_;
+  LWF::UpdateAndPredictManager<mtPredictAndUpdateExample,mtPredictionExample> predictionUpdateManager_;
   const double dt_ = 0.1;
 };
 
@@ -176,8 +176,75 @@ TYPED_TEST_CASE(FilterBaseTest, TestClasses);
 TYPED_TEST(FilterBaseTest, constructors) {
   LWF::FilterBase<typename TestFixture::mtPredictionExample> testFilter;
   LWF::UpdateManager<typename TestFixture::mtUpdateExample> updateManager;
+  ASSERT_EQ(updateManager.coupledToPrediction_,false);
+  ASSERT_EQ(updateManager.filteringMode_,LWF::UpdateEKF);
   LWF::UpdateAndPredictManager<typename TestFixture::mtPredictAndUpdateExample,typename TestFixture::mtPredictionExample> predictionUpdateManager;
+  ASSERT_EQ(predictionUpdateManager.coupledToPrediction_,true);
+  ASSERT_EQ(predictionUpdateManager.filteringMode_,LWF::UpdateEKF);
   LWF::PredictionManager<typename TestFixture::mtPredictionExample> predictionManager;
+  ASSERT_EQ(predictionManager.filteringMode_,LWF::PredictionEKF);
+}
+
+// Test propertyHandler
+TYPED_TEST(FilterBaseTest, propertyHandler) {
+  // Generate parameters
+  typename TestFixture::mtPredictionExample::mtNoise::mtCovMat prenoiP;
+  prenoiP.setZero();
+  for(unsigned int i=0;i<TestFixture::mtPredictionExample::mtNoise::D_;i++){
+    prenoiP(i,i) = 0.1*i*i+3.4*i+1.2;
+  }
+  typename TestFixture::mtUpdateExample::mtNoise::mtCovMat updnoiP;
+  updnoiP.setZero();
+  for(unsigned int i=0;i<TestFixture::mtUpdateExample::mtNoise::D_;i++){
+    updnoiP(i,i) = -0.1*i*i+3.2*i+1.1;
+  }
+  typename TestFixture::mtPredictAndUpdateExample::mtNoise::mtCovMat updnoiP2;
+  updnoiP2.setZero();
+  for(unsigned int i=0;i<TestFixture::mtPredictAndUpdateExample::mtNoise::D_;i++){
+    updnoiP2(i,i) = -0.2*i*i+1.2*i+0.1;
+  }
+  Eigen::Matrix<double,TestFixture::mtPredictAndUpdateExample::mtPredictionNoise::D_,TestFixture::mtPredictAndUpdateExample::mtNoise::D_> preupdnoiP;
+  preupdnoiP.setZero();
+  for(unsigned int i=0;i<TestFixture::mtPredictAndUpdateExample::mtPredictionNoise::D_;i++){
+    for(unsigned int j=0;j<TestFixture::mtPredictAndUpdateExample::mtNoise::D_;j++){
+      preupdnoiP(i,j) = 0.3*i*i+0.2*i+3.1;
+    }
+  }
+  typename TestFixture::mtState::mtCovMat initP;
+  initP.setZero();
+  for(unsigned int i=0;i<TestFixture::mtState::D_;i++){
+    initP(i,i) = 0.5*i*i+3.1*i+3.2;
+  }
+  typename TestFixture::mtState initState;
+  initState.setRandom(1);
+  this->predictionManager_.prediction_.prenoiP_ = prenoiP;
+  this->updateManager_.update_.updnoiP_ = updnoiP;
+  this->predictionUpdateManager_.update_.updnoiP_ = updnoiP2;
+  this->predictionUpdateManager_.update_.preupdnoiP_ = preupdnoiP;
+  this->testFilter_.init_.cov_ = initP;
+  this->testFilter_.init_.state_ = initState;
+
+  // Write to file
+  this->testFilter_.writeToInfo("test.info");
+
+  // Set parameters zero
+  this->predictionManager_.prediction_.prenoiP_.setZero();
+  this->updateManager_.update_.updnoiP_.setZero();
+  this->predictionUpdateManager_.update_.updnoiP_.setZero();
+  this->predictionUpdateManager_.update_.preupdnoiP_.setZero();
+  this->testFilter_.init_.cov_.setZero();
+  this->testFilter_.init_.state_.setIdentity();
+
+  // Read parameters from file and compare
+  this->testFilter_.readFromInfo("test.info");
+  ASSERT_NEAR((this->predictionManager_.prediction_.prenoiP_-prenoiP).norm(),0.0,1e-6);
+  ASSERT_NEAR((this->updateManager_.update_.updnoiP_-updnoiP).norm(),0.0,1e-6);
+  ASSERT_NEAR((this->predictionUpdateManager_.update_.updnoiP_-updnoiP2).norm(),0.0,1e-6);
+  ASSERT_NEAR((this->predictionUpdateManager_.update_.preupdnoiP_-preupdnoiP).norm(),0.0,1e-6);
+  ASSERT_NEAR((this->testFilter_.init_.cov_-initP).norm(),0.0,1e-6);
+  typename TestFixture::mtState::mtDifVec difVec;
+  this->testFilter_.init_.state_.boxMinus(initState,difVec);
+  ASSERT_NEAR(difVec.norm(),0.0,1e-6);
 }
 //
 //// Test measurement adder
@@ -187,7 +254,7 @@ TYPED_TEST(FilterBaseTest, constructors) {
 //  UpdateExample* mpUpdate2 = new UpdateExample(this->testUpdateMeas_);
 //  this->testFilter_.addPrediction(mpPrediction,0.2);
 //  this->testFilter_.addUpdate(mpUpdate,0.3);
-//  this->updateManager1_.addMeas(this->testUpdateMeas_,0.4,1);
+//  this->updateManager_.addMeas(this->testUpdateMeas_,0.4,1);
 //  typename TestFixture::mtPredictionExample::mtMeas::mtDifVec predictionDiff;
 //  static_cast<typename TestFixture::mtPredictionExample*>(this->testFilter_.predictionMap_[0.2])->meas_.boxMinus(this->testPredictionMeas_,predictionDiff);
 //  ASSERT_NEAR(predictionDiff.norm(),0.0,1e-6);
@@ -202,12 +269,12 @@ TYPED_TEST(FilterBaseTest, constructors) {
 TYPED_TEST(FilterBaseTest, updateSafe) {
   double safeTime = 0.0;
   this->predictionManager_.addMeas(this->testPredictionMeas_,0.1);
-  this->updateManager1_.addMeas(this->testUpdateMeas_,0.1);
+  this->updateManager_.addMeas(this->testUpdateMeas_,0.1);
   ASSERT_TRUE(this->testFilter_.getSafeTime(safeTime));
   ASSERT_EQ(safeTime,0.1);
   this->testFilter_.updateSafe();
   ASSERT_EQ(this->testFilter_.safe_.t_,0.1);
-  this->updateManager1_.addMeas(this->testUpdateMeas_,0.2);
+  this->updateManager_.addMeas(this->testUpdateMeas_,0.2);
   ASSERT_TRUE(!this->testFilter_.getSafeTime(safeTime));
   ASSERT_EQ(safeTime,0.1);
   this->testFilter_.updateSafe();
@@ -218,7 +285,7 @@ TYPED_TEST(FilterBaseTest, updateSafe) {
   ASSERT_EQ(safeTime,0.2);
   this->testFilter_.updateSafe();
   ASSERT_EQ(this->testFilter_.safe_.t_,0.2);
-  this->updateManager1_.addMeas(this->testUpdateMeas_,0.3);
+  this->updateManager_.addMeas(this->testUpdateMeas_,0.3);
   ASSERT_TRUE(this->testFilter_.getSafeTime(safeTime));
   ASSERT_EQ(safeTime,0.3);
   this->testFilter_.updateSafe();
@@ -228,11 +295,11 @@ TYPED_TEST(FilterBaseTest, updateSafe) {
 // Test updateFront
 TYPED_TEST(FilterBaseTest, updateFront) {
   this->predictionManager_.addMeas(this->testPredictionMeas_,0.1);
-  this->updateManager1_.addMeas(this->testUpdateMeas_,0.1);
+  this->updateManager_.addMeas(this->testUpdateMeas_,0.1);
   this->testFilter_.updateFront(0.5);
   ASSERT_EQ(this->testFilter_.safe_.t_,0.1);
   ASSERT_EQ(this->testFilter_.front_.t_,0.5);
-  this->updateManager1_.addMeas(this->testUpdateMeas_,0.2);
+  this->updateManager_.addMeas(this->testUpdateMeas_,0.2);
   this->testFilter_.updateFront(0.2);
   ASSERT_EQ(this->testFilter_.safe_.t_,0.1);
   ASSERT_EQ(this->testFilter_.front_.t_,0.2);
@@ -241,7 +308,7 @@ TYPED_TEST(FilterBaseTest, updateFront) {
   this->testFilter_.updateFront(0.3);
   ASSERT_EQ(this->testFilter_.safe_.t_,0.2);
   ASSERT_EQ(this->testFilter_.front_.t_,0.3);
-  this->updateManager1_.addMeas(this->testUpdateMeas_,0.3);
+  this->updateManager_.addMeas(this->testUpdateMeas_,0.3);
   this->testFilter_.updateFront(0.3);
   ASSERT_EQ(this->testFilter_.safe_.t_,0.3);
   ASSERT_EQ(this->testFilter_.front_.t_,0.3);
@@ -250,11 +317,11 @@ TYPED_TEST(FilterBaseTest, updateFront) {
 //// Test cleaning
 //TYPED_TEST(FilterBaseTest, cleaning) {
 //  this->predictionManager_.addMeas(this->testPredictionMeas_,0.1);
-//  this->updateManager1_.addMeas(this->testUpdateMeas_,0.1);
-//  this->updateManager1_.addMeas(this->testUpdateMeas_,0.2);
+//  this->updateManager_.addMeas(this->testUpdateMeas_,0.1);
+//  this->updateManager_.addMeas(this->testUpdateMeas_,0.2);
 //  this->predictionManager_.addMeas(this->testPredictionMeas_,0.2);
 //  this->predictionManager_.addMeas(this->testPredictionMeas_,0.3);
-//  this->updateManager1_.addMeas(this->testUpdateMeas_,0.3,1);
+//  this->updateManager_.addMeas(this->testUpdateMeas_,0.3,1);
 //  ASSERT_EQ(this->testFilter_.predictionMap_.size(),3);
 //  ASSERT_EQ(this->testFilter_.updateMap_[0].size(),2);
 //  ASSERT_EQ(this->testFilter_.updateMap_[1].size(),1);

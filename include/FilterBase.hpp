@@ -139,7 +139,7 @@ class UpdateManager: public MeasurementTimeline<typename Update::mtMeas>,public 
 };
 
 template<typename State, typename Prediction>
-class UpdateAndPredictManagerBase: public virtual UpdateManagerBase<State>{
+class UpdateAndPredictManagerBase: public UpdateManagerBase<State>{
  public:
   typedef State mtState;
   typedef typename mtState::mtCovMat mtCovMat;
