@@ -23,7 +23,7 @@ namespace LWF{
 template<typename TYPE>
 class Register{
  public:
-  typedef boost::property_tree::ptree ptree;
+  typedef boost::property_tree::ptree ptree; // TODO: refresh
   Register(){};
   ~Register(){};
   std::map<TYPE*,std::string> registerMap_;

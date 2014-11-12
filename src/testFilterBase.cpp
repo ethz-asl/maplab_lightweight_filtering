@@ -134,9 +134,13 @@ class FilterBaseTest : public ::testing::Test, public TestClass {
   FilterBaseTest() {
     this->init(this->testState_,this->testUpdateMeas_,this->testPredictionMeas_);
     this->predictionUpdateManager_.maxWaitTime_ = 0.0;
-    this->testFilter_.registerUpdateManager(this->updateManager_,"Update1");
-    this->testFilter_.registerUpdateManager(this->predictionUpdateManager_,"Update2");
+    this->predictionUpdateManager2_.maxWaitTime_ = 0.0;
     this->testFilter_.registerPredictionManager(this->predictionManager_,"Prediction");
+    this->testFilter_.registerUpdateManager(this->updateManager_,"Update1");
+    this->testFilter_.registerUpdateAndPredictManager(this->predictionUpdateManager_,"Update2");
+    this->testFilter2_.registerPredictionManager(this->predictionManager2_,"Prediction");
+    this->testFilter2_.registerUpdateManager(this->updateManager2_,"Update1");
+    this->testFilter2_.registerUpdateAndPredictManager(this->predictionUpdateManager2_,"Update2");
     switch(id_){
       case 0:
         this->testFilter_.readFromInfo("test_nonlinear.info");
@@ -161,12 +165,17 @@ class FilterBaseTest : public ::testing::Test, public TestClass {
   using typename TestClass::mtPredictAndUpdateExample;
   using TestClass::id_;
   LWF::FilterBase<mtPredictionExample> testFilter_;
+  LWF::FilterBase<mtPredictionExample> testFilter2_;
   mtState testState_;
+  typename TestClass::mtState::mtDifVec difVec_;
   mtUpdateMeas testUpdateMeas_;
   mtPredictionMeas testPredictionMeas_;
   LWF::PredictionManager<mtPredictionExample> predictionManager_;
   LWF::UpdateManager<mtUpdateExample> updateManager_;
   LWF::UpdateAndPredictManager<mtPredictAndUpdateExample,mtPredictionExample> predictionUpdateManager_;
+  LWF::PredictionManager<mtPredictionExample> predictionManager2_;
+  LWF::UpdateManager<mtUpdateExample> updateManager2_;
+  LWF::UpdateAndPredictManager<mtPredictAndUpdateExample,mtPredictionExample> predictionUpdateManager2_;
   const double dt_ = 0.1;
 };
 
@@ -246,90 +255,130 @@ TYPED_TEST(FilterBaseTest, propertyHandler) {
   this->testFilter_.init_.state_.boxMinus(initState,difVec);
   ASSERT_NEAR(difVec.norm(),0.0,1e-6);
 }
-//
-//// Test measurement adder
-//TYPED_TEST(FilterBaseTest, addMeasurement) {
-//  typename TestFixture::mtPredictionExample* mpPrediction = new typename TestFixture::mtPredictionExample(this->testPredictionMeas_);
-//  UpdateExample* mpUpdate = new UpdateExample(this->testUpdateMeas_);
-//  UpdateExample* mpUpdate2 = new UpdateExample(this->testUpdateMeas_);
-//  this->testFilter_.addPrediction(mpPrediction,0.2);
-//  this->testFilter_.addUpdate(mpUpdate,0.3);
-//  this->updateManager_.addMeas(this->testUpdateMeas_,0.4,1);
-//  typename TestFixture::mtPredictionExample::mtMeas::mtDifVec predictionDiff;
-//  static_cast<typename TestFixture::mtPredictionExample*>(this->testFilter_.predictionMap_[0.2])->meas_.boxMinus(this->testPredictionMeas_,predictionDiff);
-//  ASSERT_NEAR(predictionDiff.norm(),0.0,1e-6);
-//  UpdateExample::mtMeas::mtDifVec updateDiff;
-//  static_cast<UpdateExample*>(this->testFilter_.updateMap_[0][0.3])->meas_.boxMinus(this->testUpdateMeas_,updateDiff);
-//  ASSERT_NEAR(updateDiff.norm(),0.0,1e-6);
-//  static_cast<UpdateExample*>(this->testFilter_.updateMap_[1][0.4])->meas_.boxMinus(this->testUpdateMeas_,updateDiff);
-//  ASSERT_NEAR(updateDiff.norm(),0.0,1e-6);
-//}
 
-// Test updateSafe (Only for 1 update type (wait time set to zero for the other)), co-test getSafeTime()
+// Test updateSafe (Only for 1 update type (wait time set to zero for the other)), co-test getSafeTime() and setSafeWarningTime() and clean()
 TYPED_TEST(FilterBaseTest, updateSafe) {
   double safeTime = 0.0;
+  this->testFilter_.setSafeWarningTime(0.1); // makes warning -> check
+
   this->predictionManager_.addMeas(this->testPredictionMeas_,0.1);
   this->updateManager_.addMeas(this->testUpdateMeas_,0.1);
   ASSERT_TRUE(this->testFilter_.getSafeTime(safeTime));
   ASSERT_EQ(safeTime,0.1);
   this->testFilter_.updateSafe();
   ASSERT_EQ(this->testFilter_.safe_.t_,0.1);
+  ASSERT_EQ(this->predictionManager_.measMap_.size(),0);
+  ASSERT_EQ(this->updateManager_.measMap_.size(),0);
+
+  this->predictionManager_.addMeas(this->testPredictionMeas_,0.1); // makes warning -> check
+  this->updateManager_.addMeas(this->testUpdateMeas_,0.1);
+  ASSERT_TRUE(!this->testFilter_.getSafeTime(safeTime));
+  ASSERT_EQ(safeTime,0.1);
+  this->testFilter_.updateSafe();
+  ASSERT_EQ(this->testFilter_.safe_.t_,0.1);
+  ASSERT_EQ(this->predictionManager_.measMap_.size(),1);
+  ASSERT_EQ(this->updateManager_.measMap_.size(),1);
+
   this->updateManager_.addMeas(this->testUpdateMeas_,0.2);
   ASSERT_TRUE(!this->testFilter_.getSafeTime(safeTime));
   ASSERT_EQ(safeTime,0.1);
   this->testFilter_.updateSafe();
   ASSERT_EQ(this->testFilter_.safe_.t_,0.1);
+  ASSERT_EQ(this->predictionManager_.measMap_.size(),1);
+  ASSERT_EQ(this->updateManager_.measMap_.size(),2);
+
   this->predictionManager_.addMeas(this->testPredictionMeas_,0.2);
   this->predictionManager_.addMeas(this->testPredictionMeas_,0.3);
   ASSERT_TRUE(this->testFilter_.getSafeTime(safeTime));
   ASSERT_EQ(safeTime,0.2);
   this->testFilter_.updateSafe();
   ASSERT_EQ(this->testFilter_.safe_.t_,0.2);
+  ASSERT_EQ(this->predictionManager_.measMap_.size(),1);
+  ASSERT_EQ(this->updateManager_.measMap_.size(),0);
+
   this->updateManager_.addMeas(this->testUpdateMeas_,0.3);
   ASSERT_TRUE(this->testFilter_.getSafeTime(safeTime));
   ASSERT_EQ(safeTime,0.3);
   this->testFilter_.updateSafe();
   ASSERT_EQ(this->testFilter_.safe_.t_,0.3);
+  ASSERT_EQ(this->predictionManager_.measMap_.size(),0);
+  ASSERT_EQ(this->updateManager_.measMap_.size(),0);
 }
 
 // Test updateFront
 TYPED_TEST(FilterBaseTest, updateFront) {
   this->predictionManager_.addMeas(this->testPredictionMeas_,0.1);
   this->updateManager_.addMeas(this->testUpdateMeas_,0.1);
+  ASSERT_TRUE(this->testFilter_.checkFrontWarning()==false);
   this->testFilter_.updateFront(0.5);
+  ASSERT_TRUE(this->testFilter_.checkFrontWarning()==false);
   ASSERT_EQ(this->testFilter_.safe_.t_,0.1);
   ASSERT_EQ(this->testFilter_.front_.t_,0.5);
+
   this->updateManager_.addMeas(this->testUpdateMeas_,0.2);
+  ASSERT_TRUE(this->testFilter_.checkFrontWarning()==true);
   this->testFilter_.updateFront(0.2);
+  ASSERT_TRUE(this->testFilter_.checkFrontWarning()==false);
   ASSERT_EQ(this->testFilter_.safe_.t_,0.1);
   ASSERT_EQ(this->testFilter_.front_.t_,0.2);
+
   this->predictionManager_.addMeas(this->testPredictionMeas_,0.2);
   this->predictionManager_.addMeas(this->testPredictionMeas_,0.3);
+  ASSERT_TRUE(this->testFilter_.checkFrontWarning()==true);
   this->testFilter_.updateFront(0.3);
+  ASSERT_TRUE(this->testFilter_.checkFrontWarning()==false);
   ASSERT_EQ(this->testFilter_.safe_.t_,0.2);
   ASSERT_EQ(this->testFilter_.front_.t_,0.3);
+
   this->updateManager_.addMeas(this->testUpdateMeas_,0.3);
+  ASSERT_TRUE(this->testFilter_.checkFrontWarning()==true);
   this->testFilter_.updateFront(0.3);
+  ASSERT_TRUE(this->testFilter_.checkFrontWarning()==false);
   ASSERT_EQ(this->testFilter_.safe_.t_,0.3);
   ASSERT_EQ(this->testFilter_.front_.t_,0.3);
 }
 
-//// Test cleaning
-//TYPED_TEST(FilterBaseTest, cleaning) {
-//  this->predictionManager_.addMeas(this->testPredictionMeas_,0.1);
-//  this->updateManager_.addMeas(this->testUpdateMeas_,0.1);
+// Test high level logic
+TYPED_TEST(FilterBaseTest, highlevel) {
+  this->predictionManager_.addMeas(this->testPredictionMeas_,0.1);
+  this->updateManager_.addMeas(this->testUpdateMeas_,0.1);
+  this->testFilter_.updateSafe();
+  this->predictionManager2_.addMeas(this->testPredictionMeas_,0.1);
+  this->updateManager2_.addMeas(this->testUpdateMeas_,0.1);
+  this->testFilter2_.updateSafe();
+
+  this->testFilter2_.safe_.state_.boxMinus(this->testFilter_.safe_.state_,this->difVec_);
+  ASSERT_EQ(this->testFilter_.safe_.t_,this->testFilter2_.safe_.t_);
+  ASSERT_NEAR(this->difVec_.norm(),0.0,1e-6);
+  ASSERT_NEAR((this->testFilter2_.safe_.cov_-this->testFilter_.safe_.cov_).norm(),0.0,1e-6);
+
+
 //  this->updateManager_.addMeas(this->testUpdateMeas_,0.2);
+//  this->testFilter_.updateFront(0.2);
 //  this->predictionManager_.addMeas(this->testPredictionMeas_,0.2);
 //  this->predictionManager_.addMeas(this->testPredictionMeas_,0.3);
-//  this->updateManager_.addMeas(this->testUpdateMeas_,0.3,1);
-//  ASSERT_EQ(this->testFilter_.predictionMap_.size(),3);
-//  ASSERT_EQ(this->testFilter_.updateMap_[0].size(),2);
-//  ASSERT_EQ(this->testFilter_.updateMap_[1].size(),1);
-//  this->testFilter_.clean(0.2);
-//  ASSERT_EQ(this->testFilter_.predictionMap_.size(),1);
-//  ASSERT_EQ(this->testFilter_.updateMap_[0].size(),0);
-//  ASSERT_EQ(this->testFilter_.updateMap_[1].size(),1);
-//}
+//  this->testFilter_.updateFront(0.3);
+//  this->updateManager_.addMeas(this->testUpdateMeas_,0.3);
+//  this->testFilter_.updateFront(0.3);
+
+  this->updateManager_.addMeas(this->testUpdateMeas_,0.2);
+  this->predictionManager_.addMeas(this->testPredictionMeas_,0.2);
+  this->testFilter_.updateSafe();
+  this->predictionManager_.addMeas(this->testPredictionMeas_,0.3);
+  this->updateManager_.addMeas(this->testUpdateMeas_,0.3);
+  this->testFilter_.updateSafe();
+
+  this->updateManager2_.addMeas(this->testUpdateMeas_,0.2);
+  this->predictionManager2_.addMeas(this->testPredictionMeas_,0.2);
+  this->predictionManager2_.addMeas(this->testPredictionMeas_,0.3);
+  this->updateManager2_.addMeas(this->testUpdateMeas_,0.3);
+  this->testFilter2_.updateSafe();
+
+  this->testFilter2_.safe_.state_.boxMinus(this->testFilter_.safe_.state_,this->difVec_);
+  ASSERT_EQ(this->testFilter_.safe_.t_,this->testFilter2_.safe_.t_);
+  ASSERT_NEAR(this->difVec_.norm(),0.0,1e-6);
+  ASSERT_NEAR((this->testFilter2_.safe_.cov_-this->testFilter_.safe_.cov_).norm(),0.0,1e-6);
+}
 
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
