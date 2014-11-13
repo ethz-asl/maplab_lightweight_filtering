@@ -9,7 +9,7 @@ message(STATUS "cmake root folder:" ${CMAKE_ROOT})
 ##################### Find, include, and compile library #####################
 if(CATKIN_DEVEL_PREFIX)
 	find_package(catkin REQUIRED)
-	message(STATUS "dfsfdd:" ${CATKIN_DEVEL_PREFIX})
+	message(STATUS "Building lightweight_filtering as catkin package")
 endif(CATKIN_DEVEL_PREFIX)
 find_package(Eigen REQUIRED)
 find_package(Kindr REQUIRED)
