@@ -36,7 +36,7 @@ class Prediction: public ModelBase<State,State,Meas,Noise>{
   SigmaPoints<mtState,2*mtState::D_+1,2*(mtState::D_+mtNoise::D_)+1,0> stateSigmaPoints_;
   SigmaPoints<mtNoise,2*mtNoise::D_+1,2*(mtState::D_+mtNoise::D_)+1,2*mtState::D_> stateSigmaPointsNoi_;
   SigmaPoints<mtState,2*(mtState::D_+mtNoise::D_)+1,2*(mtState::D_+mtNoise::D_)+1,0> stateSigmaPointsPre_;
-  const bool mbMergePredictions_;
+  bool mbMergePredictions_;
   Prediction(bool mbMergePredictions = false): mbMergePredictions_(mbMergePredictions){
     resetPrediction();
   };

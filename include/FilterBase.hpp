@@ -57,7 +57,7 @@ class MeasurementTimeline: public virtual MeasurementTimelineBase{ // TODO: impl
  public:
   typedef Meas mtMeas;
   MeasurementTimeline(){
-    maxWaitTime_ = 1.0;
+    maxWaitTime_ = 0.1;
   };
   virtual ~MeasurementTimeline(){};
   std::map<double,mtMeas> measMap_;
@@ -131,7 +131,6 @@ class UpdateManager: public MeasurementTimeline<typename Update::mtMeas>,public 
   };
   ~UpdateManager(){};
   void update(FilterState<mtState>& filterState){
-    std::cout << "Update at " << filterState.t_ << std::endl;
     if(this->hasMeasurementAt(filterState.t_)){
       int r = update_.updateState(filterState.state_,filterState.cov_,measMap_[filterState.t_],filteringMode_);
       if(r!=0) std::cout << "Error during update: " << r << std::endl;
@@ -169,9 +168,8 @@ class UpdateAndPredictManager:public MeasurementTimeline<typename Update::mtMeas
     assert(0);
   }
   void predictAndUpdate(FilterState<mtState>& filterState, Prediction& prediction, const typename Prediction::mtMeas& predictionMeas, double dt){
-    if(hasMeasurementAt(filterState.t_)){ // TODO: fix time
-      std::cout << "Predict and Update at " << filterState.t_ << std::endl;
-      int r = update_.predictAndUpdate(filterState.state_,filterState.cov_,measMap_[filterState.t_],prediction,predictionMeas,dt,filteringMode_);
+    if(hasMeasurementAt(filterState.t_+dt)){
+      int r = update_.predictAndUpdate(filterState.state_,filterState.cov_,measMap_[filterState.t_+dt],prediction,predictionMeas,dt,filteringMode_);
       if(r!=0) std::cout << "Error during predictAndUpdate: " << r << std::endl;
     }
   }
@@ -207,16 +205,14 @@ class PredictionManager: public MeasurementTimeline<typename Prediction::mtMeas>
       countMergeable++;
       itMeas_++;
     }
-    std::cout << "countMergeable: " << countMergeable << std::endl;
     itMeas_ = measMap_.upper_bound(filterState.t_); // Reset Iterator
     if(countMergeable>0){
       if(prediction_.mbMergePredictions_){
-        std::cout << "Merged predict to++ " << itMeas_->first << std::endl;
         r = prediction_.predictMerged(filterState.state_,filterState.cov_,filterState.t_,itMeas_,countMergeable,filteringMode_);
         if(r!=0) std::cout << "Error during predictMerged: " << r << std::endl;
+        filterState.t_ = next(itMeas_,countMergeable-1)->first;
       } else {
         for(unsigned int i=0;i<countMergeable;i++){
-          std::cout << "Predict to " << itMeas_->first << std::endl;
           r = prediction_.predict(filterState.state_,filterState.cov_,itMeas_->second,itMeas_->first-filterState.t_,filteringMode_);
           if(r!=0) std::cout << "Error during predict: " << r << std::endl;
           filterState.t_ = itMeas_->first;
@@ -226,7 +222,6 @@ class PredictionManager: public MeasurementTimeline<typename Prediction::mtMeas>
     }
 
     // Check for coupled update
-    std::cout << "filterState.t_: " << filterState.t_ << std::endl;
     itMeas_ = measMap_.upper_bound(filterState.t_); // Reset Iterator
     int coupledPredictionIndex = -1;
     for(unsigned int i=0;i<mCoupledUpdates_.size();i++){
@@ -238,19 +233,17 @@ class PredictionManager: public MeasurementTimeline<typename Prediction::mtMeas>
         }
       }
     }
-    std::cout << "coupledPredictionIndex: " << coupledPredictionIndex << std::endl;
     if(itMeas_ != measMap_.end()){
       if(coupledPredictionIndex < 0){
-        std::cout << "Predict to " << itMeas_->first << std::endl;
         r = prediction_.predict(filterState.state_,filterState.cov_,itMeas_->second,tNext-filterState.t_,filteringMode_);
         if(r!=0) std::cout << "Error during predict: " << r << std::endl;
       } else {
         mCoupledUpdates_[coupledPredictionIndex]->predictAndUpdate(filterState,prediction_,itMeas_->second,tNext-filterState.t_);
       }
     } else {
-      std::cout << "Default predict to " << tNext << std::endl;
       if(coupledPredictionIndex >= 0) std::cout << "No prediction available for coupled update, ignoring update" << std::endl;
       mtMeas meas;
+      meas.setIdentity();
       r = defaultPrediction_.predict(filterState.state_,filterState.cov_,meas,tNext-filterState.t_,filteringMode_);
       if(r!=0) std::cout << "Error during predict: " << r << std::endl;
     }
@@ -345,10 +338,9 @@ class FilterBase: public PropertyHandler{
           tNext = tNextUpdate;
         }
       }
-      std::cout << "tNext: " << tNext << std::endl;
       mpPredictionManager_->predict(filterState,tNext);
       for(unsigned int i=0;i<mUpdateVector_.size();i++){
-        if(!mUpdateVector_[i]->coupledToPrediction_){
+        if(mUpdateVector_[i]->hasMeasurementAt(tNext) && !mUpdateVector_[i]->coupledToPrediction_){
           mUpdateVector_[i]->update(filterState);
         }
       }
