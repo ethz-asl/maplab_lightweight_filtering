@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<package>
+  <name>lightweight_filtering</name>
+  <description>description</description>
+  <url>url</url>
+  <author>author</author>
+  <maintainer email="email@email.email">maintainer</maintainer>
+  <license>Proprietary</license>
+  <version>0.0.9</version>
+  <buildtool_depend>catkin</buildtool_depend>
+</package>
