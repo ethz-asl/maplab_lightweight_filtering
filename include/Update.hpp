@@ -79,7 +79,14 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>{
   SigmaPoints<LWF::VectorState<mtState::D_>,2*mtState::D_+1,2*mtState::D_+1,0> updateVecSP_;
   SigmaPoints<mtState,2*mtState::D_+1,2*mtState::D_+1,0> posterior_;
   std::vector<UpdateOutlierDetection<Innovation>> outlierDetectionVector_;
+  double alpha_;
+  double beta_;
+  double kappa_;
   Update(){
+    alpha_ = 1e-3;
+    beta_ = 2.0;
+    kappa_ = 0.0;
+    updnoiP_ = mtNoise::mtCovMat::Identity()*0.0001;
     initUpdate();
   };
   void refreshNoiseSigmaPoints(){
@@ -88,22 +95,26 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>{
       stateSigmaPointsNoi_.computeFromZeroMeanGaussian(noiP_);
     }
   }
-  void setUKFParameter(double alpha,double beta, double kappa){
-    stateSigmaPoints_.computeParameter(alpha,beta,kappa);
-    innSigmaPoints_.computeParameter(alpha,beta,kappa);
-    updateVecSP_.computeParameter(alpha,beta,kappa);
-    posterior_.computeParameter(alpha,beta,kappa);
-    stateSigmaPointsNoi_.computeParameter(alpha,beta,kappa);
+  void refreshUKFParameter(){
+    stateSigmaPoints_.computeParameter(alpha_,beta_,kappa_);
+    innSigmaPoints_.computeParameter(alpha_,beta_,kappa_);
+    updateVecSP_.computeParameter(alpha_,beta_,kappa_);
+    posterior_.computeParameter(alpha_,beta_,kappa_);
+    stateSigmaPointsNoi_.computeParameter(alpha_,beta_,kappa_);
     stateSigmaPointsNoi_.computeFromZeroMeanGaussian(noiP_);
   }
+  void refreshProperties(){
+    refreshPropertiesCustom();
+    refreshUKFParameter();
+  }
+  virtual void refreshPropertiesCustom(){}
   virtual void preProcess(mtState& state, mtCovMat& cov, const mtMeas& meas){};
   virtual void postProcess(mtState& state, mtCovMat& cov, const mtMeas& meas){};
   void initUpdate(){
     yIdentity_.setIdentity();
     updateVec_.setIdentity();
-    updnoiP_ = mtNoise::mtCovMat::Identity()*0.0001;
     refreshNoiseSigmaPoints();
-    setUKFParameter(1e-3,2.0,0.0);
+    refreshUKFParameter();
     for(unsigned int i=0;i<outlierDetectionVector_.size();i++){
       outlierDetectionVector_[i].reset();
     }
@@ -228,7 +239,15 @@ class PredictionUpdate: public ModelBase<State,Innovation,Meas,Noise>{
   SigmaPoints<LWF::VectorState<mtState::D_>,2*mtState::D_+1,2*mtState::D_+1,0> updateVecSP_;
   SigmaPoints<mtState,2*mtState::D_+1,2*mtState::D_+1,0> posterior_;
   std::vector<UpdateOutlierDetection<Innovation>> outlierDetectionVector_;
+  double alpha_;
+  double beta_;
+  double kappa_;
   PredictionUpdate(){
+    alpha_ = 1e-3;
+    beta_ = 2.0;
+    kappa_ = 0.0;
+    updnoiP_ = mtNoise::mtCovMat::Identity()*0.0001;
+    preupdnoiP_ = Eigen::Matrix<double,mtPredictionNoise::D_,mtNoise::D_>::Zero();
     initUpdate();
   };
   void refreshNoiseSigmaPoints(const typename mtPredictionNoise::mtCovMat& prenoiP){
@@ -242,24 +261,27 @@ class PredictionUpdate: public ModelBase<State,Innovation,Meas,Noise>{
       stateSigmaPointsNoi_.computeFromZeroMeanGaussian(noiP_);
     }
   }
-  void setUKFParameter(double alpha,double beta, double kappa){
-    stateSigmaPoints_.computeParameter(alpha,beta,kappa);
-    stateSigmaPointsPre_.computeParameter(alpha,beta,kappa);
-    stateSigmaPointsNoi_.computeParameter(alpha,beta,kappa);
-    innSigmaPoints_.computeParameter(alpha,beta,kappa);
-    updateVecSP_.computeParameter(alpha,beta,kappa);
-    posterior_.computeParameter(alpha,beta,kappa);
+  void refreshUKFParameter(){
+    stateSigmaPoints_.computeParameter(alpha_,beta_,kappa_);
+    stateSigmaPointsPre_.computeParameter(alpha_,beta_,kappa_);
+    stateSigmaPointsNoi_.computeParameter(alpha_,beta_,kappa_);
+    innSigmaPoints_.computeParameter(alpha_,beta_,kappa_);
+    updateVecSP_.computeParameter(alpha_,beta_,kappa_);
+    posterior_.computeParameter(alpha_,beta_,kappa_);
     stateSigmaPointsNoi_.computeFromZeroMeanGaussian(noiP_);
   }
+  void refreshProperties(){
+    refreshPropertiesCustom();
+    refreshUKFParameter();
+  }
+  virtual void refreshPropertiesCustom(){}
   virtual void preProcess(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt){};
   virtual void postProcess(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt){};
   void initUpdate(){
     yIdentity_.setIdentity();
     updateVec_.setIdentity();
-    updnoiP_ = mtNoise::mtCovMat::Identity()*0.0001;
-    preupdnoiP_ = Eigen::Matrix<double,mtPredictionNoise::D_,mtNoise::D_>::Zero();
     refreshNoiseSigmaPoints(mtPredictionNoise::mtCovMat::Identity());
-    setUKFParameter(1e-3,2.0,0.0);
+    refreshUKFParameter();
     for(unsigned int i=0;i<outlierDetectionVector_.size();i++){
       outlierDetectionVector_[i].reset();
     }

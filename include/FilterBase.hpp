@@ -53,7 +53,7 @@ class MeasurementTimelineBase{
 };
 
 template<typename Meas>
-class MeasurementTimeline: public virtual MeasurementTimelineBase{ // TODO: implement ring buffer
+class MeasurementTimeline: public virtual MeasurementTimelineBase{
  public:
   typedef Meas mtMeas;
   MeasurementTimeline(){
@@ -128,6 +128,9 @@ class UpdateManager: public MeasurementTimeline<typename Update::mtMeas>,public 
   Update update_;
   UpdateManager(UpdateFilteringMode filteringMode = UpdateEKF): UpdateManagerBase<typename Update::mtState>(false,filteringMode){
     doubleRegister_.registerDiagonalMatrix("UpdateNoise",update_.updnoiP_);
+    doubleRegister_.registerScalar("alpha",update_.alpha_);
+    doubleRegister_.registerScalar("beta",update_.beta_);
+    doubleRegister_.registerScalar("kappa",update_.kappa_);
   };
   ~UpdateManager(){};
   void update(FilterState<mtState>& filterState){
@@ -135,6 +138,9 @@ class UpdateManager: public MeasurementTimeline<typename Update::mtMeas>,public 
       int r = update_.updateState(filterState.state_,filterState.cov_,measMap_[filterState.t_],filteringMode_);
       if(r!=0) std::cout << "Error during update: " << r << std::endl;
     }
+  }
+  void refreshProperties(){
+    update_.refreshProperties();
   }
 };
 
@@ -162,6 +168,9 @@ class UpdateAndPredictManager:public MeasurementTimeline<typename Update::mtMeas
   UpdateAndPredictManager(UpdateFilteringMode filteringMode = UpdateEKF): UpdateAndPredictManagerBase<typename Update::mtState, Prediction>(filteringMode){
     doubleRegister_.registerDiagonalMatrix("UpdateNoise",update_.updnoiP_);
     doubleRegister_.registerMatrix("CorrelatedNoise",update_.preupdnoiP_);
+    doubleRegister_.registerScalar("alpha",update_.alpha_);
+    doubleRegister_.registerScalar("beta",update_.beta_);
+    doubleRegister_.registerScalar("kappa",update_.kappa_);
   };
   ~UpdateAndPredictManager(){};
   void update(FilterState<mtState>& filterState){
@@ -172,6 +181,9 @@ class UpdateAndPredictManager:public MeasurementTimeline<typename Update::mtMeas
       int r = update_.predictAndUpdate(filterState.state_,filterState.cov_,measMap_[filterState.t_+dt],prediction,predictionMeas,dt,filteringMode_);
       if(r!=0) std::cout << "Error during predictAndUpdate: " << r << std::endl;
     }
+  }
+  void refreshProperties(){
+    update_.refreshProperties();
   }
 };
 
@@ -188,6 +200,9 @@ class PredictionManager: public MeasurementTimeline<typename Prediction::mtMeas>
   const PredictionFilteringMode filteringMode_;
   PredictionManager(PredictionFilteringMode filteringMode = PredictionEKF): filteringMode_(filteringMode){
     doubleRegister_.registerDiagonalMatrix("PredictionNoise",prediction_.prenoiP_);
+    doubleRegister_.registerScalar("alpha",prediction_.alpha_);
+    doubleRegister_.registerScalar("beta",prediction_.beta_);
+    doubleRegister_.registerScalar("kappa",prediction_.kappa_);
   };
   ~PredictionManager(){};
   std::vector<UpdateAndPredictManagerBase<mtState,Prediction>*> mCoupledUpdates_;
@@ -248,6 +263,9 @@ class PredictionManager: public MeasurementTimeline<typename Prediction::mtMeas>
       if(r!=0) std::cout << "Error during predict: " << r << std::endl;
     }
     filterState.t_ = tNext;
+  }
+  void refreshProperties(){
+    prediction_.refreshProperties();
   }
 };
 
@@ -369,6 +387,7 @@ class FilterBase: public PropertyHandler{
     }
     registerSubHandler(str,updateAndPredictManagerBase);
   }
+  void refreshProperties(){}
 };
 
 }

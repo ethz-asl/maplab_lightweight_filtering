@@ -480,7 +480,6 @@ TYPED_TEST(FilterBaseTest, highlevel3) {
   this->testFilter_.safe_.state_.boxMinus(this->testState_,this->difVec_);
   ASSERT_NEAR(this->difVec_.norm(),0.0,1e-6);
   ASSERT_NEAR((this->testFilter_.safe_.cov_-this->testCov_).norm(),0.0,1e-6);
-
 }
 
 int main(int argc, char **argv) {

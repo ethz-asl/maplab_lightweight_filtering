@@ -23,7 +23,7 @@ namespace LWF{
 template<typename TYPE>
 class Register{
  public:
-  typedef boost::property_tree::ptree ptree; // TODO: refresh
+  typedef boost::property_tree::ptree ptree;
   Register(){};
   ~Register(){};
   std::map<TYPE*,std::string> registerMap_;
@@ -138,12 +138,17 @@ class PropertyHandler{
     try{
       read_info(filename,pt);
       readPropertyTree(pt);
+      refreshProperties();
+      for(typename std::unordered_map<std::string,PropertyHandler*>::iterator it=subHandlers_.begin(); it != subHandlers_.end(); ++it){
+        it->second->refreshProperties();
+      }
     } catch (boost::property_tree::ptree_error& e){
       std::cout << "An exception occurred. " << e.what() << std::endl;
       std::cout << "Overriding current info file with valid format." << std::endl;
       write_info(filename,ptDefault);
     }
   }
+  virtual void refreshProperties(){};
 };
 
 }
