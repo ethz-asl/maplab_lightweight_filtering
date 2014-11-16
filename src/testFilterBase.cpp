@@ -173,7 +173,6 @@ TYPED_TEST_CASE(FilterBaseTest, TestClasses);
 // Test constructors
 TYPED_TEST(FilterBaseTest, constructors) {
   LWF::FilterBase<typename TestFixture::mtPredictionExample,typename TestFixture::mtUpdateExample,typename TestFixture::mtPredictAndUpdateExample> testFilter;
-  // TODO test coupledToPrediction_ and modes
 }
 
 // Test propertyHandler

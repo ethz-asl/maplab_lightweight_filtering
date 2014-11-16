@@ -47,6 +47,7 @@ class Prediction: public ModelBase<State,State,Meas,Noise>, public PropertyHandl
     alpha_ = 1e-3;
     beta_ = 2.0;
     kappa_ = 0.0;
+    mode_ = PredictionEKF;
     prenoiP_ = mtNoise::mtCovMat::Identity()*0.0001;
     resetPrediction();
     doubleRegister_.registerDiagonalMatrix("PredictionNoise",prenoiP_);

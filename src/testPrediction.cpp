@@ -43,6 +43,7 @@ TYPED_TEST_CASE(PredictionModelTest, TestClasses);
 // Test constructors
 TYPED_TEST(PredictionModelTest, constructors) {
   typename TestFixture::mtPredictionExample testPrediction;
+  ASSERT_EQ(testPrediction.mode_,LWF::PredictionEKF);
   ASSERT_EQ((testPrediction.prenoiP_-TestFixture::mtPredictionExample::mtNoise::mtCovMat::Identity()*0.0001).norm(),0.0);
   typename TestFixture::mtPredictionExample::mtNoise::mtDifVec dif;
   typename TestFixture::mtPredictionExample::mtNoise noise;

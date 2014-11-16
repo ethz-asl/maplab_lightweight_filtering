@@ -41,6 +41,9 @@ TYPED_TEST_CASE(UpdateModelTest, TestClasses);
 // Test constructors
 TYPED_TEST(UpdateModelTest, constructors) {
   typename TestFixture::mtUpdateExample testUpdate;
+  ASSERT_EQ(testUpdate.mode_,LWF::UpdateEKF);
+  bool coupledToPrediction = testUpdate.coupledToPrediction_;
+  ASSERT_EQ(coupledToPrediction,false);
   ASSERT_EQ((testUpdate.updnoiP_-TestFixture::mtUpdateExample::mtNoise::mtCovMat::Identity()*0.0001).norm(),0.0);
   typename TestFixture::mtUpdateExample::mtNoise::mtDifVec dif;
   typename TestFixture::mtUpdateExample::mtNoise noise;
@@ -49,6 +52,9 @@ TYPED_TEST(UpdateModelTest, constructors) {
   ASSERT_NEAR(dif.norm(),0.0,1e-6);
   ASSERT_NEAR((testUpdate.updnoiP_-testUpdate.stateSigmaPointsNoi_.getCovarianceMatrix()).norm(),0.0,1e-8);
   typename TestFixture::mtPredictAndUpdateExample testPredictAndUpdate;
+  ASSERT_EQ(testPredictAndUpdate.mode_,LWF::UpdateEKF);
+  coupledToPrediction = testPredictAndUpdate.coupledToPrediction_;
+  ASSERT_EQ(coupledToPrediction,true);
   ASSERT_EQ((testPredictAndUpdate.updnoiP_-TestFixture::mtPredictAndUpdateExample::mtNoise::mtCovMat::Identity()*0.0001).norm(),0.0);
 }
 
