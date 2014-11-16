@@ -14,6 +14,7 @@
 #include <map>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/info_parser.hpp>
+#include <tuple>
 
 namespace LWF{
 
@@ -388,6 +389,159 @@ class FilterBase: public PropertyHandler{
     registerSubHandler(str,updateAndPredictManagerBase);
   }
   void refreshProperties(){}
+};
+
+
+template<typename Prediction,typename... Updates> // TODO: move filter types to Update/Prediction
+class FilterBase2: public PropertyHandler{
+ public:
+  typedef typename Prediction::mtState mtState;
+  typedef typename mtState::mtCovMat mtCovMat;
+  static const unsigned int D_ = mtState::D_;
+  static const unsigned int nUpdates_ = sizeof...(Updates);
+  FilterState<mtState> safe_;
+  FilterState<mtState> front_;
+  FilterState<mtState> init_;
+  MeasurementTimeline<typename Prediction::mtMeas> predictionTimeline_;
+  std::tuple<MeasurementTimeline<typename Updates::mtMeas>...> updateTimelineTuple_;
+  Prediction mPrediction_;
+  std::tuple<Updates...> mUpdates_;
+  double safeWarningTime_;
+  double frontWarningTime_;
+  bool gotFrontWarning_;
+  FilterBase2(){
+    init_.state_.registerToPropertyHandler(this,"Init.State.");
+    doubleRegister_.registerDiagonalMatrix("Init.Covariance.p",init_.cov_);
+    safeWarningTime_ = 0.0;
+    frontWarningTime_ = 0.0;
+    gotFrontWarning_ = false;
+  };
+  virtual ~FilterBase2(){
+  };
+  bool getSafeTime(double& safeTime){
+    double maxPredictionTime;
+    if(!predictionTimeline_.getLastTime(maxPredictionTime)) return false;
+    safeTime = maxPredictionTime;
+    // Check if we have to wait for update measurements
+    checkUpdateWaitTime(maxPredictionTime,safeTime);
+    if(safeTime <= safe_.t_) return false;
+    return true;
+  }
+  template<unsigned int i=0>
+  void checkUpdateWaitTime(double actualTime,double& time){
+    std::get<i>(updateTimelineTuple_).waitTime(actualTime,time);
+    if(i+1<nUpdates_) checkUpdateWaitTime<i+1>(actualTime,time);
+  }
+  void updateSafe(){
+    double nextSafeTime;
+    if(!getSafeTime(nextSafeTime)) return;
+    if(front_.t_<=nextSafeTime && !gotFrontWarning_ && front_.t_>safe_.t_){
+      safe_ = front_;
+    }
+    update(safe_,nextSafeTime);
+    clean(nextSafeTime);
+    safeWarningTime_ = nextSafeTime;
+  }
+  void updateFront(const double& tEnd){
+    updateSafe();
+    if(gotFrontWarning_ || front_.t_<=safe_.t_){
+      front_ = safe_;
+    }
+    update(front_,tEnd);
+    frontWarningTime_ = tEnd;
+    gotFrontWarning_ = false;
+  }
+  void update(FilterState<mtState>& filterState,const double& tEnd){
+    double tNext = filterState.t_;
+    while(filterState.t_<tEnd){
+      tNext = tEnd;
+      getNextUpdate(filterState.t_,tNext);
+      double tPrediction = tNext;
+      int r = 0;
+
+      // Count mergeable prediction steps (always without update)
+      predictionTimeline_.itMeas_ = predictionTimeline_.measMap_.upper_bound(filterState.t_);
+      unsigned int countMergeable = 0;
+      while(predictionTimeline_.itMeas_ != predictionTimeline_.measMap_.end() && predictionTimeline_.itMeas_->first < tNext){
+        countMergeable++;
+        predictionTimeline_.itMeas_++;
+      }
+      predictionTimeline_.itMeas_ = predictionTimeline_.measMap_.upper_bound(filterState.t_); // Reset Iterator
+      if(countMergeable>0){
+        if(mPrediction_.mbMergePredictions_){
+          r = mPrediction_.predictMerged(filterState.state_,filterState.cov_,filterState.t_,predictionTimeline_.itMeas_,countMergeable);
+          if(r!=0) std::cout << "Error during predictMerged: " << r << std::endl;
+          filterState.t_ = next(predictionTimeline_.itMeas_,countMergeable-1)->first;
+        } else {
+          for(unsigned int i=0;i<countMergeable;i++){
+            r = mPrediction_.predict(filterState.state_,filterState.cov_,predictionTimeline_.itMeas_->second,predictionTimeline_.itMeas_->first-filterState.t_);
+            if(r!=0) std::cout << "Error during predict: " << r << std::endl;
+            filterState.t_ = predictionTimeline_.itMeas_->first;
+            predictionTimeline_.itMeas_++;
+          }
+        }
+      }
+
+      // Check for coupled update
+      if(!doCoupledPredictAndUpdateIfAvailable(filterState,tNext)){ // TODO: warning if no prediction
+        predictionTimeline_.itMeas_ = predictionTimeline_.measMap_.upper_bound(filterState.t_); // Reset Iterator
+        if(predictionTimeline_.itMeas_ != predictionTimeline_.measMap_.end()){
+          r = mPrediction_.predict(filterState.state_,filterState.cov_,predictionTimeline_.itMeas_->second,tNext-filterState.t_);
+          if(r!=0) std::cout << "Error during predict: " << r << std::endl;
+        }
+      } else {
+//        r = mPrediction_.predict(filterState.state_,filterState.cov_,tNext-filterState.t_); // TODO implement
+//        if(r!=0) std::cout << "Error during predict: " << r << std::endl;
+      }
+      filterState.t_ = tNext;
+
+      doAvailableUpdates(filterState,tNext);
+    }
+  }
+  template<unsigned int i=0>
+  void getNextUpdate(double actualTime, double& nextTime){
+    double tNextUpdate;
+    if(std::get<i>(updateTimelineTuple_).getNextTime(actualTime,tNextUpdate) && tNextUpdate < nextTime) nextTime = tNextUpdate;
+    if(i+1<nUpdates_) getNextUpdate<i+1>(actualTime, nextTime);
+  }
+  template<unsigned int i=0>
+  bool doCoupledPredictAndUpdateIfAvailable(FilterState<mtState>& filterState, double tNext, bool& alreadyDone = false){
+//    if(std::get<i>(updateTimelineTuple_).coupledToPrediction_ && std::get<i>(updateTimelineTuple_).hasMeasurementAt(tNext)){ // TODO add coupledToPrediction_ to Update
+    if(std::get<i>(updateTimelineTuple_).hasMeasurementAt(tNext)){
+      if(!alreadyDone){
+        predictionTimeline_.itMeas_ = predictionTimeline_.measMap_.upper_bound(filterState.t_);
+        if(predictionTimeline_.itMeas_ != predictionTimeline_.measMap_.end()){
+          int r = std::get<i>(mUpdates_).predictAndUpdate(filterState.state_,filterState.cov_,std::get<i>(updateTimelineTuple_).measMap_[tNext],mPrediction_,predictionTimeline_.itMeas_->second,tNext-filterState.t_);
+          if(r!=0) std::cout << "Error during predictAndUpdate: " << r << std::endl;
+          alreadyDone = true;
+        } else {
+          std::cout << "No prediction available for coupled update, ignoring update" << std::endl;
+        }
+      } else {
+        std::cout << "Warning found multiple updates, only considering first" << std::endl;
+      }
+    }
+    if(i+1<nUpdates_) doCoupledPredictAndUpdateIfAvailable<i+1>(filterState,tNext,alreadyDone);
+    return alreadyDone;
+  }
+  template<unsigned int i=0>
+  void doAvailableUpdates(FilterState<mtState>& filterState, double tNext){
+//    if(!std::get<i>(updateTimelineTuple_).coupledToPrediction_ && std::get<i>(updateTimelineTuple_).hasMeasurementAt(tNext)){ // TODO add coupledToPrediction_ to Update
+    if(std::get<i>(updateTimelineTuple_).hasMeasurementAt(tNext)){
+          int r = std::get<i>(mUpdates_).updateState(filterState.state_,filterState.cov_,std::get<i>(updateTimelineTuple_).measMap_[tNext]);
+          if(r!=0) std::cout << "Error during predictAndUpdate: " << r << std::endl;
+    }
+    if(i+1<nUpdates_) doAvailableUpdates<i+1>(filterState,tNext);
+  }
+  void clean(const double& t){
+    predictionTimeline_.clean(t);
+    cleanUpdateTimeline(t);
+  }
+  template<unsigned int i=0>
+  void cleanUpdateTimeline(const double& t){
+    std::get<i>(updateTimelineTuple_).clean(t);
+    if(i+1<nUpdates_) cleanUpdateTimeline<i+1>(t);
+  }
 };
 
 }

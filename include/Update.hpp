@@ -53,7 +53,7 @@ class UpdateOutlierDetection{
   unsigned int outlierCount_;
 };
 
-template<typename Innovation, typename State, typename Meas, typename Noise>
+template<typename Innovation, typename State, typename Meas, typename Noise, typename Prediction = DummyPrediction, bool isCoupled = false>
 class Update: public ModelBase<State,Innovation,Meas,Noise>{
  public:
   typedef State mtState;
@@ -61,10 +61,15 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>{
   typedef Innovation mtInnovation;
   typedef Meas mtMeas;
   typedef Noise mtNoise;
+  typedef typename Prediction::mtMeas mtPredictionMeas;
+  typedef typename Prediction::mtNoise mtPredictionNoise;
+  typedef ComposedState<mtPredictionNoise,mtNoise> mtJointNoise;
   typename ModelBase<State,Innovation,Meas,Noise>::mtJacInput H_;
   typename ModelBase<State,Innovation,Meas,Noise>::mtJacNoise Hn_;
   typename mtNoise::mtCovMat updnoiP_;
-  typename mtNoise::mtCovMat noiP_; // automatic change tracking
+  Eigen::Matrix<double,mtPredictionNoise::D_,mtNoise::D_> preupdnoiP_;
+  Eigen::Matrix<double,(isCoupled)*mtPredictionNoise::D_+mtNoise::D_,(isCoupled)*mtPredictionNoise::D_+mtNoise::D_> noiP_;
+  Eigen::Matrix<double,mtState::D_,mtInnovation::D_> C_;
   mtInnovation y_;
   typename mtInnovation::mtCovMat Py_;
   typename mtInnovation::mtCovMat Pyinv_;
@@ -76,6 +81,10 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>{
   SigmaPoints<mtState,2*mtState::D_+1,2*(mtState::D_+mtNoise::D_)+1,0> stateSigmaPoints_;
   SigmaPoints<mtNoise,2*mtNoise::D_+1,2*(mtState::D_+mtNoise::D_)+1,2*mtState::D_> stateSigmaPointsNoi_;
   SigmaPoints<mtInnovation,2*(mtState::D_+mtNoise::D_)+1,2*(mtState::D_+mtNoise::D_)+1,0> innSigmaPoints_;
+  SigmaPoints<mtState,2*mtState::D_+1,2*(mtState::D_+mtJointNoise::D_)+1,0> coupledStateSigmaPoints_;
+  SigmaPoints<mtState,2*(mtState::D_+mtJointNoise::D_)+1,2*(mtState::D_+mtJointNoise::D_)+1,0> coupledStateSigmaPointsPre_;
+  SigmaPoints<mtJointNoise,2*mtJointNoise::D_+1,2*(mtState::D_+mtJointNoise::D_)+1,2*(mtState::D_)> coupledStateSigmaPointsNoi_;
+  SigmaPoints<mtInnovation,2*(mtState::D_+mtJointNoise::D_)+1,2*(mtState::D_+mtJointNoise::D_)+1,0> coupledInnSigmaPoints_;
   SigmaPoints<LWF::VectorState<mtState::D_>,2*mtState::D_+1,2*mtState::D_+1,0> updateVecSP_;
   SigmaPoints<mtState,2*mtState::D_+1,2*mtState::D_+1,0> posterior_;
   std::vector<UpdateOutlierDetection<Innovation>> outlierDetectionVector_;
@@ -87,6 +96,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>{
     beta_ = 2.0;
     kappa_ = 0.0;
     updnoiP_ = mtNoise::mtCovMat::Identity()*0.0001;
+    preupdnoiP_ = Eigen::Matrix<double,mtPredictionNoise::D_,mtNoise::D_>::Zero();
     initUpdate();
   };
   void refreshNoiseSigmaPoints(){
@@ -218,8 +228,6 @@ class PredictionUpdate: public ModelBase<State,Innovation,Meas,Noise>{
   typedef ComposedState<mtPredictionNoise,mtNoise> mtJointNoise;
   typename ModelBase<State,Innovation,Meas,Noise>::mtJacInput H_;
   typename ModelBase<State,Innovation,Meas,Noise>::mtJacNoise Hn_;
-  typename Prediction::mtJacInput F_;
-  typename Prediction::mtJacNoise Fn_;
   typename mtNoise::mtCovMat updnoiP_;
   Eigen::Matrix<double,mtPredictionNoise::D_,mtNoise::D_> preupdnoiP_;
   Eigen::Matrix<double,mtPredictionNoise::D_+mtNoise::D_,mtPredictionNoise::D_+mtNoise::D_> noiP_; // automatic change tracking
@@ -300,15 +308,15 @@ class PredictionUpdate: public ModelBase<State,Innovation,Meas,Noise>{
   int predictAndUpdateEKF(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt){
     preProcess(state,cov,meas,prediction,predictionMeas,dt);
     // Predict
-    F_ = prediction.jacInput(state,predictionMeas,dt);
-    Fn_ = prediction.jacNoise(state,predictionMeas,dt);
+    prediction.F_ = prediction.jacInput(state,predictionMeas,dt);
+    prediction.Fn_ = prediction.jacNoise(state,predictionMeas,dt);
     state = prediction.eval(state,predictionMeas,dt);
-    cov = F_*cov*F_.transpose() + Fn_*prediction.prenoiP_*Fn_.transpose();
+    cov = prediction.F_*cov*prediction.F_.transpose() + prediction.Fn_*prediction.prenoiP_*prediction.Fn_.transpose();
 
     // Update
     H_ = this->jacInput(state,meas);
     Hn_ = this->jacNoise(state,meas);
-    C_ = Fn_*preupdnoiP_*Hn_.transpose();
+    C_ = prediction.Fn_*preupdnoiP_*Hn_.transpose();
     y_ = this->eval(state,meas);
     Py_ = H_*cov*H_.transpose() + Hn_*updnoiP_*Hn_.transpose() + H_*C_ + C_.transpose()*H_.transpose();
     y_.boxMinus(yIdentity_,innVector_);

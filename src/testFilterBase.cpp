@@ -182,6 +182,7 @@ class FilterBaseTest : public ::testing::Test, public TestClass {
   LWF::PredictionManager<mtPredictionExample> predictionManager2_;
   LWF::UpdateManager<mtUpdateExample> updateManager2_;
   LWF::UpdateAndPredictManager<mtPredictAndUpdateExample,mtPredictionExample> predictionUpdateManager2_;
+  LWF::FilterBase2<mtPredictionExample,mtUpdateExample,mtPredictAndUpdateExample> testFilterNew_;
   const double dt_ = 0.1;
 };
 

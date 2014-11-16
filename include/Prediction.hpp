@@ -13,6 +13,7 @@
 #include "kindr/rotations/RotationEigen.hpp"
 #include "ModelBase.hpp"
 #include "SigmaPoints.hpp"
+#include "State.hpp"
 #include <map>
 
 namespace LWF{
@@ -177,6 +178,25 @@ class Prediction: public ModelBase<State,State,Meas,Noise>{
     postProcess(state,cov,meanMeas,dT);
     state.fix();
     return 0;
+  }
+};
+
+class DummyPrediction: public Prediction<ScalarState,ScalarState,ScalarState>{
+ public:
+  ScalarState eval(const ScalarState& state, const ScalarState& meas, const ScalarState noise, double dt) const{
+    ScalarState output;
+    output.s_ = state.s_ + meas.s_ + noise.s_;
+    return output;
+  }
+  Eigen::Matrix<double,1,1> jacInput(const ScalarState& state, const ScalarState& meas, double dt) const{
+    Eigen::Matrix<double,1,1> J;
+    J.setIdentity();
+    return J;
+  }
+  Eigen::Matrix<double,1,1> jacNoise(const ScalarState& state, const ScalarState& meas, double dt) const{
+    Eigen::Matrix<double,1,1> J;
+    J.setIdentity();
+    return J;
   }
 };
 
