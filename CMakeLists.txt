@@ -3,7 +3,7 @@ project(lightweight_filtering)
 add_definitions(-std=c++11)
 
 ##################### Set some variables #####################
-SET(CMAKE_BUILD_TYPE "Release")
+SET(CMAKE_BUILD_TYPE "Debug")
 message(STATUS "cmake root folder:" ${CMAKE_ROOT})
 
 ##################### Find, include, and compile library #####################

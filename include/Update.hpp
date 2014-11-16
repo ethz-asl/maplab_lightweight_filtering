@@ -64,11 +64,13 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>{
   typedef typename Prediction::mtMeas mtPredictionMeas;
   typedef typename Prediction::mtNoise mtPredictionNoise;
   typedef ComposedState<mtPredictionNoise,mtNoise> mtJointNoise;
+  static const int noiseDim_ = (isCoupled)*mtPredictionNoise::D_+mtNoise::D_;
   typename ModelBase<State,Innovation,Meas,Noise>::mtJacInput H_;
   typename ModelBase<State,Innovation,Meas,Noise>::mtJacNoise Hn_;
   typename mtNoise::mtCovMat updnoiP_;
   Eigen::Matrix<double,mtPredictionNoise::D_,mtNoise::D_> preupdnoiP_;
-  Eigen::Matrix<double,(isCoupled)*mtPredictionNoise::D_+mtNoise::D_,(isCoupled)*mtPredictionNoise::D_+mtNoise::D_> noiP_;
+  Eigen::Matrix<double,mtNoise::D_,mtNoise::D_> noiP_;
+  Eigen::Matrix<double,mtJointNoise::D_,mtJointNoise::D_> jointNoiP_;
   Eigen::Matrix<double,mtState::D_,mtInnovation::D_> C_;
   mtInnovation y_;
   typename mtInnovation::mtCovMat Py_;
@@ -78,13 +80,11 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>{
   typename mtState::mtDifVec updateVec_;
   Eigen::Matrix<double,mtState::D_,mtInnovation::D_> K_;
   Eigen::Matrix<double,mtState::D_,mtInnovation::D_> Pxy_;
-  SigmaPoints<mtState,2*mtState::D_+1,2*(mtState::D_+mtNoise::D_)+1,0> stateSigmaPoints_;
-  SigmaPoints<mtNoise,2*mtNoise::D_+1,2*(mtState::D_+mtNoise::D_)+1,2*mtState::D_> stateSigmaPointsNoi_;
-  SigmaPoints<mtInnovation,2*(mtState::D_+mtNoise::D_)+1,2*(mtState::D_+mtNoise::D_)+1,0> innSigmaPoints_;
-  SigmaPoints<mtState,2*mtState::D_+1,2*(mtState::D_+mtJointNoise::D_)+1,0> coupledStateSigmaPoints_;
+  SigmaPoints<mtState,2*mtState::D_+1,2*(mtState::D_+noiseDim_)+1,0> stateSigmaPoints_;
   SigmaPoints<mtState,2*(mtState::D_+mtJointNoise::D_)+1,2*(mtState::D_+mtJointNoise::D_)+1,0> coupledStateSigmaPointsPre_;
+  SigmaPoints<mtNoise,2*mtNoise::D_+1,2*(mtState::D_+mtNoise::D_)+1,2*mtState::D_> stateSigmaPointsNoi_;
   SigmaPoints<mtJointNoise,2*mtJointNoise::D_+1,2*(mtState::D_+mtJointNoise::D_)+1,2*(mtState::D_)> coupledStateSigmaPointsNoi_;
-  SigmaPoints<mtInnovation,2*(mtState::D_+mtJointNoise::D_)+1,2*(mtState::D_+mtJointNoise::D_)+1,0> coupledInnSigmaPoints_;
+  SigmaPoints<mtInnovation,2*(mtState::D_+noiseDim_)+1,2*(mtState::D_+noiseDim_)+1,0> innSigmaPoints_;
   SigmaPoints<LWF::VectorState<mtState::D_>,2*mtState::D_+1,2*mtState::D_+1,0> updateVecSP_;
   SigmaPoints<mtState,2*mtState::D_+1,2*mtState::D_+1,0> posterior_;
   std::vector<UpdateOutlierDetection<Innovation>> outlierDetectionVector_;
@@ -105,6 +105,17 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>{
       stateSigmaPointsNoi_.computeFromZeroMeanGaussian(noiP_);
     }
   }
+  void refreshJointNoiseSigmaPoints(const typename mtPredictionNoise::mtCovMat& prenoiP){
+    if(jointNoiP_.template block<mtPredictionNoise::D_,mtPredictionNoise::D_>(0,0) != prenoiP ||
+        jointNoiP_.template block<mtPredictionNoise::D_,mtNoise::D_>(0,mtPredictionNoise::D_) != preupdnoiP_ ||
+        jointNoiP_.template block<mtNoise::D_,mtNoise::D_>(mtPredictionNoise::D_,mtPredictionNoise::D_) != updnoiP_){
+      jointNoiP_.template block<mtPredictionNoise::D_,mtPredictionNoise::D_>(0,0) = prenoiP;
+      jointNoiP_.template block<mtPredictionNoise::D_,mtNoise::D_>(0,mtPredictionNoise::D_) = preupdnoiP_;
+      jointNoiP_.template block<mtNoise::D_,mtPredictionNoise::D_>(mtPredictionNoise::D_,0) = preupdnoiP_.transpose();
+      jointNoiP_.template block<mtNoise::D_,mtNoise::D_>(mtPredictionNoise::D_,mtPredictionNoise::D_) = updnoiP_;
+      coupledStateSigmaPointsNoi_.computeFromZeroMeanGaussian(jointNoiP_);
+    }
+  }
   void refreshUKFParameter(){
     stateSigmaPoints_.computeParameter(alpha_,beta_,kappa_);
     innSigmaPoints_.computeParameter(alpha_,beta_,kappa_);
@@ -112,6 +123,8 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>{
     posterior_.computeParameter(alpha_,beta_,kappa_);
     stateSigmaPointsNoi_.computeParameter(alpha_,beta_,kappa_);
     stateSigmaPointsNoi_.computeFromZeroMeanGaussian(noiP_);
+    coupledStateSigmaPointsPre_.computeParameter(alpha_,beta_,kappa_);
+    coupledStateSigmaPointsNoi_.computeParameter(alpha_,beta_,kappa_);
   }
   void refreshProperties(){
     refreshPropertiesCustom();
@@ -120,10 +133,13 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>{
   virtual void refreshPropertiesCustom(){}
   virtual void preProcess(mtState& state, mtCovMat& cov, const mtMeas& meas){};
   virtual void postProcess(mtState& state, mtCovMat& cov, const mtMeas& meas){};
+  virtual void preProcess(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt){};
+  virtual void postProcess(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt){};
   void initUpdate(){
     yIdentity_.setIdentity();
     updateVec_.setIdentity();
     refreshNoiseSigmaPoints();
+    refreshJointNoiseSigmaPoints(mtPredictionNoise::mtCovMat::Identity());
     refreshUKFParameter();
     for(unsigned int i=0;i<outlierDetectionVector_.size();i++){
       outlierDetectionVector_[i].reset();
@@ -140,7 +156,18 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>{
         return updateEKF(state,cov,meas);
     }
   }
+    int predictAndUpdate(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt, UpdateFilteringMode mode = UpdateEKF){
+      switch(mode){
+        case UpdateEKF:
+          return predictAndUpdateEKF(state,cov,meas,prediction,predictionMeas,dt);
+        case UpdateUKF:
+          return predictAndUpdateUKF(state,cov,meas,prediction,predictionMeas,dt);
+        default:
+          return predictAndUpdateEKF(state,cov,meas,prediction,predictionMeas,dt);
+      }
+    }
   int updateEKF(mtState& state, mtCovMat& cov, const mtMeas& meas){
+    assert(!isCoupled);
     preProcess(state,cov,meas);
     H_ = this->jacInput(state,meas);
     Hn_ = this->jacNoise(state,meas);
@@ -172,6 +199,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>{
     return 0;
   }
   int updateUKF(mtState& state, mtCovMat& cov, const mtMeas& meas){
+    assert(!isCoupled);
     refreshNoiseSigmaPoints();
     preProcess(state,cov,meas);
     stateSigmaPoints_.computeFromGaussian(state,cov);
@@ -213,99 +241,8 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>{
     postProcess(state,cov,meas);
     return 0;
   }
-};
-
-template<typename Innovation, typename State, typename Meas, typename Noise, typename Prediction>
-class PredictionUpdate: public ModelBase<State,Innovation,Meas,Noise>{
- public:
-  typedef State mtState;
-  typedef typename mtState::mtCovMat mtCovMat;
-  typedef Innovation mtInnovation;
-  typedef Meas mtMeas;
-  typedef typename Prediction::mtMeas mtPredictionMeas;
-  typedef Noise mtNoise;
-  typedef typename Prediction::mtNoise mtPredictionNoise;
-  typedef ComposedState<mtPredictionNoise,mtNoise> mtJointNoise;
-  typename ModelBase<State,Innovation,Meas,Noise>::mtJacInput H_;
-  typename ModelBase<State,Innovation,Meas,Noise>::mtJacNoise Hn_;
-  typename mtNoise::mtCovMat updnoiP_;
-  Eigen::Matrix<double,mtPredictionNoise::D_,mtNoise::D_> preupdnoiP_;
-  Eigen::Matrix<double,mtPredictionNoise::D_+mtNoise::D_,mtPredictionNoise::D_+mtNoise::D_> noiP_; // automatic change tracking
-  Eigen::Matrix<double,mtState::D_,mtInnovation::D_> C_;
-  mtInnovation y_;
-  typename mtInnovation::mtCovMat Py_;
-  typename mtInnovation::mtCovMat Pyinv_;
-  typename mtInnovation::mtDifVec innVector_;
-  mtInnovation yIdentity_;
-  typename mtState::mtDifVec updateVec_;
-  Eigen::Matrix<double,mtState::D_,mtInnovation::D_> K_;
-  Eigen::Matrix<double,mtState::D_,mtInnovation::D_> Pxy_;
-  SigmaPoints<mtState,2*mtState::D_+1,2*(mtState::D_+mtJointNoise::D_)+1,0> stateSigmaPoints_;
-  SigmaPoints<mtState,2*(mtState::D_+mtJointNoise::D_)+1,2*(mtState::D_+mtJointNoise::D_)+1,0> stateSigmaPointsPre_;
-  SigmaPoints<mtJointNoise,2*mtJointNoise::D_+1,2*(mtState::D_+mtJointNoise::D_)+1,2*(mtState::D_)> stateSigmaPointsNoi_;
-  SigmaPoints<mtInnovation,2*(mtState::D_+mtJointNoise::D_)+1,2*(mtState::D_+mtJointNoise::D_)+1,0> innSigmaPoints_;
-  SigmaPoints<LWF::VectorState<mtState::D_>,2*mtState::D_+1,2*mtState::D_+1,0> updateVecSP_;
-  SigmaPoints<mtState,2*mtState::D_+1,2*mtState::D_+1,0> posterior_;
-  std::vector<UpdateOutlierDetection<Innovation>> outlierDetectionVector_;
-  double alpha_;
-  double beta_;
-  double kappa_;
-  PredictionUpdate(){
-    alpha_ = 1e-3;
-    beta_ = 2.0;
-    kappa_ = 0.0;
-    updnoiP_ = mtNoise::mtCovMat::Identity()*0.0001;
-    preupdnoiP_ = Eigen::Matrix<double,mtPredictionNoise::D_,mtNoise::D_>::Zero();
-    initUpdate();
-  };
-  void refreshNoiseSigmaPoints(const typename mtPredictionNoise::mtCovMat& prenoiP){
-    if(noiP_.template block<mtPredictionNoise::D_,mtPredictionNoise::D_>(0,0) != prenoiP ||
-        noiP_.template block<mtPredictionNoise::D_,mtNoise::D_>(0,mtPredictionNoise::D_) != preupdnoiP_ ||
-        noiP_.template block<mtNoise::D_,mtNoise::D_>(mtPredictionNoise::D_,mtPredictionNoise::D_) != updnoiP_){
-      noiP_.template block<mtPredictionNoise::D_,mtPredictionNoise::D_>(0,0) = prenoiP;
-      noiP_.template block<mtPredictionNoise::D_,mtNoise::D_>(0,mtPredictionNoise::D_) = preupdnoiP_;
-      noiP_.template block<mtNoise::D_,mtPredictionNoise::D_>(mtPredictionNoise::D_,0) = preupdnoiP_.transpose();
-      noiP_.template block<mtNoise::D_,mtNoise::D_>(mtPredictionNoise::D_,mtPredictionNoise::D_) = updnoiP_;
-      stateSigmaPointsNoi_.computeFromZeroMeanGaussian(noiP_);
-    }
-  }
-  void refreshUKFParameter(){
-    stateSigmaPoints_.computeParameter(alpha_,beta_,kappa_);
-    stateSigmaPointsPre_.computeParameter(alpha_,beta_,kappa_);
-    stateSigmaPointsNoi_.computeParameter(alpha_,beta_,kappa_);
-    innSigmaPoints_.computeParameter(alpha_,beta_,kappa_);
-    updateVecSP_.computeParameter(alpha_,beta_,kappa_);
-    posterior_.computeParameter(alpha_,beta_,kappa_);
-    stateSigmaPointsNoi_.computeFromZeroMeanGaussian(noiP_);
-  }
-  void refreshProperties(){
-    refreshPropertiesCustom();
-    refreshUKFParameter();
-  }
-  virtual void refreshPropertiesCustom(){}
-  virtual void preProcess(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt){};
-  virtual void postProcess(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt){};
-  void initUpdate(){
-    yIdentity_.setIdentity();
-    updateVec_.setIdentity();
-    refreshNoiseSigmaPoints(mtPredictionNoise::mtCovMat::Identity());
-    refreshUKFParameter();
-    for(unsigned int i=0;i<outlierDetectionVector_.size();i++){
-      outlierDetectionVector_[i].reset();
-    }
-  }
-  virtual ~PredictionUpdate(){};
-  int predictAndUpdate(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt, UpdateFilteringMode mode = UpdateEKF){
-    switch(mode){
-      case UpdateEKF:
-        return predictAndUpdateEKF(state,cov,meas,prediction,predictionMeas,dt);
-      case UpdateUKF:
-        return predictAndUpdateUKF(state,cov,meas,prediction,predictionMeas,dt);
-      default:
-        return predictAndUpdateEKF(state,cov,meas,prediction,predictionMeas,dt);
-    }
-  }
   int predictAndUpdateEKF(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt){
+    assert(isCoupled);
     preProcess(state,cov,meas,prediction,predictionMeas,dt);
     // Predict
     prediction.F_ = prediction.jacInput(state,predictionMeas,dt);
@@ -343,27 +280,28 @@ class PredictionUpdate: public ModelBase<State,Innovation,Meas,Noise>{
     return 0;
   }
   int predictAndUpdateUKF(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt){
-    refreshNoiseSigmaPoints(prediction.prenoiP_);
+    assert(isCoupled);
+    refreshJointNoiseSigmaPoints(prediction.prenoiP_);
     preProcess(state,cov,meas,prediction,predictionMeas,dt);
     // Predict
     stateSigmaPoints_.computeFromGaussian(state,cov);
 
     // Prediction
-    for(unsigned int i=0;i<stateSigmaPointsPre_.L_;i++){
-      stateSigmaPointsPre_(i) = prediction.eval(stateSigmaPoints_(i),predictionMeas,stateSigmaPointsNoi_(i).template getState<0>(),dt);
+    for(unsigned int i=0;i<coupledStateSigmaPointsPre_.L_;i++){
+      coupledStateSigmaPointsPre_(i) = prediction.eval(stateSigmaPoints_(i),predictionMeas,coupledStateSigmaPointsNoi_(i).template getState<0>(),dt);
     }
 
     // Calculate mean and variance
-    state = stateSigmaPointsPre_.getMean();
-    cov = stateSigmaPointsPre_.getCovarianceMatrix(state);
+    state = coupledStateSigmaPointsPre_.getMean();
+    cov = coupledStateSigmaPointsPre_.getCovarianceMatrix(state);
 
     // Update
     for(unsigned int i=0;i<innSigmaPoints_.L_;i++){
-      innSigmaPoints_(i) = this->eval(stateSigmaPointsPre_(i),meas,stateSigmaPointsNoi_(i).template getState<1>());
+      innSigmaPoints_(i) = this->eval(coupledStateSigmaPointsPre_(i),meas,coupledStateSigmaPointsNoi_(i).template getState<1>());
     }
     y_ = innSigmaPoints_.getMean();
     Py_ = innSigmaPoints_.getCovarianceMatrix(y_);
-    Pxy_ = (innSigmaPoints_.getCovarianceMatrix(stateSigmaPointsPre_)).transpose();
+    Pxy_ = (innSigmaPoints_.getCovarianceMatrix(coupledStateSigmaPointsPre_)).transpose();
     y_.boxMinus(yIdentity_,innVector_);
 
     // Outlier detection

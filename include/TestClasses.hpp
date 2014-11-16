@@ -176,9 +176,9 @@ class PredictionExample: public LWF::Prediction<State,PredictionMeas,PredictionN
   }
 };
 
-class PredictAndUpdateExample: public LWF::PredictionUpdate<Innovation,State,UpdateMeas,UpdateNoise,PredictionExample>{
+class PredictAndUpdateExample: public LWF::Update<Innovation,State,UpdateMeas,UpdateNoise,PredictionExample,true>{
  public:
-  using LWF::PredictionUpdate<Innovation,State,UpdateMeas,UpdateNoise,PredictionExample>::eval;
+  using LWF::Update<Innovation,State,UpdateMeas,UpdateNoise,PredictionExample,true>::eval;
   typedef State mtState;
   typedef typename mtState::mtCovMat mtCovMat;
   typedef UpdateMeas mtMeas;
@@ -335,9 +335,9 @@ class PredictionExample: public LWF::Prediction<State,PredictionMeas,PredictionN
   }
 };
 
-class PredictAndUpdateExample: public LWF::PredictionUpdate<Innovation,State,UpdateMeas,UpdateNoise,PredictionExample>{
+class PredictAndUpdateExample: public LWF::Update<Innovation,State,UpdateMeas,UpdateNoise,PredictionExample,true>{
  public:
-  using LWF::PredictionUpdate<Innovation,State,UpdateMeas,UpdateNoise,PredictionExample>::eval;
+  using LWF::Update<Innovation,State,UpdateMeas,UpdateNoise,PredictionExample,true>::eval;
   typedef State mtState;
   typedef typename mtState::mtCovMat mtCovMat;
   typedef UpdateMeas mtMeas;
