@@ -14,6 +14,7 @@
 #include "ModelBase.hpp"
 #include "Prediction.hpp"
 #include "State.hpp"
+#include "PropertyHandler.hpp"
 
 namespace LWF{
 
@@ -54,7 +55,7 @@ class UpdateOutlierDetection{
 };
 
 template<typename Innovation, typename State, typename Meas, typename Noise, typename Prediction = DummyPrediction, bool isCoupled = false>
-class Update: public ModelBase<State,Innovation,Meas,Noise>{
+class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHandler{
  public:
   typedef State mtState;
   typedef typename mtState::mtCovMat mtCovMat;
@@ -101,6 +102,11 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>{
     updnoiP_ = mtNoise::mtCovMat::Identity()*0.0001;
     preupdnoiP_ = Eigen::Matrix<double,mtPredictionNoise::D_,mtNoise::D_>::Zero();
     initUpdate();
+    doubleRegister_.registerDiagonalMatrix("UpdateNoise",updnoiP_);
+    if(isCoupled) doubleRegister_.registerMatrix("CorrelatedNoise",preupdnoiP_);
+    doubleRegister_.registerScalar("alpha",alpha_);
+    doubleRegister_.registerScalar("beta",beta_);
+    doubleRegister_.registerScalar("kappa",kappa_);
   };
   void refreshNoiseSigmaPoints(){
     if(noiP_ != updnoiP_){
@@ -162,16 +168,16 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>{
         return updateEKF(state,cov,meas);
     }
   }
-    int predictAndUpdate(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt){
-      switch(mode_){
-        case UpdateEKF:
-          return predictAndUpdateEKF(state,cov,meas,prediction,predictionMeas,dt);
-        case UpdateUKF:
-          return predictAndUpdateUKF(state,cov,meas,prediction,predictionMeas,dt);
-        default:
-          return predictAndUpdateEKF(state,cov,meas,prediction,predictionMeas,dt);
-      }
+  int predictAndUpdate(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt){
+    switch(mode_){
+      case UpdateEKF:
+        return predictAndUpdateEKF(state,cov,meas,prediction,predictionMeas,dt);
+      case UpdateUKF:
+        return predictAndUpdateUKF(state,cov,meas,prediction,predictionMeas,dt);
+      default:
+        return predictAndUpdateEKF(state,cov,meas,prediction,predictionMeas,dt);
     }
+  }
   int updateEKF(mtState& state, mtCovMat& cov, const mtMeas& meas){
     assert(!isCoupled);
     preProcess(state,cov,meas);

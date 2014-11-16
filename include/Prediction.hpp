@@ -14,6 +14,7 @@
 #include "ModelBase.hpp"
 #include "SigmaPoints.hpp"
 #include "State.hpp"
+#include "PropertyHandler.hpp"
 #include <map>
 
 namespace LWF{
@@ -24,7 +25,7 @@ enum PredictionFilteringMode{
 };
 
 template<typename State, typename Meas, typename Noise>
-class Prediction: public ModelBase<State,State,Meas,Noise>{
+class Prediction: public ModelBase<State,State,Meas,Noise>, public PropertyHandler{
  public:
   typedef State mtState;
   typedef typename mtState::mtCovMat mtCovMat;
@@ -48,6 +49,10 @@ class Prediction: public ModelBase<State,State,Meas,Noise>{
     kappa_ = 0.0;
     prenoiP_ = mtNoise::mtCovMat::Identity()*0.0001;
     resetPrediction();
+    doubleRegister_.registerDiagonalMatrix("PredictionNoise",prenoiP_);
+    doubleRegister_.registerScalar("alpha",alpha_);
+    doubleRegister_.registerScalar("beta",beta_);
+    doubleRegister_.registerScalar("kappa",kappa_);
   };
   void refreshNoiseSigmaPoints(){
     if(noiP_ != prenoiP_){
@@ -89,7 +94,7 @@ class Prediction: public ModelBase<State,State,Meas,Noise>{
   }
   int predict(mtState& state, mtCovMat& cov, double dt){
     mtMeas meas;
-    meas.setIdentity;
+    meas.setIdentity();
     noMeasCase(state,cov,meas,dt);
     switch(mode_){
       case PredictionEKF:
