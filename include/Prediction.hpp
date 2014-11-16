@@ -38,6 +38,7 @@ class Prediction: public ModelBase<State,State,Meas,Noise>{
   SigmaPoints<mtNoise,2*mtNoise::D_+1,2*(mtState::D_+mtNoise::D_)+1,2*mtState::D_> stateSigmaPointsNoi_;
   SigmaPoints<mtState,2*(mtState::D_+mtNoise::D_)+1,2*(mtState::D_+mtNoise::D_)+1,0> stateSigmaPointsPre_;
   bool mbMergePredictions_;
+  PredictionFilteringMode mode_;
   double alpha_;
   double beta_;
   double kappa_;
@@ -65,6 +66,7 @@ class Prediction: public ModelBase<State,State,Meas,Noise>{
     refreshUKFParameter();
   }
   virtual void refreshPropertiesCustom(){}
+  virtual void noMeasCase(mtState& state, mtCovMat& cov, const mtMeas& meas, double dt){};
   virtual void preProcess(mtState& state, mtCovMat& cov, const mtMeas& meas, double dt){};
   virtual void postProcess(mtState& state, mtCovMat& cov, const mtMeas& meas, double dt){};
   void resetPrediction(){
@@ -72,8 +74,24 @@ class Prediction: public ModelBase<State,State,Meas,Noise>{
     refreshUKFParameter();
   }
   virtual ~Prediction(){};
-  int predict(mtState& state, mtCovMat& cov, const mtMeas& meas, double dt, PredictionFilteringMode mode = PredictionEKF){
-    switch(mode){
+  void setMode(PredictionFilteringMode mode){
+    mode_ = mode;
+  }
+  int predict(mtState& state, mtCovMat& cov, const mtMeas& meas, double dt){
+    switch(mode_){
+      case PredictionEKF:
+        return predictEKF(state,cov,meas,dt);
+      case PredictionUKF:
+        return predictUKF(state,cov,meas,dt);
+      default:
+        return predictEKF(state,cov,meas,dt);
+    }
+  }
+  int predict(mtState& state, mtCovMat& cov, double dt){
+    mtMeas meas;
+    meas.setIdentity;
+    noMeasCase(state,cov,meas,dt);
+    switch(mode_){
       case PredictionEKF:
         return predictEKF(state,cov,meas,dt);
       case PredictionUKF:
@@ -108,8 +126,8 @@ class Prediction: public ModelBase<State,State,Meas,Noise>{
     state.fix();
     return 0;
   }
-  int predictMerged(mtState& state, mtCovMat& cov, double tStart, const typename std::map<double,mtMeas>::iterator itMeasStart, unsigned int N, PredictionFilteringMode mode = PredictionEKF){
-    switch(mode){
+  int predictMerged(mtState& state, mtCovMat& cov, double tStart, const typename std::map<double,mtMeas>::iterator itMeasStart, unsigned int N){
+    switch(mode_){
       case PredictionEKF:
         return predictMergedEKF(state,cov,tStart,itMeasStart,N);
       case PredictionUKF:

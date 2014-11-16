@@ -65,6 +65,8 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>{
   typedef typename Prediction::mtNoise mtPredictionNoise;
   typedef ComposedState<mtPredictionNoise,mtNoise> mtJointNoise;
   static const int noiseDim_ = (isCoupled)*mtPredictionNoise::D_+mtNoise::D_;
+  static const bool coupledToPrediction_ = isCoupled;
+  UpdateFilteringMode mode_;
   typename ModelBase<State,Innovation,Meas,Noise>::mtJacInput H_;
   typename ModelBase<State,Innovation,Meas,Noise>::mtJacNoise Hn_;
   typename mtNoise::mtCovMat updnoiP_;
@@ -95,6 +97,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>{
     alpha_ = 1e-3;
     beta_ = 2.0;
     kappa_ = 0.0;
+    mode_ = UpdateEKF;
     updnoiP_ = mtNoise::mtCovMat::Identity()*0.0001;
     preupdnoiP_ = Eigen::Matrix<double,mtPredictionNoise::D_,mtNoise::D_>::Zero();
     initUpdate();
@@ -146,8 +149,11 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>{
     }
   }
   virtual ~Update(){};
-  int updateState(mtState& state, mtCovMat& cov, const mtMeas& meas, UpdateFilteringMode mode = UpdateEKF){
-    switch(mode){
+  void setMode(UpdateFilteringMode mode){
+    mode_ = mode;
+  }
+  int updateState(mtState& state, mtCovMat& cov, const mtMeas& meas){
+    switch(mode_){
       case UpdateEKF:
         return updateEKF(state,cov,meas);
       case UpdateUKF:
@@ -156,8 +162,8 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>{
         return updateEKF(state,cov,meas);
     }
   }
-    int predictAndUpdate(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt, UpdateFilteringMode mode = UpdateEKF){
-      switch(mode){
+    int predictAndUpdate(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt){
+      switch(mode_){
         case UpdateEKF:
           return predictAndUpdateEKF(state,cov,meas,prediction,predictionMeas,dt);
         case UpdateUKF:
