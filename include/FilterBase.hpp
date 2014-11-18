@@ -19,7 +19,7 @@
 namespace LWF{
 
 template<typename State>
-class FilterState{
+class FilterState{ // TODO: include outlier detection
  public:
   typedef State mtState;
   typedef typename mtState::mtCovMat mtCovMat;
@@ -145,7 +145,7 @@ class FilterBase: public PropertyHandler{
   template<unsigned int i=0, typename std::enable_if<(i<nUpdates_-1)>::type* = nullptr>
   void checkUpdateWaitTime(double actualTime,double& time){
     std::get<i>(updateTimelineTuple_).waitTime(actualTime,time);
-    if(i+1<nUpdates_) checkUpdateWaitTime<i+1>(actualTime,time);
+    checkUpdateWaitTime<i+1>(actualTime,time);
   }
   template<unsigned int i=0, typename std::enable_if<(i==nUpdates_-1)>::type* = nullptr>
   void checkUpdateWaitTime(double actualTime,double& time){
@@ -223,7 +223,7 @@ class FilterBase: public PropertyHandler{
   void getNextUpdate(double actualTime, double& nextTime){
     double tNextUpdate;
     if(std::get<i>(updateTimelineTuple_).getNextTime(actualTime,tNextUpdate) && tNextUpdate < nextTime) nextTime = tNextUpdate;
-    if(i+1<nUpdates_) getNextUpdate<i+1>(actualTime, nextTime);
+    getNextUpdate<i+1>(actualTime, nextTime);
   }
   template<unsigned int i=0, typename std::enable_if<(i==nUpdates_-1)>::type* = nullptr>
   void getNextUpdate(double actualTime, double& nextTime){
@@ -246,7 +246,7 @@ class FilterBase: public PropertyHandler{
         std::cout << "Warning found multiple updates, only considering first" << std::endl;
       }
     }
-    if(i+1<nUpdates_) doCoupledPredictAndUpdateIfAvailable<i+1>(filterState,tNext,alreadyDone);
+    doCoupledPredictAndUpdateIfAvailable<i+1>(filterState,tNext,alreadyDone);
   }
   template<unsigned int i=0, typename std::enable_if<(i==nUpdates_-1 & std::tuple_element<i,decltype(mUpdates_)>::type::coupledToPrediction_)>::type* = nullptr>
   void doCoupledPredictAndUpdateIfAvailable(FilterState<mtState>& filterState, double tNext, bool& alreadyDone){
@@ -267,7 +267,7 @@ class FilterBase: public PropertyHandler{
   }
   template<unsigned int i=0, typename std::enable_if<(i<nUpdates_-1 & !std::tuple_element<i,decltype(mUpdates_)>::type::coupledToPrediction_)>::type* = nullptr>
   void doCoupledPredictAndUpdateIfAvailable(FilterState<mtState>& filterState, double tNext, bool& alreadyDone){
-    if(i+1<nUpdates_) doCoupledPredictAndUpdateIfAvailable<i+1>(filterState,tNext,alreadyDone);
+    doCoupledPredictAndUpdateIfAvailable<i+1>(filterState,tNext,alreadyDone);
   }
   template<unsigned int i=0, typename std::enable_if<(i==nUpdates_-1 & !std::tuple_element<i,decltype(mUpdates_)>::type::coupledToPrediction_)>::type* = nullptr>
   void doCoupledPredictAndUpdateIfAvailable(FilterState<mtState>& filterState, double tNext, bool& alreadyDone){
@@ -278,7 +278,7 @@ class FilterBase: public PropertyHandler{
           int r = std::get<i>(mUpdates_).updateState(filterState.state_,filterState.cov_,std::get<i>(updateTimelineTuple_).measMap_[tNext]);
           if(r!=0) std::cout << "Error during predictAndUpdate: " << r << std::endl;
     }
-    if(i+1<nUpdates_) doAvailableUpdates<i+1>(filterState,tNext);
+    doAvailableUpdates<i+1>(filterState,tNext);
   }
   template<unsigned int i=0, typename std::enable_if<(i==nUpdates_-1)>::type* = nullptr>
   void doAvailableUpdates(FilterState<mtState>& filterState, double tNext){
@@ -294,7 +294,7 @@ class FilterBase: public PropertyHandler{
   template<unsigned int i=0, typename std::enable_if<(i<nUpdates_-1)>::type* = nullptr>
   void cleanUpdateTimeline(const double& t){
     std::get<i>(updateTimelineTuple_).clean(t);
-    if(i+1<nUpdates_) cleanUpdateTimeline<i+1>(t);
+    cleanUpdateTimeline<i+1>(t);
   }
   template<unsigned int i=0, typename std::enable_if<(i==nUpdates_-1)>::type* = nullptr>
   void cleanUpdateTimeline(const double& t){

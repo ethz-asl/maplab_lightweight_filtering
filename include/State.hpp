@@ -13,8 +13,8 @@
 #include <unordered_map>
 #include "kindr/rotations/RotationEigen.hpp"
 #include "PropertyHandler.hpp"
-#include <boost/any.hpp>
 #include <type_traits>
+#include <tuple>
 
 namespace rot = kindr::rotations::eigen_impl;
 
@@ -589,6 +589,167 @@ class ComposedState<State>: public StateBase<ComposedState<State>,State::D_,Stat
   template<unsigned int i, typename std::enable_if<(i<State::E_)>::type* = nullptr>
   static unsigned int getId(){
     return State::template getId<i>();
+  };
+};
+
+template<unsigned int UI>
+constexpr unsigned int uisum(){
+  return UI;
+}
+
+template<unsigned int UI, unsigned int... UIL,typename std::enable_if<(sizeof...(UIL)>0)>::type* = nullptr>
+constexpr unsigned int uisum(){
+  return UI + uisum<UIL...>();
+}
+
+template<typename... States>
+class ComposedState2: public StateBase<ComposedState2<States...>,uisum<States::D_...>(),uisum<States::E_...>()>{
+ public:
+  typedef StateBase<ComposedState2<States...>,uisum<States::D_...>(),uisum<States::E_...>()> Base;
+  using Base::D_;
+  using Base::E_;
+  using typename Base::mtDifVec;
+  using typename Base::mtCovMat;
+  using Base::name_;
+  static const unsigned int N_ = sizeof...(States);
+  using mtTuple = std::tuple<States...>;
+  mtTuple mStates_;
+  ComposedState2(){}
+  ComposedState2(const ComposedState2<States...>& other){
+    mStates_ = other.mStates_;
+  }
+  void boxPlus(const mtDifVec& vecIn, ComposedState2<States...>& stateOut) const{
+    boxPlus_(vecIn,stateOut);
+  }
+  template<unsigned int i=0,unsigned int j=0,typename std::enable_if<(i<N_-1)>::type* = nullptr>
+  void boxPlus_(const mtDifVec& vecIn, ComposedState2<States...>& stateOut) const{
+    std::get<i>(mStates_).boxPlus(vecIn.template block<std::tuple_element<i,decltype(mStates_)>::type::D_,1>(j,0),std::get<i>(stateOut.mStates_));
+    boxPlus_<i+1,j+std::tuple_element<i,decltype(mStates_)>::type::D_>(vecIn,stateOut);
+  }
+  template<unsigned int i=0,unsigned int j=0,typename std::enable_if<(i==N_-1)>::type* = nullptr>
+  void boxPlus_(const mtDifVec& vecIn, ComposedState2<States...>& stateOut) const{
+    std::get<i>(mStates_).boxPlus(vecIn.template block<std::tuple_element<i,decltype(mStates_)>::type::D_,1>(j,0),std::get<i>(stateOut.mStates_));
+  }
+  void boxMinus(const ComposedState2<States...>& stateIn, mtDifVec& vecOut) const{
+    boxMinus_(stateIn,vecOut);
+  }
+  template<unsigned int i=0,unsigned int j=0,typename std::enable_if<(i<N_-1)>::type* = nullptr>
+  void boxMinus_(const ComposedState2<States...>& stateIn, mtDifVec& vecOut) const{
+    typename std::tuple_element<i,decltype(mStates_)>::type::mtDifVec difVec;
+    std::get<i>(mStates_).boxMinus(std::get<i>(stateIn.mStates_),difVec);
+    vecOut.template block<std::tuple_element<i,decltype(mStates_)>::type::D_,1>(j,0) = difVec;
+    boxMinus_<i+1,j+std::tuple_element<i,decltype(mStates_)>::type::D_>(stateIn,vecOut);
+  }
+  template<unsigned int i=0,unsigned int j=0,typename std::enable_if<(i==N_-1)>::type* = nullptr>
+  void boxMinus_(const ComposedState2<States...>& stateIn, mtDifVec& vecOut) const{
+    typename std::tuple_element<i,decltype(mStates_)>::type::mtDifVec difVec;
+    std::get<i>(mStates_).boxMinus(std::get<i>(stateIn.mStates_),difVec);
+    vecOut.template block<std::tuple_element<i,decltype(mStates_)>::type::D_,1>(j,0) = difVec;
+  }
+  void print() const{
+    print_();
+  }
+  template<unsigned int i=0,typename std::enable_if<(i<N_-1)>::type* = nullptr>
+  void print_() const{
+    std::get<i>(mStates_).print();
+    print_<i+1>();
+  }
+  template<unsigned int i=0,typename std::enable_if<(i==N_-1)>::type* = nullptr>
+  void print_() const{
+    std::get<i>(mStates_).print();
+  }
+  void setIdentity(){
+    setIdentity_();
+  }
+  template<unsigned int i=0,typename std::enable_if<(i<N_-1)>::type* = nullptr>
+  void setIdentity_(){
+    std::get<i>(mStates_).setIdentity();
+    setIdentity_<i+1>();
+  }
+  template<unsigned int i=0,typename std::enable_if<(i==N_-1)>::type* = nullptr>
+  void setIdentity_(){
+    std::get<i>(mStates_).setIdentity();
+  }
+  void setRandom(unsigned int s){
+    setRandom_(s);
+  }
+  template<unsigned int i=0,typename std::enable_if<(i<N_-1)>::type* = nullptr>
+  void setRandom_(unsigned int s){
+    std::get<i>(mStates_).setRandom(s);
+    setRandom_<i+1>(s);
+  }
+  template<unsigned int i=0,typename std::enable_if<(i==N_-1)>::type* = nullptr>
+  void setRandom_(unsigned int s){
+    std::get<i>(mStates_).setRandom(s);
+  }
+  void fix(){
+    fix_();
+  }
+  template<unsigned int i=0,typename std::enable_if<(i<N_-1)>::type* = nullptr>
+  void fix_(){
+    std::get<i>(mStates_).fix();
+    fix_<i+1>();
+  }
+  template<unsigned int i=0,typename std::enable_if<(i==N_-1)>::type* = nullptr>
+  void fix_(){
+    std::get<i>(mStates_).fix();
+  }
+  void registerToPropertyHandler(PropertyHandler* mtPropertyHandler, const std::string& str){
+    registerToPropertyHandler_(mtPropertyHandler,str);
+  }
+  template<unsigned int i=0,typename std::enable_if<(i<N_-1)>::type* = nullptr>
+  void registerToPropertyHandler_(PropertyHandler* mtPropertyHandler, const std::string& str){
+    std::get<i>(mStates_).registerToPropertyHandler(mtPropertyHandler,str);
+    registerToPropertyHandler_<i+1>(mtPropertyHandler,str);
+  }
+  template<unsigned int i=0,typename std::enable_if<(i==N_-1)>::type* = nullptr>
+  void registerToPropertyHandler_(PropertyHandler* mtPropertyHandler, const std::string& str){
+    std::get<i>(mStates_).registerToPropertyHandler(mtPropertyHandler,str);
+  }
+  void createDefaultNames(const std::string& str = ""){
+    name_ = str;
+    createDefaultNames_(str);
+  }
+  template<unsigned int i=0,typename std::enable_if<(i<N_-1)>::type* = nullptr>
+  void createDefaultNames_(const std::string& str){
+    std::get<i>(mStates_).createDefaultNames(str + "_" + std::to_string(i));
+    createDefaultNames_<i+1>(str);
+  }
+  template<unsigned int i=0,typename std::enable_if<(i==N_-1)>::type* = nullptr>
+  void createDefaultNames_(const std::string& str){
+    std::get<i>(mStates_).createDefaultNames(str + "_" + std::to_string(i));
+  }
+  template<unsigned int i, typename std::enable_if<(i<N_)>::type* = nullptr>
+  auto getState() -> decltype (std::get<i>(mStates_))& {
+    return std::get<i>(mStates_);
+  };
+  template<unsigned int i, typename std::enable_if<(i<N_)>::type* = nullptr>
+  const auto getState() const -> decltype (std::get<i>(mStates_))& {
+    return std::get<i>(mStates_);
+  };
+//  template<unsigned int j,unsigned int i=0,typename std::enable_if<(j<std::tuple_element<i,decltype(mStates_)>::type::E_) & i<N_>::type* = nullptr>
+//  auto getValue() -> decltype (std::get<i>(mStates_).template getValue<j>())& {
+//    return std::get<i>(mStates_).getValue<j>();
+//  };
+//  template<unsigned int j,unsigned int i=0,typename std::enable_if<(j>=std::tuple_element<i,decltype(mStates_)>::type::E_) & i<N_>::type* = nullptr>
+//  auto getValue() -> decltype (getValue<j-std::tuple_element<i,decltype(mStates_)>::type::E_,i+1>())& {
+//    return getValue<j-std::tuple_element<i,decltype(mStates_)>::type::E_,i+1>();
+//  };
+  template<unsigned int j,unsigned int i=0,typename std::enable_if<(j<std::tuple_element<i,decltype(mStates_)>::type::E_) & i<N_>::type* = nullptr>
+  const auto getValue() const -> decltype (std::get<i>(mStates_).template getValue<j>())& {
+    return std::get<i>(mStates_).getValue<j>();
+  };
+  template<unsigned int j,unsigned int i=0,typename std::enable_if<(j>=std::tuple_element<i,decltype(mStates_)>::type::E_) & i<N_>::type* = nullptr>
+  const auto getValue() const -> decltype (getValue<j-std::tuple_element<i,decltype(mStates_)>::type::E_,i+1>())& {
+    return getValue<j-std::tuple_element<i,decltype(mStates_)>::type::E_,i+1>();
+  };
+  template<unsigned int j,unsigned int i=0,unsigned int D=0,typename std::enable_if<(j<std::tuple_element<i,decltype(mStates_)>::type::E_) & i<N_>::type* = nullptr>
+  static unsigned int getId(){
+    return D + std::tuple_element<i,decltype(mStates_)>::type::template getId<j>();
+  };
+  template<unsigned int j,unsigned int i=0,unsigned int D=0,typename std::enable_if<(j>=std::tuple_element<i,decltype(mStates_)>::type::E_) & i<N_>::type* = nullptr>
+  static unsigned int getId(){
+    return getId<j-std::tuple_element<i,decltype(mStates_)>::type::E_,i+1,D+std::tuple_element<i,decltype(mStates_)>::type::D_>();
   };
 };
 
