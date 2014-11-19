@@ -25,7 +25,7 @@ enum UpdateFilteringMode{
 };
 
 template<unsigned int S, unsigned int N, unsigned int L>
-class UpdateOutlierDetectionBase{
+class OutlierDetectionBase{
  public:
   const unsigned int S_ = S;
   const unsigned int N_ = N;
@@ -34,13 +34,13 @@ class UpdateOutlierDetectionBase{
   bool enabled_;
   double mahalanobisTh_;
   unsigned int outlierCount_;
-  UpdateOutlierDetectionBase(){
+  OutlierDetectionBase(){
     mahalanobisTh_ = -0.0376136*N_*N_+1.99223*N_+2.05183; // Quadratic fit to chi square
     enabled_ = false;
     outlier_ = false;
     outlierCount_ = 0;
   }
-  virtual ~UpdateOutlierDetectionBase(){};
+  virtual ~OutlierDetectionBase(){};
   template<int D>
   void check(const Eigen::Matrix<double,D,1>& innVector,const Eigen::Matrix<double,D,D>& Py){
     const double d = ((innVector.block(S_,0,N_,1)).transpose()*Py.block(S_,S_,N_,N_).inverse()*innVector.block(S_,0,N_,1))(0,0);
@@ -60,16 +60,16 @@ class UpdateOutlierDetectionBase{
 };
 
 template<unsigned int S, unsigned int N, unsigned int... I>
-class UpdateOutlierDetectionNew: UpdateOutlierDetectionBase<S,N,sizeof...(I)/2+1>{ // TODO rename, implement doOutlierDetection
+class OutlierDetection: OutlierDetectionBase<S,N,sizeof...(I)/2+1>{
  public:
-  using UpdateOutlierDetectionBase<S,N,sizeof...(I)/2+1>::S_;
-  using UpdateOutlierDetectionBase<S,N,sizeof...(I)/2+1>::N_;
-  using UpdateOutlierDetectionBase<S,N,sizeof...(I)/2+1>::outlier_;
-  using UpdateOutlierDetectionBase<S,N,sizeof...(I)/2+1>::enabled_;
-  using UpdateOutlierDetectionBase<S,N,sizeof...(I)/2+1>::mahalanobisTh_;
-  using UpdateOutlierDetectionBase<S,N,sizeof...(I)/2+1>::outlierCount_;
-  using UpdateOutlierDetectionBase<S,N,sizeof...(I)/2+1>::check;
-  UpdateOutlierDetectionNew<I...> sub_;
+  using OutlierDetectionBase<S,N,sizeof...(I)/2+1>::S_;
+  using OutlierDetectionBase<S,N,sizeof...(I)/2+1>::N_;
+  using OutlierDetectionBase<S,N,sizeof...(I)/2+1>::outlier_;
+  using OutlierDetectionBase<S,N,sizeof...(I)/2+1>::enabled_;
+  using OutlierDetectionBase<S,N,sizeof...(I)/2+1>::mahalanobisTh_;
+  using OutlierDetectionBase<S,N,sizeof...(I)/2+1>::outlierCount_;
+  using OutlierDetectionBase<S,N,sizeof...(I)/2+1>::check;
+  OutlierDetection<I...> sub_;
   template<int dI, int dS>
   void doOutlierDetection(const Eigen::Matrix<double,dI,1>& innVector,Eigen::Matrix<double,dI,dI>& Py,Eigen::Matrix<double,dI,dS>& H){
     static_assert(dI>=S+N,"Outlier detection out of range"); // TODO: make static_asserts where possible
@@ -122,15 +122,15 @@ class UpdateOutlierDetectionNew: UpdateOutlierDetectionBase<S,N,sizeof...(I)/2+1
 };
 
 template<unsigned int S, unsigned int N>
-class UpdateOutlierDetectionNew<S,N>: UpdateOutlierDetectionBase<S,N,1>{
+class OutlierDetection<S,N>: OutlierDetectionBase<S,N,1>{
  public:
-  using UpdateOutlierDetectionBase<S,N,1>::S_;
-  using UpdateOutlierDetectionBase<S,N,1>::N_;
-  using UpdateOutlierDetectionBase<S,N,1>::outlier_;
-  using UpdateOutlierDetectionBase<S,N,1>::enabled_;
-  using UpdateOutlierDetectionBase<S,N,1>::mahalanobisTh_;
-  using UpdateOutlierDetectionBase<S,N,1>::outlierCount_;
-  using UpdateOutlierDetectionBase<S,N,1>::check;
+  using OutlierDetectionBase<S,N,1>::S_;
+  using OutlierDetectionBase<S,N,1>::N_;
+  using OutlierDetectionBase<S,N,1>::outlier_;
+  using OutlierDetectionBase<S,N,1>::enabled_;
+  using OutlierDetectionBase<S,N,1>::mahalanobisTh_;
+  using OutlierDetectionBase<S,N,1>::outlierCount_;
+  using OutlierDetectionBase<S,N,1>::check;
   template<int dI, int dS>
   void doOutlierDetection(const Eigen::Matrix<double,dI,1>& innVector,Eigen::Matrix<double,dI,dI>& Py,Eigen::Matrix<double,dI,dS>& H){
     static_assert(dI>=S+N,"Outlier detection out of range");
@@ -177,10 +177,10 @@ class UpdateOutlierDetectionNew<S,N>: UpdateOutlierDetectionBase<S,N,1>{
   }
 };
 
-class UpdateOutlierDetectionDefault: UpdateOutlierDetectionBase<0,0,0>{
+class OutlierDetectionDefault: OutlierDetectionBase<0,0,0>{
  public:
-  using UpdateOutlierDetectionBase<0,0,0>::mahalanobisTh_;
-  using UpdateOutlierDetectionBase<0,0,0>::outlierCount_;
+  using OutlierDetectionBase<0,0,0>::mahalanobisTh_;
+  using OutlierDetectionBase<0,0,0>::outlierCount_;
   template<int dI, int dS>
   void doOutlierDetection(const Eigen::Matrix<double,dI,1>& innVector,Eigen::Matrix<double,dI,dI>& Py,Eigen::Matrix<double,dI,dS>& H){
   }
@@ -205,7 +205,7 @@ class UpdateOutlierDetectionDefault: UpdateOutlierDetectionBase<0,0,0>{
   }
 };
 
-template<typename Innovation, typename State, typename Meas, typename Noise, typename Prediction = DummyPrediction, bool isCoupled = false, typename OutlierDetection = UpdateOutlierDetectionDefault> // TODO: change order
+template<typename Innovation, typename State, typename Meas, typename Noise, typename Prediction = DummyPrediction, bool isCoupled = false, typename OutlierDetection = OutlierDetectionDefault> // TODO: change order
 class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHandler{
  public:
   typedef State mtState;
@@ -213,6 +213,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
   typedef Innovation mtInnovation;
   typedef Meas mtMeas;
   typedef Noise mtNoise;
+  typedef OutlierDetection mtOutlierDetection;
   typedef typename Prediction::mtMeas mtPredictionMeas;
   typedef typename Prediction::mtNoise mtPredictionNoise;
   typedef ComposedState<mtPredictionNoise,mtNoise> mtJointNoise;
@@ -241,7 +242,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
   SigmaPoints<mtInnovation,2*(mtState::D_+noiseDim_)+1,2*(mtState::D_+noiseDim_)+1,0> innSigmaPoints_;
   SigmaPoints<LWF::VectorState<mtState::D_>,2*mtState::D_+1,2*mtState::D_+1,0> updateVecSP_;
   SigmaPoints<mtState,2*mtState::D_+1,2*mtState::D_+1,0> posterior_;
-  OutlierDetection updateOutlierDetection_;
+  OutlierDetection outlierDetection_;
   double alpha_;
   double beta_;
   double kappa_;
@@ -301,7 +302,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     refreshNoiseSigmaPoints();
     refreshJointNoiseSigmaPoints(mtPredictionNoise::mtCovMat::Identity());
     refreshUKFParameter();
-    updateOutlierDetection_.reset();
+    outlierDetection_.reset();
   }
   virtual ~Update(){};
   void setMode(UpdateFilteringMode mode){
@@ -339,7 +340,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     y_.boxMinus(yIdentity_,innVector_);
 
     // Outlier detection
-    updateOutlierDetection_.doOutlierDetection(innVector_,Py_,H_);
+    outlierDetection_.doOutlierDetection(innVector_,Py_,H_);
     Pyinv_.setIdentity();
     Py_.llt().solveInPlace(Pyinv_);
 
@@ -366,7 +367,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     Pyx_ = (innSigmaPoints_.getCovarianceMatrix(stateSigmaPoints_));
     y_.boxMinus(yIdentity_,innVector_);
 
-    updateOutlierDetection_.doOutlierDetection(innVector_,Py_,Pyx_);
+    outlierDetection_.doOutlierDetection(innVector_,Py_,Pyx_);
     Pyinv_.setIdentity();
     Py_.llt().solveInPlace(Pyinv_);
 
@@ -403,7 +404,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     y_.boxMinus(yIdentity_,innVector_);
 
     // Outlier detection
-    updateOutlierDetection_.doOutlierDetection(innVector_,Py_,H_);
+    outlierDetection_.doOutlierDetection(innVector_,Py_,H_);
     Pyinv_.setIdentity();
     Py_.llt().solveInPlace(Pyinv_);
 
@@ -440,7 +441,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     Pyx_ = (innSigmaPoints_.getCovarianceMatrix(coupledStateSigmaPointsPre_));
     y_.boxMinus(yIdentity_,innVector_);
 
-    updateOutlierDetection_.doOutlierDetection(innVector_,Py_,Pyx_);
+    outlierDetection_.doOutlierDetection(innVector_,Py_,Pyx_);
     Pyinv_.setIdentity();
     Py_.llt().solveInPlace(Pyinv_);
 
