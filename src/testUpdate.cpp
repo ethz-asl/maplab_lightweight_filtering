@@ -126,7 +126,7 @@ TYPED_TEST(UpdateModelTest, updateEKF) {
 
 // Test updateEKFWithOutlier
 TYPED_TEST(UpdateModelTest, updateEKFWithOutlier) {
-  this->testUpdate_.outlierDetectionVector_.push_back(LWF::UpdateOutlierDetection(0,2,7.21));
+  this->testUpdate_.updateOutlierDetection_.setEnabledAll(true);
   typename TestFixture::mtUpdateExample::mtState::mtCovMat cov;
   typename TestFixture::mtUpdateExample::mtState::mtCovMat updateCov;
   cov.setIdentity();
@@ -205,7 +205,7 @@ TYPED_TEST(UpdateModelTest, compareUpdate) {
   cov2 = TestFixture::mtUpdateExample::mtState::mtCovMat::Identity()*0.000001;
   state1 = this->testState_;
   state2 = this->testState_;
-  this->testUpdate_.outlierDetectionVector_.push_back(LWF::UpdateOutlierDetection(0,2,7.21));
+  this->testUpdate_.updateOutlierDetection_.setEnabledAll(true);
   this->testUpdate_.updateEKF(state1,cov1,this->testUpdateMeas_);
   this->testUpdate_.updateUKF(state2,cov2,this->testUpdateMeas_);
   state1.boxMinus(state2,dif);
@@ -250,8 +250,8 @@ TYPED_TEST(UpdateModelTest, predictAndUpdateEKF) {
   }
 
   // With outlier
-  this->testUpdate_.outlierDetectionVector_.push_back(LWF::UpdateOutlierDetection(0,2,7.21));
-  this->testPredictAndUpdate_.outlierDetectionVector_.push_back(LWF::UpdateOutlierDetection(0,2,7.21));
+  this->testUpdate_.updateOutlierDetection_.setEnabledAll(true);
+  this->testPredictAndUpdate_.updateOutlierDetection_.setEnabledAll(true);
   cov1 = TestFixture::mtUpdateExample::mtState::mtCovMat::Identity()*0.000001;
   cov2 = cov1;
   state1 = this->testState_;
@@ -301,8 +301,8 @@ TYPED_TEST(UpdateModelTest, predictAndUpdateUKF) {
   }
 
   // With outlier
-  this->testUpdate_.outlierDetectionVector_.push_back(LWF::UpdateOutlierDetection(0,2,7.21));
-  this->testPredictAndUpdate_.outlierDetectionVector_.push_back(LWF::UpdateOutlierDetection(0,2,7.21));
+  this->testUpdate_.updateOutlierDetection_.setEnabledAll(true);
+  this->testPredictAndUpdate_.updateOutlierDetection_.setEnabledAll(true);
   cov1 = TestFixture::mtUpdateExample::mtState::mtCovMat::Identity()*0.000001;
   cov2 = cov1;
   state1 = this->testState_;

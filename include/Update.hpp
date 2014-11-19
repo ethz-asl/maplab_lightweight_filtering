@@ -55,7 +55,8 @@ class UpdateOutlierDetectionBase{
   virtual bool isOutlier(unsigned int i) const = 0;
   virtual void setEnabled(unsigned int i,bool enabled) = 0;
   virtual void setEnabledAll(bool enabled) = 0;
-
+  virtual unsigned int& getCount(unsigned int i) = 0;
+  virtual double& getMahalTh(unsigned int i) = 0;
 };
 
 template<unsigned int S, unsigned int N, unsigned int... I>
@@ -67,13 +68,14 @@ class UpdateOutlierDetectionNew: UpdateOutlierDetectionBase<S,N,sizeof...(I)/2+1
   using UpdateOutlierDetectionBase<S,N,sizeof...(I)/2+1>::enabled_;
   using UpdateOutlierDetectionBase<S,N,sizeof...(I)/2+1>::mahalanobisTh_;
   using UpdateOutlierDetectionBase<S,N,sizeof...(I)/2+1>::outlierCount_;
+  using UpdateOutlierDetectionBase<S,N,sizeof...(I)/2+1>::check;
   UpdateOutlierDetectionNew<I...> sub_;
   template<int dI, int dS>
   void doOutlierDetection(const Eigen::Matrix<double,dI,1>& innVector,Eigen::Matrix<double,dI,dI>& Py,Eigen::Matrix<double,dI,dS>& H){
-//    static_assert(dI>=S_+N_); // TODO
+    static_assert(dI>=S+N,"Outlier detection out of range"); // TODO: make static_asserts where possible
     check(innVector,Py);
     sub_.doOutlierDetection(innVector,Py,H);
-    if(outlier_){
+    if(outlier_ && enabled_){
       Py.block(0,S_,dI,N_).setZero();
       Py.block(S_,0,N_,dI).setZero();
       Py.block(S_,S_,N_,N_).setIdentity();
@@ -103,6 +105,20 @@ class UpdateOutlierDetectionNew: UpdateOutlierDetectionBase<S,N,sizeof...(I)/2+1
     enabled_ = enabled;
     sub_.setEnabledAll(enabled);
   }
+  unsigned int& getCount(unsigned int i){
+    if(i==0){
+      return outlierCount_;
+    } else {
+      return sub_.getCount(i-1);
+    }
+  }
+  double& getMahalTh(unsigned int i){
+    if(i==0){
+      return mahalanobisTh_;
+    } else {
+      return sub_.getMahalTh(i-1);
+    }
+  }
 };
 
 template<unsigned int S, unsigned int N>
@@ -114,11 +130,12 @@ class UpdateOutlierDetectionNew<S,N>: UpdateOutlierDetectionBase<S,N,1>{
   using UpdateOutlierDetectionBase<S,N,1>::enabled_;
   using UpdateOutlierDetectionBase<S,N,1>::mahalanobisTh_;
   using UpdateOutlierDetectionBase<S,N,1>::outlierCount_;
+  using UpdateOutlierDetectionBase<S,N,1>::check;
   template<int dI, int dS>
   void doOutlierDetection(const Eigen::Matrix<double,dI,1>& innVector,Eigen::Matrix<double,dI,dI>& Py,Eigen::Matrix<double,dI,dS>& H){
-//    static_assert(dI>=S_+N_); // TODO
+    static_assert(dI>=S+N,"Outlier detection out of range");
     check(innVector,Py);
-    if(outlier_){
+    if(outlier_ && enabled_){
       Py.block(0,S_,dI,N_).setZero();
       Py.block(S_,0,N_,dI).setZero();
       Py.block(S_,S_,N_,N_).setIdentity();
@@ -146,10 +163,24 @@ class UpdateOutlierDetectionNew<S,N>: UpdateOutlierDetectionBase<S,N,1>{
   void setEnabledAll(bool enabled){
     enabled_ = enabled;
   }
+  unsigned int& getCount(unsigned int i){
+    if(i>0){
+      std::cout << "Error: too large index in getCount()" << std::endl;
+    }
+    return outlierCount_;
+  }
+  double& getMahalTh(unsigned int i){
+    if(i>0){
+      std::cout << "Error: too large index in getMahalTh()" << std::endl;
+    }
+    return mahalanobisTh_;
+  }
 };
 
 class UpdateOutlierDetectionDefault: UpdateOutlierDetectionBase<0,0,0>{
  public:
+  using UpdateOutlierDetectionBase<0,0,0>::mahalanobisTh_;
+  using UpdateOutlierDetectionBase<0,0,0>::outlierCount_;
   template<int dI, int dS>
   void doOutlierDetection(const Eigen::Matrix<double,dI,1>& innVector,Eigen::Matrix<double,dI,dI>& Py,Eigen::Matrix<double,dI,dS>& H){
   }
@@ -164,38 +195,14 @@ class UpdateOutlierDetectionDefault: UpdateOutlierDetectionBase<0,0,0>{
   }
   void setEnabledAll(bool enabled){
   }
-};
-
-class UpdateOutlierDetection{
- public:
-  UpdateOutlierDetection(){}
-  UpdateOutlierDetection(int startIndex,int endIndex,double mahalanobisTh){
-    startIndex_ = startIndex;
-    endIndex_ = endIndex;
-    N_ = endIndex_ - startIndex_ + 1;
-    mahalanobisTh_ = mahalanobisTh;
-    reset();
+  unsigned int& getCount(unsigned int i){
+    std::cout << "Error: too large index in getCount()" << std::endl;
+    return outlierCount_;
   }
-  template<int D>
-  void check(const Eigen::Matrix<double,D,1>& innVector,const Eigen::Matrix<double,D,D>& Py){
-    const double d = ((innVector.block(startIndex_,0,N_,1)).transpose()*Py.block(startIndex_,startIndex_,N_,N_).inverse()*innVector.block(startIndex_,0,N_,1))(0,0);
-    outlier_ = d > mahalanobisTh_;
-    if(outlier_){
-      outlierCount_++;
-    } else {
-      outlierCount_ = 0;
-    }
+  double& getMahalTh(unsigned int i){
+    std::cout << "Error: too large index in getMahalTh()" << std::endl;
+    return mahalanobisTh_;
   }
-  void reset(){
-    outlier_ = false;
-    outlierCount_ = 0;
-  }
-  bool outlier_;
-  unsigned int startIndex_;
-  unsigned int endIndex_;
-  unsigned int N_;
-  double mahalanobisTh_;
-  unsigned int outlierCount_;
 };
 
 template<typename Innovation, typename State, typename Meas, typename Noise, typename Prediction = DummyPrediction, bool isCoupled = false, typename OutlierDetection = UpdateOutlierDetectionDefault> // TODO: change order
@@ -226,7 +233,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
   mtInnovation yIdentity_;
   typename mtState::mtDifVec updateVec_;
   Eigen::Matrix<double,mtState::D_,mtInnovation::D_> K_;
-  Eigen::Matrix<double,mtState::D_,mtInnovation::D_> Pxy_;
+  Eigen::Matrix<double,mtInnovation::D_,mtState::D_> Pyx_;
   SigmaPoints<mtState,2*mtState::D_+1,2*(mtState::D_+noiseDim_)+1,0> stateSigmaPoints_;
   SigmaPoints<mtState,2*(mtState::D_+mtJointNoise::D_)+1,2*(mtState::D_+mtJointNoise::D_)+1,0> coupledStateSigmaPointsPre_;
   SigmaPoints<mtNoise,2*mtNoise::D_+1,2*(mtState::D_+mtNoise::D_)+1,2*mtState::D_> stateSigmaPointsNoi_;
@@ -234,7 +241,6 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
   SigmaPoints<mtInnovation,2*(mtState::D_+noiseDim_)+1,2*(mtState::D_+noiseDim_)+1,0> innSigmaPoints_;
   SigmaPoints<LWF::VectorState<mtState::D_>,2*mtState::D_+1,2*mtState::D_+1,0> updateVecSP_;
   SigmaPoints<mtState,2*mtState::D_+1,2*mtState::D_+1,0> posterior_;
-  std::vector<UpdateOutlierDetection> outlierDetectionVector_;
   OutlierDetection updateOutlierDetection_;
   double alpha_;
   double beta_;
@@ -296,9 +302,6 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     refreshJointNoiseSigmaPoints(mtPredictionNoise::mtCovMat::Identity());
     refreshUKFParameter();
     updateOutlierDetection_.reset();
-    for(unsigned int i=0;i<outlierDetectionVector_.size();i++){
-      outlierDetectionVector_[i].reset();
-    }
   }
   virtual ~Update(){};
   void setMode(UpdateFilteringMode mode){
@@ -336,24 +339,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     y_.boxMinus(yIdentity_,innVector_);
 
     // Outlier detection
-    for(typename std::vector<UpdateOutlierDetection>::iterator it = outlierDetectionVector_.begin(); it != outlierDetectionVector_.end(); it++){
-      it->check(innVector_,Py_);
-      if(it->outlier_){
-        Py_.block(0,it->startIndex_,mtInnovation::D_,it->N_).setZero();
-        Py_.block(it->startIndex_,0,it->N_,mtInnovation::D_).setZero();
-        Py_.block(it->startIndex_,it->startIndex_,it->N_,it->N_).setIdentity();
-        H_.block(it->startIndex_,0,it->N_,mtState::D_).setZero();
-      }
-    }
-//    updateOutlierDetection_.check();
-//    for(unsigned int i=0;i<updateOutlierDetection_.L_;i++){
-//      if(updateOutlierDetection_.isOutlier(i)){
-//        Py_.block(0,it->startIndex_,mtInnovation::D_,it->N_).setZero();
-//        Py_.block(it->startIndex_,0,it->N_,mtInnovation::D_).setZero();
-//        Py_.block(it->startIndex_,it->startIndex_,it->N_,it->N_).setIdentity();
-//        H_.block(it->startIndex_,0,it->N_,mtState::D_).setZero();
-//      }
-//    }
+    updateOutlierDetection_.doOutlierDetection(innVector_,Py_,H_);
     Pyinv_.setIdentity();
     Py_.llt().solveInPlace(Pyinv_);
 
@@ -377,24 +363,15 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     }
     y_ = innSigmaPoints_.getMean();
     Py_ = innSigmaPoints_.getCovarianceMatrix(y_);
-    Pxy_ = (innSigmaPoints_.getCovarianceMatrix(stateSigmaPoints_)).transpose();
+    Pyx_ = (innSigmaPoints_.getCovarianceMatrix(stateSigmaPoints_));
     y_.boxMinus(yIdentity_,innVector_);
 
-    // Outlier detection
-    for(typename std::vector<UpdateOutlierDetection>::iterator it = outlierDetectionVector_.begin(); it != outlierDetectionVector_.end(); it++){
-      it->check(innVector_,Py_);
-      if(it->outlier_){
-        Py_.block(0,it->startIndex_,mtInnovation::D_,it->N_).setZero();
-        Py_.block(it->startIndex_,0,it->N_,mtInnovation::D_).setZero();
-        Py_.block(it->startIndex_,it->startIndex_,it->N_,it->N_).setIdentity();
-        Pxy_.block(0,it->startIndex_,mtState::D_,it->N_).setZero();
-      }
-    }
+    updateOutlierDetection_.doOutlierDetection(innVector_,Py_,Pyx_);
     Pyinv_.setIdentity();
     Py_.llt().solveInPlace(Pyinv_);
 
     // Kalman Update
-    K_ = Pxy_*Pyinv_;
+    K_ = Pyx_.transpose()*Pyinv_;
     cov = cov - K_*Py_*K_.transpose();
     updateVec_ = -K_*innVector_;
 
@@ -426,15 +403,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     y_.boxMinus(yIdentity_,innVector_);
 
     // Outlier detection
-    for(typename std::vector<UpdateOutlierDetection>::iterator it = outlierDetectionVector_.begin(); it != outlierDetectionVector_.end(); it++){
-      it->check(innVector_,Py_);
-      if(it->outlier_){
-        Py_.block(0,it->startIndex_,mtInnovation::D_,it->N_).setZero();
-        Py_.block(it->startIndex_,0,it->N_,mtInnovation::D_).setZero();
-        Py_.block(it->startIndex_,it->startIndex_,it->N_,it->N_).setIdentity();
-        H_.block(it->startIndex_,0,it->N_,mtState::D_).setZero();
-      }
-    }
+    updateOutlierDetection_.doOutlierDetection(innVector_,Py_,H_);
     Pyinv_.setIdentity();
     Py_.llt().solveInPlace(Pyinv_);
 
@@ -468,24 +437,15 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     }
     y_ = innSigmaPoints_.getMean();
     Py_ = innSigmaPoints_.getCovarianceMatrix(y_);
-    Pxy_ = (innSigmaPoints_.getCovarianceMatrix(coupledStateSigmaPointsPre_)).transpose();
+    Pyx_ = (innSigmaPoints_.getCovarianceMatrix(coupledStateSigmaPointsPre_));
     y_.boxMinus(yIdentity_,innVector_);
 
-    // Outlier detection
-    for(typename std::vector<UpdateOutlierDetection>::iterator it = outlierDetectionVector_.begin(); it != outlierDetectionVector_.end(); it++){
-      it->check(innVector_,Py_);
-      if(it->outlier_){
-        Py_.block(0,it->startIndex_,mtInnovation::D_,it->N_).setZero();
-        Py_.block(it->startIndex_,0,it->N_,mtInnovation::D_).setZero();
-        Py_.block(it->startIndex_,it->startIndex_,it->N_,it->N_).setIdentity();
-        Pxy_.block(0,it->startIndex_,mtState::D_,it->N_).setZero();
-      }
-    }
+    updateOutlierDetection_.doOutlierDetection(innVector_,Py_,Pyx_);
     Pyinv_.setIdentity();
     Py_.llt().solveInPlace(Pyinv_);
 
     // Kalman Update
-    K_ = Pxy_*Pyinv_;
+    K_ = Pyx_.transpose()*Pyinv_;
     cov = cov - K_*Py_*K_.transpose();
     updateVec_ = -K_*innVector_;
 
