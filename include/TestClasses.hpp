@@ -82,6 +82,9 @@ class PredictionMeas: public LWF::StateSVQ<0,2,0>{
   PredictionMeas(){};
   ~PredictionMeas(){};
 };
+class UpdateOutlierDetectionExample: public LWF::UpdateOutlierDetectionNew<0,3>{
+
+};
 
 class UpdateExample: public LWF::Update<Innovation,State,UpdateMeas,UpdateNoise>{
  public:

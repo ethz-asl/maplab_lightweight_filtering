@@ -15,6 +15,7 @@
 #include "Prediction.hpp"
 #include "State.hpp"
 #include "PropertyHandler.hpp"
+#include <initializer_list>
 
 namespace LWF{
 
@@ -23,9 +24,81 @@ enum UpdateFilteringMode{
   UpdateUKF
 };
 
-template<typename Innovation>
+template<unsigned int S, unsigned int N, unsigned int... I>
+class UpdateOutlierDetectionNew{ // TODO rename, implement doOutlierDetection, support enabling and disabling
+ public:
+  const unsigned int S_ = S;
+  const unsigned int N_ = N;
+  bool outlier_;
+  double mahalanobisTh_;
+  unsigned int outlierCount_;
+  UpdateOutlierDetectionNew<I...> sub_;
+  UpdateOutlierDetectionNew(){
+    mahalanobisTh_ = -0.0376136*N_*N_+1.99223*N_+2.05183; // Quadratic fit to chi square
+    reset();
+  }
+  template<int D>
+  void check(const Eigen::Matrix<double,D,1>& innVector,const Eigen::Matrix<double,D,D>& Py){
+    const double d = ((innVector.block(S_,0,N_,1)).transpose()*Py.block(S_,S_,N_,N_).inverse()*innVector.block(S_,0,N_,1))(0,0);
+    outlier_ = d > mahalanobisTh_;
+    if(outlier_){
+      outlierCount_++;
+    } else {
+      outlierCount_ = 0;
+    }
+    sub_.check(innVector,Py);
+  }
+  void reset(){
+    outlier_ = false;
+    outlierCount_ = 0;
+    sub_.reset();
+  }
+  bool isOutlier(unsigned int i){
+    if(i==0){
+      return outlier_;
+    } else {
+      return sub_.isOutlier();
+    }
+  }
+};
+
+template<unsigned int S, unsigned int N>
+class UpdateOutlierDetectionNew<S,N>{
+ public:
+  const unsigned int S_ = S;
+  const unsigned int N_ = N;
+  bool outlier_;
+  double mahalanobisTh_;
+  unsigned int outlierCount_;
+  UpdateOutlierDetectionNew(){
+    mahalanobisTh_ = -0.0376136*N_*N_+1.99223*N_+2.05183; // Quadratic fit to chi square
+    reset();
+  }
+  template<int D>
+  void check(const Eigen::Matrix<double,D,1>& innVector,const Eigen::Matrix<double,D,D>& Py){
+    const double d = ((innVector.block(S_,0,N_,1)).transpose()*Py.block(S_,S_,N_,N_).inverse()*innVector.block(S_,0,N_,1))(0,0);
+    outlier_ = d > mahalanobisTh_;
+    if(outlier_){
+      outlierCount_++;
+    } else {
+      outlierCount_ = 0;
+    }
+  }
+  void reset(){
+    outlier_ = false;
+    outlierCount_ = 0;
+  }
+  bool isOutlier(unsigned int i){
+    if(i>0){
+      std::cout << "Error: wrong index in isOutlier()" << std::endl;
+    }
+    return outlier_;
+  }
+};
+
 class UpdateOutlierDetection{
  public:
+  UpdateOutlierDetection(){}
   UpdateOutlierDetection(int startIndex,int endIndex,double mahalanobisTh){
     startIndex_ = startIndex;
     endIndex_ = endIndex;
@@ -33,7 +106,8 @@ class UpdateOutlierDetection{
     mahalanobisTh_ = mahalanobisTh;
     reset();
   }
-  void check(const typename Innovation::mtDifVec& innVector,const Eigen::Matrix<double,Innovation::D_,Innovation::D_>& Py){
+  template<int D>
+  void check(const Eigen::Matrix<double,D,1>& innVector,const Eigen::Matrix<double,D,D>& Py){
     const double d = ((innVector.block(startIndex_,0,N_,1)).transpose()*Py.block(startIndex_,startIndex_,N_,N_).inverse()*innVector.block(startIndex_,0,N_,1))(0,0);
     outlier_ = d > mahalanobisTh_;
     if(outlier_){
@@ -90,7 +164,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
   SigmaPoints<mtInnovation,2*(mtState::D_+noiseDim_)+1,2*(mtState::D_+noiseDim_)+1,0> innSigmaPoints_;
   SigmaPoints<LWF::VectorState<mtState::D_>,2*mtState::D_+1,2*mtState::D_+1,0> updateVecSP_;
   SigmaPoints<mtState,2*mtState::D_+1,2*mtState::D_+1,0> posterior_;
-  std::vector<UpdateOutlierDetection<Innovation>> outlierDetectionVector_;
+  std::vector<UpdateOutlierDetection> outlierDetectionVector_;
   double alpha_;
   double beta_;
   double kappa_;
@@ -190,7 +264,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     y_.boxMinus(yIdentity_,innVector_);
 
     // Outlier detection
-    for(typename std::vector<UpdateOutlierDetection<Innovation>>::iterator it = outlierDetectionVector_.begin(); it != outlierDetectionVector_.end(); it++){
+    for(typename std::vector<UpdateOutlierDetection>::iterator it = outlierDetectionVector_.begin(); it != outlierDetectionVector_.end(); it++){
       it->check(innVector_,Py_);
       if(it->outlier_){
         Py_.block(0,it->startIndex_,mtInnovation::D_,it->N_).setZero();
@@ -226,7 +300,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     y_.boxMinus(yIdentity_,innVector_);
 
     // Outlier detection
-    for(typename std::vector<UpdateOutlierDetection<Innovation>>::iterator it = outlierDetectionVector_.begin(); it != outlierDetectionVector_.end(); it++){
+    for(typename std::vector<UpdateOutlierDetection>::iterator it = outlierDetectionVector_.begin(); it != outlierDetectionVector_.end(); it++){
       it->check(innVector_,Py_);
       if(it->outlier_){
         Py_.block(0,it->startIndex_,mtInnovation::D_,it->N_).setZero();
@@ -271,7 +345,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     y_.boxMinus(yIdentity_,innVector_);
 
     // Outlier detection
-    for(typename std::vector<UpdateOutlierDetection<Innovation>>::iterator it = outlierDetectionVector_.begin(); it != outlierDetectionVector_.end(); it++){
+    for(typename std::vector<UpdateOutlierDetection>::iterator it = outlierDetectionVector_.begin(); it != outlierDetectionVector_.end(); it++){
       it->check(innVector_,Py_);
       if(it->outlier_){
         Py_.block(0,it->startIndex_,mtInnovation::D_,it->N_).setZero();
@@ -317,7 +391,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     y_.boxMinus(yIdentity_,innVector_);
 
     // Outlier detection
-    for(typename std::vector<UpdateOutlierDetection<Innovation>>::iterator it = outlierDetectionVector_.begin(); it != outlierDetectionVector_.end(); it++){
+    for(typename std::vector<UpdateOutlierDetection>::iterator it = outlierDetectionVector_.begin(); it != outlierDetectionVector_.end(); it++){
       it->check(innVector_,Py_);
       if(it->outlier_){
         Py_.block(0,it->startIndex_,mtInnovation::D_,it->N_).setZero();
