@@ -101,7 +101,7 @@ class ScalarState: public StateBase<ScalarState,1>{
     return s_;
   };
   template<unsigned int i, typename std::enable_if<(i==0)>::type* = nullptr>
-  static unsigned int getId(){
+  static constexpr unsigned int getId(){
     return 0;
   };
   void createDefaultNames(const std::string& str = ""){
@@ -167,7 +167,7 @@ class VectorState: public StateBase<VectorState<N>,N>{
     return v_;
   };
   template<unsigned int i, typename std::enable_if<(i==0)>::type* = nullptr>
-  static unsigned int getId(){
+  static constexpr unsigned int getId(){
     return 0;
   };
   void createDefaultNames(const std::string& str = ""){
@@ -232,7 +232,7 @@ class QuaternionState: public StateBase<QuaternionState,3>{
     return q_;
   };
   template<unsigned int i, typename std::enable_if<(i==0)>::type* = nullptr>
-  static unsigned int getId(){
+  static constexpr unsigned int getId(){
     return 0;
   };
   void createDefaultNames(const std::string& str = ""){
@@ -307,7 +307,7 @@ class NormalVectorState: public StateBase<NormalVectorState,2>{
     return n_;
   };
   template<unsigned int i, typename std::enable_if<(i==0)>::type* = nullptr>
-  static unsigned int getId(){
+  static constexpr unsigned int getId(){
     return 0;
   };
   void createDefaultNames(const std::string& str = ""){
@@ -420,7 +420,7 @@ class StateArray: public StateBase<StateArray<State,N>,State::D_*N,State::E_*N>{
     return array_[i/State::E_].getValue<i%State::E_>();
   };
   template<unsigned int i, typename std::enable_if<(i<E_)>::type* = nullptr>
-  static unsigned int getId(){
+  static constexpr unsigned int getId(){
     return (i/State::E_)*State::D_ + State::template getId<i%State::E_>();
   };
 };
@@ -519,11 +519,11 @@ class ComposedState: public StateBase<ComposedState<State,Arguments...>,State::D
     return subComposedState_.getValue<i-State::E_>();
   };
   template<unsigned int i, typename std::enable_if<(i<State::E_)>::type* = nullptr>
-  static unsigned int getId(){
+  static constexpr unsigned int getId(){
     return State::template getId<i>();
   };
   template<unsigned int i, typename std::enable_if<(i>=State::E_ & i<E_)>::type* = nullptr>
-  static unsigned int getId(){
+  static constexpr unsigned int getId(){
     return State::D_ + ComposedState<Arguments...>::template getId<i-State::E_>();
   };
 };
@@ -587,7 +587,7 @@ class ComposedState<State>: public StateBase<ComposedState<State>,State::D_,Stat
     return state_.getValue<i>();
   };
   template<unsigned int i, typename std::enable_if<(i<State::E_)>::type* = nullptr>
-  static unsigned int getId(){
+  static constexpr unsigned int getId(){
     return State::template getId<i>();
   };
 };
