@@ -633,12 +633,11 @@ class dimOfTuple<std::tuple<Args...>>{
 };
 
 template<typename... States>
-class ComposedState2{ // TODO: missing Identity
+class ComposedState2{
  public:
   typedef decltype(std::tuple_cat(typename convert_in_tuple<States>::t()...)) t;
   static const unsigned int D_ = dimOfTuple<t>::D_;
   static const unsigned int E_ = std::tuple_size<t>::value;
-  static const unsigned int N_ = E_; // TODO: remove either or
   typedef Eigen::Matrix<double,D_,1> mtDifVec;
   typedef Eigen::Matrix<double,D_,D_> mtCovMat;
   std::string name_;
@@ -648,26 +647,26 @@ class ComposedState2{ // TODO: missing Identity
   void boxPlus(const mtDifVec& vecIn, ComposedState2<States...>& stateOut) const{
     boxPlus_(vecIn,stateOut);
   }
-  template<unsigned int i=0,unsigned int j=0,typename std::enable_if<(i<N_-1)>::type* = nullptr>
+  template<unsigned int i=0,unsigned int j=0,typename std::enable_if<(i<E_-1)>::type* = nullptr>
   void boxPlus_(const mtDifVec& vecIn, ComposedState2<States...>& stateOut) const{
     std::get<i>(mStates_).boxPlus(vecIn.template block<std::tuple_element<i,decltype(mStates_)>::type::D_,1>(j,0),std::get<i>(stateOut.mStates_));
     boxPlus_<i+1,j+std::tuple_element<i,decltype(mStates_)>::type::D_>(vecIn,stateOut);
   }
-  template<unsigned int i=0,unsigned int j=0,typename std::enable_if<(i==N_-1)>::type* = nullptr>
+  template<unsigned int i=0,unsigned int j=0,typename std::enable_if<(i==E_-1)>::type* = nullptr>
   void boxPlus_(const mtDifVec& vecIn, ComposedState2<States...>& stateOut) const{
     std::get<i>(mStates_).boxPlus(vecIn.template block<std::tuple_element<i,decltype(mStates_)>::type::D_,1>(j,0),std::get<i>(stateOut.mStates_));
   }
   void boxMinus(const ComposedState2<States...>& stateIn, mtDifVec& vecOut) const{
     boxMinus_(stateIn,vecOut);
   }
-  template<unsigned int i=0,unsigned int j=0,typename std::enable_if<(i<N_-1)>::type* = nullptr>
+  template<unsigned int i=0,unsigned int j=0,typename std::enable_if<(i<E_-1)>::type* = nullptr>
   void boxMinus_(const ComposedState2<States...>& stateIn, mtDifVec& vecOut) const{
     typename std::tuple_element<i,decltype(mStates_)>::type::mtDifVec difVec;
     std::get<i>(mStates_).boxMinus(std::get<i>(stateIn.mStates_),difVec);
     vecOut.template block<std::tuple_element<i,decltype(mStates_)>::type::D_,1>(j,0) = difVec;
     boxMinus_<i+1,j+std::tuple_element<i,decltype(mStates_)>::type::D_>(stateIn,vecOut);
   }
-  template<unsigned int i=0,unsigned int j=0,typename std::enable_if<(i==N_-1)>::type* = nullptr>
+  template<unsigned int i=0,unsigned int j=0,typename std::enable_if<(i==E_-1)>::type* = nullptr>
   void boxMinus_(const ComposedState2<States...>& stateIn, mtDifVec& vecOut) const{
     typename std::tuple_element<i,decltype(mStates_)>::type::mtDifVec difVec;
     std::get<i>(mStates_).boxMinus(std::get<i>(stateIn.mStates_),difVec);
@@ -676,60 +675,60 @@ class ComposedState2{ // TODO: missing Identity
   void print() const{
     print_();
   }
-  template<unsigned int i=0,typename std::enable_if<(i<N_-1)>::type* = nullptr>
+  template<unsigned int i=0,typename std::enable_if<(i<E_-1)>::type* = nullptr>
   void print_() const{
     std::get<i>(mStates_).print();
     print_<i+1>();
   }
-  template<unsigned int i=0,typename std::enable_if<(i==N_-1)>::type* = nullptr>
+  template<unsigned int i=0,typename std::enable_if<(i==E_-1)>::type* = nullptr>
   void print_() const{
     std::get<i>(mStates_).print();
   }
   void setIdentity(){
     setIdentity_();
   }
-  template<unsigned int i=0,typename std::enable_if<(i<N_-1)>::type* = nullptr>
+  template<unsigned int i=0,typename std::enable_if<(i<E_-1)>::type* = nullptr>
   void setIdentity_(){
     std::get<i>(mStates_).setIdentity();
     setIdentity_<i+1>();
   }
-  template<unsigned int i=0,typename std::enable_if<(i==N_-1)>::type* = nullptr>
+  template<unsigned int i=0,typename std::enable_if<(i==E_-1)>::type* = nullptr>
   void setIdentity_(){
     std::get<i>(mStates_).setIdentity();
   }
   void setRandom(unsigned int s){
     setRandom_(s);
   }
-  template<unsigned int i=0,typename std::enable_if<(i<N_-1)>::type* = nullptr>
+  template<unsigned int i=0,typename std::enable_if<(i<E_-1)>::type* = nullptr>
   void setRandom_(unsigned int s){
     std::get<i>(mStates_).setRandom(s);
     setRandom_<i+1>(s);
   }
-  template<unsigned int i=0,typename std::enable_if<(i==N_-1)>::type* = nullptr>
+  template<unsigned int i=0,typename std::enable_if<(i==E_-1)>::type* = nullptr>
   void setRandom_(unsigned int s){
     std::get<i>(mStates_).setRandom(s);
   }
   void fix(){
     fix_();
   }
-  template<unsigned int i=0,typename std::enable_if<(i<N_-1)>::type* = nullptr>
+  template<unsigned int i=0,typename std::enable_if<(i<E_-1)>::type* = nullptr>
   void fix_(){
     std::get<i>(mStates_).fix();
     fix_<i+1>();
   }
-  template<unsigned int i=0,typename std::enable_if<(i==N_-1)>::type* = nullptr>
+  template<unsigned int i=0,typename std::enable_if<(i==E_-1)>::type* = nullptr>
   void fix_(){
     std::get<i>(mStates_).fix();
   }
   void registerToPropertyHandler(PropertyHandler* mtPropertyHandler, const std::string& str){
     registerToPropertyHandler_(mtPropertyHandler,str);
   }
-  template<unsigned int i=0,typename std::enable_if<(i<N_-1)>::type* = nullptr>
+  template<unsigned int i=0,typename std::enable_if<(i<E_-1)>::type* = nullptr>
   void registerToPropertyHandler_(PropertyHandler* mtPropertyHandler, const std::string& str){
     std::get<i>(mStates_).registerToPropertyHandler(mtPropertyHandler,str);
     registerToPropertyHandler_<i+1>(mtPropertyHandler,str);
   }
-  template<unsigned int i=0,typename std::enable_if<(i==N_-1)>::type* = nullptr>
+  template<unsigned int i=0,typename std::enable_if<(i==E_-1)>::type* = nullptr>
   void registerToPropertyHandler_(PropertyHandler* mtPropertyHandler, const std::string& str){
     std::get<i>(mStates_).registerToPropertyHandler(mtPropertyHandler,str);
   }
@@ -737,12 +736,12 @@ class ComposedState2{ // TODO: missing Identity
     name_ = str;
     createDefaultNames_(str);
   }
-  template<unsigned int i=0,typename std::enable_if<(i<N_-1)>::type* = nullptr>
+  template<unsigned int i=0,typename std::enable_if<(i<E_-1)>::type* = nullptr>
   void createDefaultNames_(const std::string& str){
     std::get<i>(mStates_).createDefaultNames(str + "_" + std::to_string(i));
     createDefaultNames_<i+1>(str);
   }
-  template<unsigned int i=0,typename std::enable_if<(i==N_-1)>::type* = nullptr>
+  template<unsigned int i=0,typename std::enable_if<(i==E_-1)>::type* = nullptr>
   void createDefaultNames_(const std::string& str){
     std::get<i>(mStates_).createDefaultNames(str + "_" + std::to_string(i));
   }
@@ -758,10 +757,15 @@ class ComposedState2{ // TODO: missing Identity
   static constexpr unsigned int getId(){
     return D;
   };
-  template<unsigned int i,unsigned int D=0,typename std::enable_if<(i>0 & i<N_)>::type* = nullptr>
+  template<unsigned int i,unsigned int D=0,typename std::enable_if<(i>0 & i<E_)>::type* = nullptr>
   static constexpr unsigned int getId(){
     return getId<i-1,D+std::tuple_element<i-1,decltype(mStates_)>::type::D_>();
   };
+  static ComposedState2 Identity(){
+    ComposedState2 identity;
+    identity.setIdentity();
+    return identity;
+  }
 };
 
 template <typename... Args>
@@ -878,7 +882,7 @@ class AugmentedState: public State{
   }
 };
 
-static Eigen::Matrix3d Lmat (Eigen::Vector3d a) { // TODO
+static Eigen::Matrix3d Lmat (Eigen::Vector3d a) {
   double aNorm = a.norm();
   double factor1 = 0;
   double factor2 = 0;
