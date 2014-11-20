@@ -426,10 +426,10 @@ TYPED_TEST(FilterBaseTest, highlevel3) {
   this->testFilter_.addPredictionMeas(this->testPredictionMeas_,0.4);
   this->testFilter_.addPredictionMeas(this->testPredictionMeas_,0.5);
   this->testFilter_.template addUpdateMeas<0>(this->testUpdateMeas_,0.5);
-    this->testFilter_.mPrediction_.predictEKF(this->testState_,this->testCov_,this->testPredictionMeas_,0.1);
+    this->testFilter_.mPrediction_.performPredictionEKF(this->testState_,this->testCov_,this->testPredictionMeas_,0.1);
     std::get<0>(this->testFilter_.mUpdates_).updateEKF(this->testState_,this->testCov_,this->testUpdateMeas_);
     this->testFilter_.mPrediction_.predictMergedEKF(this->testState_,this->testCov_,0.1,next(this->testFilter_.predictionTimeline_.measMap_.begin(),1),3);
-    this->testFilter_.mPrediction_.predictEKF(this->testState_,this->testCov_,this->testPredictionMeas_,0.1);
+    this->testFilter_.mPrediction_.performPredictionEKF(this->testState_,this->testCov_,this->testPredictionMeas_,0.1);
     std::get<0>(this->testFilter_.mUpdates_).updateEKF(this->testState_,this->testCov_,this->testUpdateMeas_);
   this->testFilter_.updateSafe();
   // TestFilter2

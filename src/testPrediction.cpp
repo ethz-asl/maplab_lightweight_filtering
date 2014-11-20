@@ -72,8 +72,8 @@ TYPED_TEST(PredictionModelTest, FDjacobians) {
   };
 }
 
-// Test predictEKF
-TYPED_TEST(PredictionModelTest, predictEKF) {
+// Test performPredictionEKF
+TYPED_TEST(PredictionModelTest, performPredictionEKF) {
   typename TestFixture::mtPredictionExample::mtState::mtCovMat cov;
   cov.setIdentity();
   typename TestFixture::mtPredictionExample::mtJacInput F = this->testPrediction_.jacInput(this->testState_,this->testPredictionMeas_,this->dt_);
@@ -81,7 +81,7 @@ TYPED_TEST(PredictionModelTest, predictEKF) {
   typename TestFixture::mtPredictionExample::mtState::mtCovMat predictedCov = F*cov*F.transpose() + Fn*this->testPrediction_.prenoiP_*Fn.transpose();
   typename TestFixture::mtPredictionExample::mtState state;
   state = this->testState_;
-  this->testPrediction_.predictEKF(state,cov,this->testPredictionMeas_,this->dt_);
+  this->testPrediction_.performPredictionEKF(state,cov,this->testPredictionMeas_,this->dt_);
   typename TestFixture::mtPredictionExample::mtState::mtDifVec dif;
   state.boxMinus(this->testPrediction_.eval(this->testState_,this->testPredictionMeas_,this->dt_),dif);
   switch(TestFixture::id_){
@@ -105,8 +105,8 @@ TYPED_TEST(PredictionModelTest, comparePredict) {
   typename TestFixture::mtPredictionExample::mtState::mtCovMat cov2 = cov1;
   typename TestFixture::mtPredictionExample::mtState state1 = this->testState_;
   typename TestFixture::mtPredictionExample::mtState state2 = this->testState_;
-  this->testPrediction_.predictEKF(state1,cov1,this->testPredictionMeas_,this->dt_);
-  this->testPrediction_.predictUKF(state2,cov2,this->testPredictionMeas_,this->dt_);
+  this->testPrediction_.performPredictionEKF(state1,cov1,this->testPredictionMeas_,this->dt_);
+  this->testPrediction_.performPredictionUKF(state2,cov2,this->testPredictionMeas_,this->dt_);
   typename TestFixture::mtPredictionExample::mtState::mtDifVec dif;
   state1.boxMinus(state2,dif);
   switch(TestFixture::id_){

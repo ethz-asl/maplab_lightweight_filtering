@@ -231,7 +231,7 @@ TYPED_TEST(UpdateModelTest, predictAndUpdateEKF) {
   typename TestFixture::mtUpdateExample::mtState::mtCovMat cov2 = cov1;
   typename TestFixture::mtUpdateExample::mtState state1 = this->testState_;
   typename TestFixture::mtUpdateExample::mtState state2 = this->testState_;
-  this->testPrediction_.predictEKF(state1,cov1,this->testPredictionMeas_,this->dt_);
+  this->testPrediction_.performPredictionEKF(state1,cov1,this->testPredictionMeas_,this->dt_);
   this->testUpdate_.updateEKF(state1,cov1,this->testUpdateMeas_);
   this->testPredictAndUpdate_.predictAndUpdateEKF(state2,cov2,this->testUpdateMeas_,this->testPrediction_,this->testPredictionMeas_,this->dt_);
   typename TestFixture::mtUpdateExample::mtState::mtDifVec dif;
@@ -255,7 +255,7 @@ TYPED_TEST(UpdateModelTest, predictAndUpdateEKF) {
   cov2 = cov1;
   state1 = this->testState_;
   state2 = this->testState_;
-  this->testPrediction_.predictEKF(state1,cov1,this->testPredictionMeas_,this->dt_);
+  this->testPrediction_.performPredictionEKF(state1,cov1,this->testPredictionMeas_,this->dt_);
   this->testUpdate_.updateEKF(state1,cov1,this->testUpdateMeas_,&this->testOutlierDetection_);
   this->testPredictAndUpdate_.predictAndUpdateEKF(state2,cov2,this->testUpdateMeas_,this->testPrediction_,this->testPredictionMeas_,this->dt_,&this->testOutlierDetection_);
   state1.boxMinus(state2,dif);
@@ -280,7 +280,7 @@ TYPED_TEST(UpdateModelTest, predictAndUpdateUKF) {
   typename TestFixture::mtUpdateExample::mtState::mtCovMat cov2 = cov1;
   typename TestFixture::mtUpdateExample::mtState state1 = this->testState_;
   typename TestFixture::mtUpdateExample::mtState state2 = this->testState_;
-  this->testPrediction_.predictUKF(state1,cov1,this->testPredictionMeas_,this->dt_);
+  this->testPrediction_.performPredictionUKF(state1,cov1,this->testPredictionMeas_,this->dt_);
   this->testUpdate_.updateUKF(state1,cov1,this->testUpdateMeas_);
   this->testPredictAndUpdate_.predictAndUpdateUKF(state2,cov2,this->testUpdateMeas_,this->testPrediction_,this->testPredictionMeas_,this->dt_);
   typename TestFixture::mtUpdateExample::mtState::mtDifVec dif;
@@ -304,7 +304,7 @@ TYPED_TEST(UpdateModelTest, predictAndUpdateUKF) {
   cov2 = cov1;
   state1 = this->testState_;
   state2 = this->testState_;
-  this->testPrediction_.predictUKF(state1,cov1,this->testPredictionMeas_,this->dt_);
+  this->testPrediction_.performPredictionUKF(state1,cov1,this->testPredictionMeas_,this->dt_);
   this->testUpdate_.updateUKF(state1,cov1,this->testUpdateMeas_,&this->testOutlierDetection_);
   this->testPredictAndUpdate_.predictAndUpdateUKF(state2,cov2,this->testUpdateMeas_,this->testPrediction_,this->testPredictionMeas_,this->dt_,&this->testOutlierDetection_);
   state1.boxMinus(state2,dif);

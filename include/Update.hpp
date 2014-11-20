@@ -51,6 +51,7 @@ class OutlierDetectionBase{
       outlierCount_ = 0;
     }
   }
+  virtual void registerToPropertyHandler(PropertyHandler* mpPropertyHandler, const std::string& str, unsigned int i = 0) = 0;
   virtual void reset() = 0;
   virtual bool isOutlier(unsigned int i) const = 0;
   virtual void setEnabled(unsigned int i,bool enabled) = 0;
@@ -81,6 +82,10 @@ class OutlierDetection: OutlierDetectionBase<S,N,sizeof...(I)/2+1>{
       Py.block(S_,S_,N_,N_).setIdentity();
       H.block(S_,0,N_,dS).setZero();
     }
+  }
+  void registerToPropertyHandler(PropertyHandler* mpPropertyHandler, const std::string& str, unsigned int i = 0){
+    mpPropertyHandler->doubleRegister_.registerScalar(str + std::to_string(i), mahalanobisTh_);
+    sub_.registerToPropertyHandler(mpPropertyHandler,str,i+1);
   }
   void reset(){
     outlier_ = false;
@@ -142,6 +147,9 @@ class OutlierDetection<S,N>: OutlierDetectionBase<S,N,1>{
       H.block(S_,0,N_,dS).setZero();
     }
   }
+  void registerToPropertyHandler(PropertyHandler* mpPropertyHandler, const std::string& str, unsigned int i = 0){
+    mpPropertyHandler->doubleRegister_.registerScalar(str + std::to_string(i), mahalanobisTh_);
+  }
   void reset(){
     outlier_ = false;
     outlierCount_ = 0;
@@ -183,6 +191,8 @@ class OutlierDetectionDefault: OutlierDetectionBase<0,0,0>{
   using OutlierDetectionBase<0,0,0>::outlierCount_;
   template<int dI, int dS>
   void doOutlierDetection(const Eigen::Matrix<double,dI,1>& innVector,Eigen::Matrix<double,dI,dI>& Py,Eigen::Matrix<double,dI,dS>& H){
+  }
+  void registerToPropertyHandler(PropertyHandler* mpPropertyHandler, const std::string& str, unsigned int i = 0){
   }
   void reset(){
   }

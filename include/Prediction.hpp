@@ -83,30 +83,30 @@ class Prediction: public ModelBase<State,State,Meas,Noise>, public PropertyHandl
   void setMode(PredictionFilteringMode mode){
     mode_ = mode;
   }
-  int predict(mtState& state, mtCovMat& cov, const mtMeas& meas, double dt){
+  int performPrediction(mtState& state, mtCovMat& cov, const mtMeas& meas, double dt){
     switch(mode_){
       case PredictionEKF:
-        return predictEKF(state,cov,meas,dt);
+        return performPredictionEKF(state,cov,meas,dt);
       case PredictionUKF:
-        return predictUKF(state,cov,meas,dt);
+        return performPredictionUKF(state,cov,meas,dt);
       default:
-        return predictEKF(state,cov,meas,dt);
+        return performPredictionEKF(state,cov,meas,dt);
     }
   }
-  int predict(mtState& state, mtCovMat& cov, double dt){
+  int performPrediction(mtState& state, mtCovMat& cov, double dt){
     mtMeas meas;
     meas.setIdentity();
     noMeasCase(state,cov,meas,dt);
     switch(mode_){
       case PredictionEKF:
-        return predictEKF(state,cov,meas,dt);
+        return performPredictionEKF(state,cov,meas,dt);
       case PredictionUKF:
-        return predictUKF(state,cov,meas,dt);
+        return performPredictionUKF(state,cov,meas,dt);
       default:
-        return predictEKF(state,cov,meas,dt);
+        return performPredictionEKF(state,cov,meas,dt);
     }
   }
-  int predictEKF(mtState& state, mtCovMat& cov, const mtMeas& meas, double dt){
+  int performPredictionEKF(mtState& state, mtCovMat& cov, const mtMeas& meas, double dt){
     preProcess(state,cov,meas,dt);
     F_ = this->jacInput(state,meas,dt);
     Fn_ = this->jacNoise(state,meas,dt);
@@ -116,7 +116,7 @@ class Prediction: public ModelBase<State,State,Meas,Noise>, public PropertyHandl
     state.fix();
     return 0;
   }
-  int predictUKF(mtState& state, mtCovMat& cov, const mtMeas& meas, double dt){
+  int performPredictionUKF(mtState& state, mtCovMat& cov, const mtMeas& meas, double dt){
     refreshNoiseSigmaPoints();
     preProcess(state,cov,meas,dt);
     stateSigmaPoints_.computeFromGaussian(state,cov);

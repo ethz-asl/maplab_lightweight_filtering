@@ -123,11 +123,13 @@ class FilterBase: public PropertyHandler{
   template<unsigned int i=0, typename std::enable_if<(i<nUpdates_-1)>::type* = nullptr>
   void registerUpdates(){
     registerSubHandler("Update" + std::to_string(i),std::get<i>(mUpdates_));
+    std::get<i>(init_.outlierDetectionTuple_).registerToPropertyHandler(&std::get<i>(mUpdates_),"MahalanobisTh");
     registerUpdates<i+1>();
   }
   template<unsigned int i=0, typename std::enable_if<(i==nUpdates_-1)>::type* = nullptr>
   void registerUpdates(){
     registerSubHandler("Update" + std::to_string(i),std::get<i>(mUpdates_));
+    std::get<i>(init_.outlierDetectionTuple_).registerToPropertyHandler(&std::get<i>(mUpdates_),"MahalanobisTh");
   }
   void addPredictionMeas(const typename Prediction::mtMeas& meas, double t){
     if(t<= safeWarningTime_) std::cout << "Warning: included measurements before safeTime" << std::endl;
@@ -200,8 +202,8 @@ class FilterBase: public PropertyHandler{
           filterState.t_ = next(predictionTimeline_.itMeas_,countMergeable-1)->first;
         } else {
           for(unsigned int i=0;i<countMergeable;i++){
-            r = mPrediction_.predict(filterState.state_,filterState.cov_,predictionTimeline_.itMeas_->second,predictionTimeline_.itMeas_->first-filterState.t_);
-            if(r!=0) std::cout << "Error during predict: " << r << std::endl;
+            r = mPrediction_.performPrediction(filterState.state_,filterState.cov_,predictionTimeline_.itMeas_->second,predictionTimeline_.itMeas_->first-filterState.t_);
+            if(r!=0) std::cout << "Error during performPrediction: " << r << std::endl;
             filterState.t_ = predictionTimeline_.itMeas_->first;
             predictionTimeline_.itMeas_++;
           }
@@ -214,11 +216,11 @@ class FilterBase: public PropertyHandler{
       if(!doneCoupledUpdate){
         predictionTimeline_.itMeas_ = predictionTimeline_.measMap_.upper_bound(filterState.t_); // Reset Iterator
         if(predictionTimeline_.itMeas_ != predictionTimeline_.measMap_.end()){
-          r = mPrediction_.predict(filterState.state_,filterState.cov_,predictionTimeline_.itMeas_->second,tNext-filterState.t_);
-          if(r!=0) std::cout << "Error during predict: " << r << std::endl;
+          r = mPrediction_.performPrediction(filterState.state_,filterState.cov_,predictionTimeline_.itMeas_->second,tNext-filterState.t_);
+          if(r!=0) std::cout << "Error during performPrediction: " << r << std::endl;
         } else {
-          r = mPrediction_.predict(filterState.state_,filterState.cov_,tNext-filterState.t_); // TODO: rename performPrediction...
-          if(r!=0) std::cout << "Error during predict: " << r << std::endl;
+          r = mPrediction_.performPrediction(filterState.state_,filterState.cov_,tNext-filterState.t_); // TODO: rename performPrediction...
+          if(r!=0) std::cout << "Error during performPrediction: " << r << std::endl;
         }
       }
       filterState.t_ = tNext;
