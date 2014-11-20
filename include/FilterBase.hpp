@@ -87,7 +87,7 @@ class MeasurementTimeline{
 };
 
 template<typename Prediction,typename... Updates>
-class FilterBase: public PropertyHandler{ // TODO: reset (including outliers)
+class FilterBase: public PropertyHandler{
  public:
   typedef typename Prediction::mtState mtState;
   typedef typename mtState::mtCovMat mtCovMat;
@@ -109,12 +109,17 @@ class FilterBase: public PropertyHandler{ // TODO: reset (including outliers)
     doubleRegister_.registerDiagonalMatrix("Init.Covariance.p",init_.cov_);
     registerSubHandler("Prediction",mPrediction_);
     registerUpdates();
-    safeWarningTime_ = 0.0;
-    frontWarningTime_ = 0.0;
-    gotFrontWarning_ = false;
+    reset();
   };
   virtual ~FilterBase(){
   };
+  void reset(double t = 0.0){
+    safe_ = init_;
+    front_ = init_;
+    safeWarningTime_ = t;
+    frontWarningTime_ = t;
+    gotFrontWarning_ = false;
+  }
   template<unsigned int i=0, typename std::enable_if<(i<nUpdates_-1)>::type* = nullptr>
   void registerUpdates(){
     registerSubHandler("Update" + std::to_string(i),std::get<i>(mUpdates_));
