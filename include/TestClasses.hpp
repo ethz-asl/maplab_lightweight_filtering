@@ -85,9 +85,9 @@ class PredictionMeas: public LWF::StateSVQ<0,2,0>{
 class OutlierDetectionExample: public LWF::OutlierDetection<0,3>{
 };
 
-class UpdateExample: public LWF::Update<Innovation,State,UpdateMeas,UpdateNoise,LWF::DummyPrediction,false,OutlierDetectionExample>{
+class UpdateExample: public LWF::Update<Innovation,State,UpdateMeas,UpdateNoise,OutlierDetectionExample,LWF::DummyPrediction,false>{
  public:
-  using LWF::Update<Innovation,State,UpdateMeas,UpdateNoise,LWF::DummyPrediction,false,OutlierDetectionExample>::eval;
+  using LWF::Update<Innovation,State,UpdateMeas,UpdateNoise,OutlierDetectionExample,LWF::DummyPrediction,false>::eval;
   typedef State mtState;
   typedef typename mtState::mtCovMat mtCovMat;
   typedef UpdateMeas mtMeas;
@@ -178,9 +178,9 @@ class PredictionExample: public LWF::Prediction<State,PredictionMeas,PredictionN
   }
 };
 
-class PredictAndUpdateExample: public LWF::Update<Innovation,State,UpdateMeas,UpdateNoise,PredictionExample,true,OutlierDetectionExample>{
+class PredictAndUpdateExample: public LWF::Update<Innovation,State,UpdateMeas,UpdateNoise,OutlierDetectionExample,PredictionExample,true>{
  public:
-  using LWF::Update<Innovation,State,UpdateMeas,UpdateNoise,PredictionExample,true,OutlierDetectionExample>::eval;
+  using LWF::Update<Innovation,State,UpdateMeas,UpdateNoise,OutlierDetectionExample,PredictionExample,true>::eval;
   typedef State mtState;
   typedef typename mtState::mtCovMat mtCovMat;
   typedef UpdateMeas mtMeas;
@@ -274,9 +274,9 @@ class PredictionMeas: public LWF::StateSVQ<0,1,0>{
 class OutlierDetectionExample: public LWF::OutlierDetection<0,3>{
 };
 
-class UpdateExample: public LWF::Update<Innovation,State,UpdateMeas,UpdateNoise,LWF::DummyPrediction,false,OutlierDetectionExample>{
+class UpdateExample: public LWF::Update<Innovation,State,UpdateMeas,UpdateNoise,OutlierDetectionExample,LWF::DummyPrediction,false>{
  public:
-  using LWF::Update<Innovation,State,UpdateMeas,UpdateNoise,LWF::DummyPrediction,false,OutlierDetectionExample>::eval;
+  using LWF::Update<Innovation,State,UpdateMeas,UpdateNoise,OutlierDetectionExample,LWF::DummyPrediction,false>::eval;
   typedef State mtState;
   typedef typename mtState::mtCovMat mtCovMat;
   typedef UpdateMeas mtMeas;
@@ -339,9 +339,9 @@ class PredictionExample: public LWF::Prediction<State,PredictionMeas,PredictionN
   }
 };
 
-class PredictAndUpdateExample: public LWF::Update<Innovation,State,UpdateMeas,UpdateNoise,PredictionExample,true,OutlierDetectionExample>{
+class PredictAndUpdateExample: public LWF::Update<Innovation,State,UpdateMeas,UpdateNoise,OutlierDetectionExample,PredictionExample,true>{
  public:
-  using LWF::Update<Innovation,State,UpdateMeas,UpdateNoise,PredictionExample,true,OutlierDetectionExample>::eval;
+  using LWF::Update<Innovation,State,UpdateMeas,UpdateNoise,OutlierDetectionExample,PredictionExample,true>::eval;
   typedef State mtState;
   typedef typename mtState::mtCovMat mtCovMat;
   typedef UpdateMeas mtMeas;

@@ -27,7 +27,7 @@ class SigmaPoints{
   double gamma_ = 1.0;
   mtState sigmaPoints_[N];
   SigmaPoints(){
-    assert(N_+O_<=L_);
+    static_assert(N_+O_<=L_, "Bad dimensions for sigmapoints");
   };
   mtState getMean() const{
     typename mtState::mtDifVec vec;
@@ -78,7 +78,7 @@ class SigmaPoints{
     return C;
   };
   void computeFromGaussian(const mtState mean, const typename mtState::mtCovMat &P){
-    assert(N_==2*mtState::D_+1);
+    static_assert(N_==2*mtState::D_+1, "computeFromGaussian() requires matching sigmapoints size");
     Eigen::LDLT<typename mtState::mtCovMat> ldltOfP(P);
     typename mtState::mtCovMat ldltL = ldltOfP.matrixL();
     typename mtState::mtCovMat ldltD = ldltOfP.vectorD().asDiagonal();
@@ -103,7 +103,7 @@ class SigmaPoints{
     }
   };
   void computeFromGaussian(const mtState mean, const typename mtState::mtCovMat &P, const typename mtState::mtCovMat &Q){
-    assert(N_==2*mtState::D_+1);
+    static_assert(N_==2*mtState::D_+1, "computeFromGaussian() requires matching sigmapoints size");
     // The square root of a matrix is not unique, here is a way to influence it by means of an orthonormal matrix Q
     Eigen::LDLT<typename mtState::mtCovMat> ldltOfP(Q.transpose()*P*Q); //
     typename mtState::mtCovMat ldltL = ldltOfP.matrixL();

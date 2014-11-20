@@ -281,20 +281,27 @@ class FilterBase: public PropertyHandler{
   template<unsigned int i=0, typename std::enable_if<(i==nUpdates_-1 & !std::tuple_element<i,decltype(mUpdates_)>::type::coupledToPrediction_)>::type* = nullptr>
   void doCoupledPredictAndUpdateIfAvailable(mtFilterState& filterState, double tNext, bool& alreadyDone){
   }
-  template<unsigned int i=0, typename std::enable_if<(i<nUpdates_-1)>::type* = nullptr>
+  template<unsigned int i=0, typename std::enable_if<(i<nUpdates_-1 & !std::tuple_element<i,decltype(mUpdates_)>::type::coupledToPrediction_)>::type* = nullptr>
   void doAvailableUpdates(mtFilterState& filterState, double tNext){
-    if(!std::get<i>(mUpdates_).coupledToPrediction_ && std::get<i>(updateTimelineTuple_).hasMeasurementAt(tNext)){
+    if(std::get<i>(updateTimelineTuple_).hasMeasurementAt(tNext)){
           int r = std::get<i>(mUpdates_).performUpdate(filterState.state_,filterState.cov_,std::get<i>(updateTimelineTuple_).measMap_[tNext],&std::get<i>(filterState.outlierDetectionTuple_));
           if(r!=0) std::cout << "Error during update: " << r << std::endl;
     }
     doAvailableUpdates<i+1>(filterState,tNext);
   }
-  template<unsigned int i=0, typename std::enable_if<(i==nUpdates_-1)>::type* = nullptr>
+  template<unsigned int i=0, typename std::enable_if<(i==nUpdates_-1 & !std::tuple_element<i,decltype(mUpdates_)>::type::coupledToPrediction_)>::type* = nullptr>
   void doAvailableUpdates(mtFilterState& filterState, double tNext){
-    if(!std::get<i>(mUpdates_).coupledToPrediction_ && std::get<i>(updateTimelineTuple_).hasMeasurementAt(tNext)){
+    if(std::get<i>(updateTimelineTuple_).hasMeasurementAt(tNext)){
           int r = std::get<i>(mUpdates_).performUpdate(filterState.state_,filterState.cov_,std::get<i>(updateTimelineTuple_).measMap_[tNext],&std::get<i>(filterState.outlierDetectionTuple_));
           if(r!=0) std::cout << "Error during update: " << r << std::endl;
     }
+  }
+  template<unsigned int i=0, typename std::enable_if<(i<nUpdates_-1 & std::tuple_element<i,decltype(mUpdates_)>::type::coupledToPrediction_)>::type* = nullptr>
+  void doAvailableUpdates(mtFilterState& filterState, double tNext){
+    doAvailableUpdates<i+1>(filterState,tNext);
+  }
+  template<unsigned int i=0, typename std::enable_if<(i==nUpdates_-1 & std::tuple_element<i,decltype(mUpdates_)>::type::coupledToPrediction_)>::type* = nullptr>
+  void doAvailableUpdates(mtFilterState& filterState, double tNext){
   }
   void clean(const double& t){
     predictionTimeline_.clean(t);

@@ -73,7 +73,7 @@ class OutlierDetection: OutlierDetectionBase<S,N,sizeof...(I)/2+1>{
   OutlierDetection<I...> sub_;
   template<int dI, int dS>
   void doOutlierDetection(const Eigen::Matrix<double,dI,1>& innVector,Eigen::Matrix<double,dI,dI>& Py,Eigen::Matrix<double,dI,dS>& H){
-    static_assert(dI>=S+N,"Outlier detection out of range"); // TODO: make static_asserts where possible
+    static_assert(dI>=S+N,"Outlier detection out of range");
     check(innVector,Py);
     sub_.doOutlierDetection(innVector,Py,H);
     if(outlier_ && enabled_){
@@ -215,7 +215,7 @@ class OutlierDetectionDefault: OutlierDetectionBase<0,0,0>{
   }
 };
 
-template<typename Innovation, typename State, typename Meas, typename Noise, typename Prediction = DummyPrediction, bool isCoupled = false, typename OutlierDetection = OutlierDetectionDefault> // TODO: change order
+template<typename Innovation, typename State, typename Meas, typename Noise, typename OutlierDetection = OutlierDetectionDefault, typename Prediction = DummyPrediction, bool isCoupled = false>
 class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHandler{
  public:
   typedef State mtState;
@@ -337,7 +337,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     }
   }
   int performUpdateEKF(mtState& state, mtCovMat& cov, const mtMeas& meas, mtOutlierDetection* mpOutlierDetection = nullptr){
-    assert(!isCoupled);
+    static_assert(!isCoupled, "performUpdateEKF() does not exist for coupled update");
     preProcess(state,cov,meas);
     H_ = this->jacInput(state,meas);
     Hn_ = this->jacNoise(state,meas);
@@ -361,7 +361,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     return 0;
   }
   int performUpdateUKF(mtState& state, mtCovMat& cov, const mtMeas& meas, mtOutlierDetection* mpOutlierDetection = nullptr){
-    assert(!isCoupled);
+    static_assert(!isCoupled, "performUpdateUKF() does not exist for coupled update");
     refreshNoiseSigmaPoints();
     preProcess(state,cov,meas);
     stateSigmaPoints_.computeFromGaussian(state,cov);
@@ -395,7 +395,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     return 0;
   }
   int performPredictionAndUpdateEKF(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt, mtOutlierDetection* mpOutlierDetection = nullptr){
-    assert(isCoupled);
+    static_assert(isCoupled, "performPredictionAndUpdateEKF() does not exist for uncoupled update");
     preProcess(state,cov,meas,prediction,predictionMeas,dt);
     // Predict
     prediction.F_ = prediction.jacInput(state,predictionMeas,dt);
@@ -425,7 +425,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     return 0;
   }
   int performPredictionAndUpdateUKF(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt, mtOutlierDetection* mpOutlierDetection = nullptr){
-    assert(isCoupled);
+    static_assert(isCoupled, "performPredictionAndUpdateUKF() does not exist for uncoupled update");
     refreshJointNoiseSigmaPoints(prediction.prenoiP_);
     preProcess(state,cov,meas,prediction,predictionMeas,dt);
     // Predict
