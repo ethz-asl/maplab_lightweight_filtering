@@ -316,27 +316,27 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
   void setMode(UpdateFilteringMode mode){
     mode_ = mode;
   }
-  int updateState(mtState& state, mtCovMat& cov, const mtMeas& meas, mtOutlierDetection* mpOutlierDetection = nullptr){
+  int performUpdate(mtState& state, mtCovMat& cov, const mtMeas& meas, mtOutlierDetection* mpOutlierDetection = nullptr){
     switch(mode_){
       case UpdateEKF:
-        return updateEKF(state,cov,meas,mpOutlierDetection);
+        return performUpdateEKF(state,cov,meas,mpOutlierDetection);
       case UpdateUKF:
-        return updateUKF(state,cov,meas,mpOutlierDetection);
+        return performUpdateUKF(state,cov,meas,mpOutlierDetection);
       default:
-        return updateEKF(state,cov,meas,mpOutlierDetection);
+        return performUpdateEKF(state,cov,meas,mpOutlierDetection);
     }
   }
-  int predictAndUpdate(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt, mtOutlierDetection* mpOutlierDetection = nullptr){
+  int performPredictionAndUpdate(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt, mtOutlierDetection* mpOutlierDetection = nullptr){
     switch(mode_){
       case UpdateEKF:
-        return predictAndUpdateEKF(state,cov,meas,prediction,predictionMeas,dt,mpOutlierDetection);
+        return performPredictionAndUpdateEKF(state,cov,meas,prediction,predictionMeas,dt,mpOutlierDetection);
       case UpdateUKF:
-        return predictAndUpdateUKF(state,cov,meas,prediction,predictionMeas,dt,mpOutlierDetection);
+        return performPredictionAndUpdateUKF(state,cov,meas,prediction,predictionMeas,dt,mpOutlierDetection);
       default:
-        return predictAndUpdateEKF(state,cov,meas,prediction,predictionMeas,dt,mpOutlierDetection);
+        return performPredictionAndUpdateEKF(state,cov,meas,prediction,predictionMeas,dt,mpOutlierDetection);
     }
   }
-  int updateEKF(mtState& state, mtCovMat& cov, const mtMeas& meas, mtOutlierDetection* mpOutlierDetection = nullptr){
+  int performUpdateEKF(mtState& state, mtCovMat& cov, const mtMeas& meas, mtOutlierDetection* mpOutlierDetection = nullptr){
     assert(!isCoupled);
     preProcess(state,cov,meas);
     H_ = this->jacInput(state,meas);
@@ -360,7 +360,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     postProcess(state,cov,meas);
     return 0;
   }
-  int updateUKF(mtState& state, mtCovMat& cov, const mtMeas& meas, mtOutlierDetection* mpOutlierDetection = nullptr){
+  int performUpdateUKF(mtState& state, mtCovMat& cov, const mtMeas& meas, mtOutlierDetection* mpOutlierDetection = nullptr){
     assert(!isCoupled);
     refreshNoiseSigmaPoints();
     preProcess(state,cov,meas);
@@ -394,7 +394,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     postProcess(state,cov,meas);
     return 0;
   }
-  int predictAndUpdateEKF(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt, mtOutlierDetection* mpOutlierDetection = nullptr){
+  int performPredictionAndUpdateEKF(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt, mtOutlierDetection* mpOutlierDetection = nullptr){
     assert(isCoupled);
     preProcess(state,cov,meas,prediction,predictionMeas,dt);
     // Predict
@@ -424,7 +424,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     postProcess(state,cov,meas,prediction,predictionMeas,dt);
     return 0;
   }
-  int predictAndUpdateUKF(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt, mtOutlierDetection* mpOutlierDetection = nullptr){
+  int performPredictionAndUpdateUKF(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt, mtOutlierDetection* mpOutlierDetection = nullptr){
     assert(isCoupled);
     refreshJointNoiseSigmaPoints(prediction.prenoiP_);
     preProcess(state,cov,meas,prediction,predictionMeas,dt);
