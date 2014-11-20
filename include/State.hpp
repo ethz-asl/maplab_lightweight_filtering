@@ -592,6 +592,186 @@ class ComposedState<State>: public StateBase<ComposedState<State>,State::D_,Stat
   };
 };
 
+template <typename State>
+class convert_in_tuple{
+ public:
+  typedef std::tuple<State> t;
+};
+
+template <typename State, unsigned int N>
+class mult_state{
+ private:
+ public:
+  typedef decltype(std::tuple_cat(std::tuple<State>(),typename mult_state<State,N-1>::t())) t;
+};
+
+template <typename State>
+class mult_state<State,1>{
+ public:
+  typedef std::tuple<State> t;
+};
+
+template<unsigned int UI>
+static constexpr unsigned int uisum(){
+  return UI;
+}
+
+template<unsigned int UI, unsigned int... UIL,typename std::enable_if<(sizeof...(UIL)>0)>::type* = nullptr>
+  static constexpr unsigned int uisum(){
+  return UI + uisum<UIL...>();
+}
+
+template <typename State>
+class dimOfTuple{
+  static const unsigned int D_ = State::D_;
+};
+
+template <typename... Args>
+class dimOfTuple<std::tuple<Args...>>{
+ public:
+  static const unsigned int D_ = uisum<Args::D_...>();
+};
+
+template<typename... States>
+class ComposedState2{ // TODO: missing Identity
+ public:
+  typedef decltype(std::tuple_cat(typename convert_in_tuple<States>::t()...)) t;
+  static const unsigned int D_ = dimOfTuple<t>::D_;
+  static const unsigned int E_ = std::tuple_size<t>::value;
+  static const unsigned int N_ = E_; // TODO: remove either or
+  typedef Eigen::Matrix<double,D_,1> mtDifVec;
+  typedef Eigen::Matrix<double,D_,D_> mtCovMat;
+  std::string name_;
+  t mStates_;
+  ComposedState2(){}
+  ComposedState2(const ComposedState2<States...>& other): mStates_(other.mStates_), name_(other.name_){}
+  void boxPlus(const mtDifVec& vecIn, ComposedState2<States...>& stateOut) const{
+    boxPlus_(vecIn,stateOut);
+  }
+  template<unsigned int i=0,unsigned int j=0,typename std::enable_if<(i<N_-1)>::type* = nullptr>
+  void boxPlus_(const mtDifVec& vecIn, ComposedState2<States...>& stateOut) const{
+    std::get<i>(mStates_).boxPlus(vecIn.template block<std::tuple_element<i,decltype(mStates_)>::type::D_,1>(j,0),std::get<i>(stateOut.mStates_));
+    boxPlus_<i+1,j+std::tuple_element<i,decltype(mStates_)>::type::D_>(vecIn,stateOut);
+  }
+  template<unsigned int i=0,unsigned int j=0,typename std::enable_if<(i==N_-1)>::type* = nullptr>
+  void boxPlus_(const mtDifVec& vecIn, ComposedState2<States...>& stateOut) const{
+    std::get<i>(mStates_).boxPlus(vecIn.template block<std::tuple_element<i,decltype(mStates_)>::type::D_,1>(j,0),std::get<i>(stateOut.mStates_));
+  }
+  void boxMinus(const ComposedState2<States...>& stateIn, mtDifVec& vecOut) const{
+    boxMinus_(stateIn,vecOut);
+  }
+  template<unsigned int i=0,unsigned int j=0,typename std::enable_if<(i<N_-1)>::type* = nullptr>
+  void boxMinus_(const ComposedState2<States...>& stateIn, mtDifVec& vecOut) const{
+    typename std::tuple_element<i,decltype(mStates_)>::type::mtDifVec difVec;
+    std::get<i>(mStates_).boxMinus(std::get<i>(stateIn.mStates_),difVec);
+    vecOut.template block<std::tuple_element<i,decltype(mStates_)>::type::D_,1>(j,0) = difVec;
+    boxMinus_<i+1,j+std::tuple_element<i,decltype(mStates_)>::type::D_>(stateIn,vecOut);
+  }
+  template<unsigned int i=0,unsigned int j=0,typename std::enable_if<(i==N_-1)>::type* = nullptr>
+  void boxMinus_(const ComposedState2<States...>& stateIn, mtDifVec& vecOut) const{
+    typename std::tuple_element<i,decltype(mStates_)>::type::mtDifVec difVec;
+    std::get<i>(mStates_).boxMinus(std::get<i>(stateIn.mStates_),difVec);
+    vecOut.template block<std::tuple_element<i,decltype(mStates_)>::type::D_,1>(j,0) = difVec;
+  }
+  void print() const{
+    print_();
+  }
+  template<unsigned int i=0,typename std::enable_if<(i<N_-1)>::type* = nullptr>
+  void print_() const{
+    std::get<i>(mStates_).print();
+    print_<i+1>();
+  }
+  template<unsigned int i=0,typename std::enable_if<(i==N_-1)>::type* = nullptr>
+  void print_() const{
+    std::get<i>(mStates_).print();
+  }
+  void setIdentity(){
+    setIdentity_();
+  }
+  template<unsigned int i=0,typename std::enable_if<(i<N_-1)>::type* = nullptr>
+  void setIdentity_(){
+    std::get<i>(mStates_).setIdentity();
+    setIdentity_<i+1>();
+  }
+  template<unsigned int i=0,typename std::enable_if<(i==N_-1)>::type* = nullptr>
+  void setIdentity_(){
+    std::get<i>(mStates_).setIdentity();
+  }
+  void setRandom(unsigned int s){
+    setRandom_(s);
+  }
+  template<unsigned int i=0,typename std::enable_if<(i<N_-1)>::type* = nullptr>
+  void setRandom_(unsigned int s){
+    std::get<i>(mStates_).setRandom(s);
+    setRandom_<i+1>(s);
+  }
+  template<unsigned int i=0,typename std::enable_if<(i==N_-1)>::type* = nullptr>
+  void setRandom_(unsigned int s){
+    std::get<i>(mStates_).setRandom(s);
+  }
+  void fix(){
+    fix_();
+  }
+  template<unsigned int i=0,typename std::enable_if<(i<N_-1)>::type* = nullptr>
+  void fix_(){
+    std::get<i>(mStates_).fix();
+    fix_<i+1>();
+  }
+  template<unsigned int i=0,typename std::enable_if<(i==N_-1)>::type* = nullptr>
+  void fix_(){
+    std::get<i>(mStates_).fix();
+  }
+  void registerToPropertyHandler(PropertyHandler* mtPropertyHandler, const std::string& str){
+    registerToPropertyHandler_(mtPropertyHandler,str);
+  }
+  template<unsigned int i=0,typename std::enable_if<(i<N_-1)>::type* = nullptr>
+  void registerToPropertyHandler_(PropertyHandler* mtPropertyHandler, const std::string& str){
+    std::get<i>(mStates_).registerToPropertyHandler(mtPropertyHandler,str);
+    registerToPropertyHandler_<i+1>(mtPropertyHandler,str);
+  }
+  template<unsigned int i=0,typename std::enable_if<(i==N_-1)>::type* = nullptr>
+  void registerToPropertyHandler_(PropertyHandler* mtPropertyHandler, const std::string& str){
+    std::get<i>(mStates_).registerToPropertyHandler(mtPropertyHandler,str);
+  }
+  void createDefaultNames(const std::string& str = ""){
+    name_ = str;
+    createDefaultNames_(str);
+  }
+  template<unsigned int i=0,typename std::enable_if<(i<N_-1)>::type* = nullptr>
+  void createDefaultNames_(const std::string& str){
+    std::get<i>(mStates_).createDefaultNames(str + "_" + std::to_string(i));
+    createDefaultNames_<i+1>(str);
+  }
+  template<unsigned int i=0,typename std::enable_if<(i==N_-1)>::type* = nullptr>
+  void createDefaultNames_(const std::string& str){
+    std::get<i>(mStates_).createDefaultNames(str + "_" + std::to_string(i));
+  }
+  template<unsigned int i>
+  auto getValue() -> decltype (std::get<i>(mStates_).template getValue<0>())& {
+    return std::get<i>(mStates_).getValue<0>();
+  };
+  template<unsigned int i>
+  const auto getValue() const -> decltype (std::get<i>(mStates_).template getValue<0>())& {
+    return std::get<i>(mStates_).getValue<0>();
+  };
+  template<unsigned int i,unsigned int D=0,typename std::enable_if<(i==0)>::type* = nullptr>
+  static constexpr unsigned int getId(){
+    return D;
+  };
+  template<unsigned int i,unsigned int D=0,typename std::enable_if<(i>0 & i<N_)>::type* = nullptr>
+  static constexpr unsigned int getId(){
+    return getId<i-1,D+std::tuple_element<i-1,decltype(mStates_)>::type::D_>();
+  };
+};
+
+template <typename... Args>
+class convert_in_tuple<ComposedState2<Args...>>: public ComposedState2<Args...>{
+};
+
+template <typename State, unsigned int N>
+class convert_in_tuple<mult_state<State,N>>: public mult_state<State,N>{
+};
+
 template<unsigned int S, unsigned int V, unsigned int Q>
 class StateSVQ: public ComposedState<StateArray<ScalarState,S>,StateArray<VectorState<3>,V>,StateArray<QuaternionState,Q>>{
  public:
@@ -624,6 +804,46 @@ class StateSVQ: public ComposedState<StateArray<ScalarState,S>,StateArray<Vector
   };
   rot::RotationQuaternionPD& q(unsigned int i) {
     return this->template getState<2>().array_[i].q_;
+  };
+};
+
+template<unsigned int S, unsigned int V, unsigned int Q>
+class StateSVQ2: public ComposedState2<LWF::mult_state<ScalarState,S>,mult_state<VectorState<3>,V>,mult_state<QuaternionState,Q>>{
+ public:
+  static const unsigned int S_ = S;
+  static const unsigned int V_ = V;
+  static const unsigned int Q_ = Q;
+  typedef ComposedState2<LWF::mult_state<ScalarState,S>,mult_state<VectorState<3>,V>,mult_state<QuaternionState,Q>> Base;
+  using Base::D_;
+  using Base::E_;
+  using typename Base::mtDifVec;
+  using typename Base::mtCovMat;
+  using Base::name_;
+  StateSVQ2(){}
+  StateSVQ2(const StateSVQ2& other): Base(other){}
+  template<unsigned int i>
+  const double& s() const{
+    return this->template getValue<i>();
+  };
+  template<unsigned int i>
+  double& s(){
+    return this->template getValue<i>();
+  };
+  template<unsigned int i>
+  const Eigen::Matrix<double,3,1>& v() const{
+    return this->template getValue<S_+i>();
+  };
+  template<unsigned int i>
+  Eigen::Matrix<double,3,1>& v() {
+    return this->template getValue<S_+i>();
+  };
+  template<unsigned int i>
+  const rot::RotationQuaternionPD& q() const{
+    return this->template getValue<S_+V_+i>();
+  };
+  template<unsigned int i>
+  rot::RotationQuaternionPD& q() {
+    return this->template getValue<S_+V_+i>();
   };
 };
 
