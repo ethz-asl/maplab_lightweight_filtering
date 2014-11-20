@@ -15,6 +15,7 @@ class UpdateModelTest : public ::testing::Test, public TestClass {
  public:
   UpdateModelTest() {
     this->init(this->testState_,this->testUpdateMeas_,this->testPredictionMeas_);
+    this->testOutlierDetection_.setEnabledAll(true);
   }
   virtual ~UpdateModelTest() {
   }
@@ -27,12 +28,14 @@ class UpdateModelTest : public ::testing::Test, public TestClass {
   using typename TestClass::mtUpdateExample;
   using typename TestClass::mtPredictionExample;
   using typename TestClass::mtPredictAndUpdateExample;
+  using typename TestClass::mtOutlierDetectionExample;
   mtUpdateExample testUpdate_;
   mtPredictAndUpdateExample testPredictAndUpdate_;
   mtPredictionExample testPrediction_;
   mtState testState_;
   mtUpdateMeas testUpdateMeas_;
   mtPredictionMeas testPredictionMeas_;
+  mtOutlierDetectionExample testOutlierDetection_;
   const double dt_ = 0.1;
 };
 
@@ -126,7 +129,6 @@ TYPED_TEST(UpdateModelTest, updateEKF) {
 
 // Test updateEKFWithOutlier
 TYPED_TEST(UpdateModelTest, updateEKFWithOutlier) {
-  this->testUpdate_.outlierDetection_.setEnabledAll(true);
   typename TestFixture::mtUpdateExample::mtState::mtCovMat cov;
   typename TestFixture::mtUpdateExample::mtState::mtCovMat updateCov;
   cov.setIdentity();
@@ -158,7 +160,7 @@ TYPED_TEST(UpdateModelTest, updateEKFWithOutlier) {
   updateVec = -K*innVector;
   state.boxPlus(updateVec,stateUpdated);
 
-  this->testUpdate_.updateEKF(state,cov,this->testUpdateMeas_);
+  this->testUpdate_.updateEKF(state,cov,this->testUpdateMeas_,&this->testOutlierDetection_);
   typename TestFixture::mtUpdateExample::mtState::mtDifVec dif;
   state.boxMinus(stateUpdated,dif);
   switch(TestFixture::id_){
@@ -205,9 +207,8 @@ TYPED_TEST(UpdateModelTest, compareUpdate) {
   cov2 = TestFixture::mtUpdateExample::mtState::mtCovMat::Identity()*0.000001;
   state1 = this->testState_;
   state2 = this->testState_;
-  this->testUpdate_.outlierDetection_.setEnabledAll(true);
-  this->testUpdate_.updateEKF(state1,cov1,this->testUpdateMeas_);
-  this->testUpdate_.updateUKF(state2,cov2,this->testUpdateMeas_);
+  this->testUpdate_.updateEKF(state1,cov1,this->testUpdateMeas_,&this->testOutlierDetection_);
+  this->testUpdate_.updateUKF(state2,cov2,this->testUpdateMeas_,&this->testOutlierDetection_);
   state1.boxMinus(state2,dif);
   switch(TestFixture::id_){
     case 0:
@@ -250,15 +251,13 @@ TYPED_TEST(UpdateModelTest, predictAndUpdateEKF) {
   }
 
   // With outlier
-  this->testUpdate_.outlierDetection_.setEnabledAll(true);
-  this->testPredictAndUpdate_.outlierDetection_.setEnabledAll(true);
   cov1 = TestFixture::mtUpdateExample::mtState::mtCovMat::Identity()*0.000001;
   cov2 = cov1;
   state1 = this->testState_;
   state2 = this->testState_;
   this->testPrediction_.predictEKF(state1,cov1,this->testPredictionMeas_,this->dt_);
-  this->testUpdate_.updateEKF(state1,cov1,this->testUpdateMeas_);
-  this->testPredictAndUpdate_.predictAndUpdateEKF(state2,cov2,this->testUpdateMeas_,this->testPrediction_,this->testPredictionMeas_,this->dt_);
+  this->testUpdate_.updateEKF(state1,cov1,this->testUpdateMeas_,&this->testOutlierDetection_);
+  this->testPredictAndUpdate_.predictAndUpdateEKF(state2,cov2,this->testUpdateMeas_,this->testPrediction_,this->testPredictionMeas_,this->dt_,&this->testOutlierDetection_);
   state1.boxMinus(state2,dif);
   switch(TestFixture::id_){
     case 0:
@@ -301,15 +300,13 @@ TYPED_TEST(UpdateModelTest, predictAndUpdateUKF) {
   }
 
   // With outlier
-  this->testUpdate_.outlierDetection_.setEnabledAll(true);
-  this->testPredictAndUpdate_.outlierDetection_.setEnabledAll(true);
   cov1 = TestFixture::mtUpdateExample::mtState::mtCovMat::Identity()*0.000001;
   cov2 = cov1;
   state1 = this->testState_;
   state2 = this->testState_;
   this->testPrediction_.predictUKF(state1,cov1,this->testPredictionMeas_,this->dt_);
-  this->testUpdate_.updateUKF(state1,cov1,this->testUpdateMeas_);
-  this->testPredictAndUpdate_.predictAndUpdateUKF(state2,cov2,this->testUpdateMeas_,this->testPrediction_,this->testPredictionMeas_,this->dt_);
+  this->testUpdate_.updateUKF(state1,cov1,this->testUpdateMeas_,&this->testOutlierDetection_);
+  this->testPredictAndUpdate_.predictAndUpdateUKF(state2,cov2,this->testUpdateMeas_,this->testPrediction_,this->testPredictionMeas_,this->dt_,&this->testOutlierDetection_);
   state1.boxMinus(state2,dif);
   switch(TestFixture::id_){
     case 0:

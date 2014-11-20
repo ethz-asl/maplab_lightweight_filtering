@@ -387,6 +387,7 @@ class NonlinearTest{
   typedef Nonlinear::UpdateExample mtUpdateExample;
   typedef Nonlinear::PredictionExample mtPredictionExample;
   typedef Nonlinear::PredictAndUpdateExample mtPredictAndUpdateExample;
+  typedef Nonlinear::OutlierDetectionExample mtOutlierDetectionExample;
   void init(mtState& state,mtUpdateMeas& updateMeas,mtPredictionMeas& predictionMeas){
     state.v(0) = Eigen::Vector3d(2.1,-0.2,-1.9);
     state.v(1) = Eigen::Vector3d(0.3,10.9,2.3);
@@ -412,6 +413,7 @@ class LinearTest{
   typedef Linear::UpdateExample mtUpdateExample;
   typedef Linear::PredictionExample mtPredictionExample;
   typedef Linear::PredictAndUpdateExample mtPredictAndUpdateExample;
+  typedef Linear::OutlierDetectionExample mtOutlierDetectionExample;
   void init(mtState& state,mtUpdateMeas& updateMeas,mtPredictionMeas& predictionMeas){
     state.v(0) = Eigen::Vector3d(2.1,-0.2,-1.9);
     state.v(1) = Eigen::Vector3d(0.3,10.9,2.3);

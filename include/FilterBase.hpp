@@ -19,7 +19,7 @@
 namespace LWF{
 
 template<typename State,typename... OutlierDetections>
-class FilterState{ // TODO: include outlier detection
+class FilterState{
  public:
   typedef State mtState;
   typedef typename mtState::mtCovMat mtCovMat;
@@ -27,7 +27,7 @@ class FilterState{ // TODO: include outlier detection
   mtCovMat cov_;
   mtState state_;
   double t_;
-//  std::tuple<OutlierDetections...> outlierDetectionTuple_; // TODO: rename -> remove Update
+  std::tuple<OutlierDetections...> outlierDetectionTuple_;
   FilterState(){
     t_ = 0.0;
     cov_.setIdentity();
@@ -87,7 +87,7 @@ class MeasurementTimeline{
 };
 
 template<typename Prediction,typename... Updates>
-class FilterBase: public PropertyHandler{
+class FilterBase: public PropertyHandler{ // TODO: reset (including outliers)
  public:
   typedef typename Prediction::mtState mtState;
   typedef typename mtState::mtCovMat mtCovMat;
@@ -238,7 +238,7 @@ class FilterBase: public PropertyHandler{
       if(!alreadyDone){
         predictionTimeline_.itMeas_ = predictionTimeline_.measMap_.upper_bound(filterState.t_);
         if(predictionTimeline_.itMeas_ != predictionTimeline_.measMap_.end()){
-          int r = std::get<i>(mUpdates_).predictAndUpdate(filterState.state_,filterState.cov_,std::get<i>(updateTimelineTuple_).measMap_[tNext],mPrediction_,predictionTimeline_.itMeas_->second,tNext-filterState.t_);
+          int r = std::get<i>(mUpdates_).predictAndUpdate(filterState.state_,filterState.cov_,std::get<i>(updateTimelineTuple_).measMap_[tNext],mPrediction_,predictionTimeline_.itMeas_->second,tNext-filterState.t_,&std::get<i>(filterState.outlierDetectionTuple_));
           if(r!=0) std::cout << "Error during predictAndUpdate: " << r << std::endl;
           alreadyDone = true;
         } else {
@@ -256,7 +256,7 @@ class FilterBase: public PropertyHandler{
       if(!alreadyDone){
         predictionTimeline_.itMeas_ = predictionTimeline_.measMap_.upper_bound(filterState.t_);
         if(predictionTimeline_.itMeas_ != predictionTimeline_.measMap_.end()){
-          int r = std::get<i>(mUpdates_).predictAndUpdate(filterState.state_,filterState.cov_,std::get<i>(updateTimelineTuple_).measMap_[tNext],mPrediction_,predictionTimeline_.itMeas_->second,tNext-filterState.t_);
+          int r = std::get<i>(mUpdates_).predictAndUpdate(filterState.state_,filterState.cov_,std::get<i>(updateTimelineTuple_).measMap_[tNext],mPrediction_,predictionTimeline_.itMeas_->second,tNext-filterState.t_,&std::get<i>(filterState.outlierDetectionTuple_));
           if(r!=0) std::cout << "Error during predictAndUpdate: " << r << std::endl;
           alreadyDone = true;
         } else {
@@ -277,16 +277,16 @@ class FilterBase: public PropertyHandler{
   template<unsigned int i=0, typename std::enable_if<(i<nUpdates_-1)>::type* = nullptr>
   void doAvailableUpdates(mtFilterState& filterState, double tNext){
     if(!std::get<i>(mUpdates_).coupledToPrediction_ && std::get<i>(updateTimelineTuple_).hasMeasurementAt(tNext)){
-          int r = std::get<i>(mUpdates_).updateState(filterState.state_,filterState.cov_,std::get<i>(updateTimelineTuple_).measMap_[tNext]);
-          if(r!=0) std::cout << "Error during predictAndUpdate: " << r << std::endl;
+          int r = std::get<i>(mUpdates_).updateState(filterState.state_,filterState.cov_,std::get<i>(updateTimelineTuple_).measMap_[tNext],&std::get<i>(filterState.outlierDetectionTuple_));
+          if(r!=0) std::cout << "Error during update: " << r << std::endl;
     }
     doAvailableUpdates<i+1>(filterState,tNext);
   }
   template<unsigned int i=0, typename std::enable_if<(i==nUpdates_-1)>::type* = nullptr>
   void doAvailableUpdates(mtFilterState& filterState, double tNext){
     if(!std::get<i>(mUpdates_).coupledToPrediction_ && std::get<i>(updateTimelineTuple_).hasMeasurementAt(tNext)){
-          int r = std::get<i>(mUpdates_).updateState(filterState.state_,filterState.cov_,std::get<i>(updateTimelineTuple_).measMap_[tNext]);
-          if(r!=0) std::cout << "Error during predictAndUpdate: " << r << std::endl;
+          int r = std::get<i>(mUpdates_).updateState(filterState.state_,filterState.cov_,std::get<i>(updateTimelineTuple_).measMap_[tNext],&std::get<i>(filterState.outlierDetectionTuple_));
+          if(r!=0) std::cout << "Error during update: " << r << std::endl;
     }
   }
   void clean(const double& t){

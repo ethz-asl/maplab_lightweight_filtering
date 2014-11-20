@@ -27,9 +27,9 @@ enum UpdateFilteringMode{
 template<unsigned int S, unsigned int N, unsigned int L>
 class OutlierDetectionBase{
  public:
-  const unsigned int S_ = S;
-  const unsigned int N_ = N;
-  const unsigned int L_ = L;
+  static const unsigned int S_ = S;
+  static const unsigned int N_ = N;
+  static const unsigned int L_ = L;
   bool outlier_;
   bool enabled_;
   double mahalanobisTh_;
@@ -242,7 +242,6 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
   SigmaPoints<mtInnovation,2*(mtState::D_+noiseDim_)+1,2*(mtState::D_+noiseDim_)+1,0> innSigmaPoints_;
   SigmaPoints<LWF::VectorState<mtState::D_>,2*mtState::D_+1,2*mtState::D_+1,0> updateVecSP_;
   SigmaPoints<mtState,2*mtState::D_+1,2*mtState::D_+1,0> posterior_;
-  OutlierDetection outlierDetection_;
   double alpha_;
   double beta_;
   double kappa_;
@@ -302,33 +301,32 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     refreshNoiseSigmaPoints();
     refreshJointNoiseSigmaPoints(mtPredictionNoise::mtCovMat::Identity());
     refreshUKFParameter();
-    outlierDetection_.reset();
   }
   virtual ~Update(){};
   void setMode(UpdateFilteringMode mode){
     mode_ = mode;
   }
-  int updateState(mtState& state, mtCovMat& cov, const mtMeas& meas){
+  int updateState(mtState& state, mtCovMat& cov, const mtMeas& meas, mtOutlierDetection* mpOutlierDetection = nullptr){
     switch(mode_){
       case UpdateEKF:
-        return updateEKF(state,cov,meas);
+        return updateEKF(state,cov,meas,mpOutlierDetection);
       case UpdateUKF:
-        return updateUKF(state,cov,meas);
+        return updateUKF(state,cov,meas,mpOutlierDetection);
       default:
-        return updateEKF(state,cov,meas);
+        return updateEKF(state,cov,meas,mpOutlierDetection);
     }
   }
-  int predictAndUpdate(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt){
+  int predictAndUpdate(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt, mtOutlierDetection* mpOutlierDetection = nullptr){
     switch(mode_){
       case UpdateEKF:
-        return predictAndUpdateEKF(state,cov,meas,prediction,predictionMeas,dt);
+        return predictAndUpdateEKF(state,cov,meas,prediction,predictionMeas,dt,mpOutlierDetection);
       case UpdateUKF:
-        return predictAndUpdateUKF(state,cov,meas,prediction,predictionMeas,dt);
+        return predictAndUpdateUKF(state,cov,meas,prediction,predictionMeas,dt,mpOutlierDetection);
       default:
-        return predictAndUpdateEKF(state,cov,meas,prediction,predictionMeas,dt);
+        return predictAndUpdateEKF(state,cov,meas,prediction,predictionMeas,dt,mpOutlierDetection);
     }
   }
-  int updateEKF(mtState& state, mtCovMat& cov, const mtMeas& meas){
+  int updateEKF(mtState& state, mtCovMat& cov, const mtMeas& meas, mtOutlierDetection* mpOutlierDetection = nullptr){
     assert(!isCoupled);
     preProcess(state,cov,meas);
     H_ = this->jacInput(state,meas);
@@ -340,7 +338,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     y_.boxMinus(yIdentity_,innVector_);
 
     // Outlier detection
-    outlierDetection_.doOutlierDetection(innVector_,Py_,H_);
+    if(mpOutlierDetection != nullptr) mpOutlierDetection->doOutlierDetection(innVector_,Py_,H_);
     Pyinv_.setIdentity();
     Py_.llt().solveInPlace(Pyinv_);
 
@@ -352,7 +350,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     postProcess(state,cov,meas);
     return 0;
   }
-  int updateUKF(mtState& state, mtCovMat& cov, const mtMeas& meas){
+  int updateUKF(mtState& state, mtCovMat& cov, const mtMeas& meas, mtOutlierDetection* mpOutlierDetection = nullptr){
     assert(!isCoupled);
     refreshNoiseSigmaPoints();
     preProcess(state,cov,meas);
@@ -367,7 +365,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     Pyx_ = (innSigmaPoints_.getCovarianceMatrix(stateSigmaPoints_));
     y_.boxMinus(yIdentity_,innVector_);
 
-    outlierDetection_.doOutlierDetection(innVector_,Py_,Pyx_);
+    if(mpOutlierDetection != nullptr) mpOutlierDetection->doOutlierDetection(innVector_,Py_,Pyx_);
     Pyinv_.setIdentity();
     Py_.llt().solveInPlace(Pyinv_);
 
@@ -386,7 +384,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     postProcess(state,cov,meas);
     return 0;
   }
-  int predictAndUpdateEKF(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt){
+  int predictAndUpdateEKF(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt, mtOutlierDetection* mpOutlierDetection = nullptr){
     assert(isCoupled);
     preProcess(state,cov,meas,prediction,predictionMeas,dt);
     // Predict
@@ -404,7 +402,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     y_.boxMinus(yIdentity_,innVector_);
 
     // Outlier detection
-    outlierDetection_.doOutlierDetection(innVector_,Py_,H_);
+    if(mpOutlierDetection != nullptr) mpOutlierDetection->doOutlierDetection(innVector_,Py_,H_);
     Pyinv_.setIdentity();
     Py_.llt().solveInPlace(Pyinv_);
 
@@ -416,7 +414,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     postProcess(state,cov,meas,prediction,predictionMeas,dt);
     return 0;
   }
-  int predictAndUpdateUKF(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt){
+  int predictAndUpdateUKF(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt, mtOutlierDetection* mpOutlierDetection = nullptr){
     assert(isCoupled);
     refreshJointNoiseSigmaPoints(prediction.prenoiP_);
     preProcess(state,cov,meas,prediction,predictionMeas,dt);
@@ -441,7 +439,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     Pyx_ = (innSigmaPoints_.getCovarianceMatrix(coupledStateSigmaPointsPre_));
     y_.boxMinus(yIdentity_,innVector_);
 
-    outlierDetection_.doOutlierDetection(innVector_,Py_,Pyx_);
+    if(mpOutlierDetection != nullptr) mpOutlierDetection->doOutlierDetection(innVector_,Py_,Pyx_);
     Pyinv_.setIdentity();
     Py_.llt().solveInPlace(Pyinv_);
 
