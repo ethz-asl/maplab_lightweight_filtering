@@ -392,6 +392,161 @@ TYPED_TEST(UpdateModelTest, comparePredictAndUpdate) {
   }
 }
 
+// Test performUpdateLEKF1 (linearization point = prediction)
+TYPED_TEST(UpdateModelTest, performUpdateLEKF1) {
+  // Linearization point
+  typename TestFixture::mtUpdateExample::mtState linState;
+  linState = this->testState_;
+
+  typename TestFixture::mtUpdateExample::mtState::mtCovMat cov;
+  typename TestFixture::mtUpdateExample::mtState::mtCovMat updateCov;
+  cov.setIdentity();
+  typename TestFixture::mtUpdateExample::mtJacInput H = this->testUpdate_.jacInput(this->testState_,this->testUpdateMeas_,this->dt_);
+  typename TestFixture::mtUpdateExample::mtJacNoise Hn = this->testUpdate_.jacNoise(this->testState_,this->testUpdateMeas_,this->dt_);
+
+  typename TestFixture::mtUpdateExample::mtInnovation y = this->testUpdate_.eval(this->testState_,this->testUpdateMeas_);
+  typename TestFixture::mtUpdateExample::mtInnovation yIdentity;
+  yIdentity.setIdentity();
+  typename TestFixture::mtUpdateExample::mtInnovation::mtDifVec innVector;
+
+  typename TestFixture::mtUpdateExample::mtState state;
+  typename TestFixture::mtUpdateExample::mtState stateUpdated;
+  state = this->testState_;
+
+  // Update
+  typename TestFixture::mtUpdateExample::mtInnovation::mtCovMat Py = H*cov*H.transpose() + Hn*this->testUpdate_.updnoiP_*Hn.transpose();
+  y.boxMinus(yIdentity,innVector);
+  typename TestFixture::mtUpdateExample::mtInnovation::mtCovMat Pyinv = Py.inverse();
+
+  // Kalman Update
+  Eigen::Matrix<double,TestFixture::mtUpdateExample::mtState::D_,TestFixture::mtUpdateExample::mtInnovation::D_> K = cov*H.transpose()*Pyinv;
+  updateCov = cov - K*Py*K.transpose();
+  typename TestFixture::mtUpdateExample::mtState::mtDifVec updateVec;
+  updateVec = -K*innVector;
+  state.boxPlus(updateVec,stateUpdated);
+
+  this->testUpdate_.performUpdateLEKF(state,linState,cov,this->testUpdateMeas_);
+  typename TestFixture::mtUpdateExample::mtState::mtDifVec dif;
+  state.boxMinus(stateUpdated,dif);
+  switch(TestFixture::id_){
+    case 0:
+      ASSERT_NEAR(dif.norm(),0.0,1e-6);
+      ASSERT_NEAR((cov-updateCov).norm(),0.0,1e-6);
+      break;
+    case 1:
+      ASSERT_NEAR(dif.norm(),0.0,1e-10);
+      ASSERT_NEAR((cov-updateCov).norm(),0.0,1e-10);
+      break;
+    default:
+      ASSERT_NEAR(dif.norm(),0.0,1e-6);
+      ASSERT_NEAR((cov-updateCov).norm(),0.0,1e-6);
+  }
+}
+
+// Test performUpdateLEKF2 (linearization point <> prediction, but for linear case still the same result)
+TYPED_TEST(UpdateModelTest, performUpdateLEKF2) {
+  // Linearization point
+  typename TestFixture::mtUpdateExample::mtState linState;
+  linState.setRandom(2);
+
+  typename TestFixture::mtUpdateExample::mtState::mtCovMat cov;
+  typename TestFixture::mtUpdateExample::mtState::mtCovMat updateCov;
+  cov.setIdentity();
+  typename TestFixture::mtUpdateExample::mtJacInput H = this->testUpdate_.jacInput(this->testState_,this->testUpdateMeas_,this->dt_);
+  typename TestFixture::mtUpdateExample::mtJacNoise Hn = this->testUpdate_.jacNoise(this->testState_,this->testUpdateMeas_,this->dt_);
+
+  typename TestFixture::mtUpdateExample::mtInnovation y = this->testUpdate_.eval(this->testState_,this->testUpdateMeas_);
+  typename TestFixture::mtUpdateExample::mtInnovation yIdentity;
+  yIdentity.setIdentity();
+  typename TestFixture::mtUpdateExample::mtInnovation::mtDifVec innVector;
+
+  typename TestFixture::mtUpdateExample::mtState state;
+  typename TestFixture::mtUpdateExample::mtState stateUpdated;
+  state = this->testState_;
+
+  // Update
+  typename TestFixture::mtUpdateExample::mtInnovation::mtCovMat Py = H*cov*H.transpose() + Hn*this->testUpdate_.updnoiP_*Hn.transpose();
+  y.boxMinus(yIdentity,innVector);
+  typename TestFixture::mtUpdateExample::mtInnovation::mtCovMat Pyinv = Py.inverse();
+
+  // Kalman Update
+  Eigen::Matrix<double,TestFixture::mtUpdateExample::mtState::D_,TestFixture::mtUpdateExample::mtInnovation::D_> K = cov*H.transpose()*Pyinv;
+  updateCov = cov - K*Py*K.transpose();
+  typename TestFixture::mtUpdateExample::mtState::mtDifVec updateVec;
+  updateVec = -K*innVector;
+  state.boxPlus(updateVec,stateUpdated);
+
+  this->testUpdate_.performUpdateLEKF(state,linState,cov,this->testUpdateMeas_);
+  typename TestFixture::mtUpdateExample::mtState::mtDifVec dif;
+  state.boxMinus(stateUpdated,dif);
+  switch(TestFixture::id_){
+    case 0:
+      // No ASSERT
+      break;
+    case 1:
+      ASSERT_NEAR(dif.norm(),0.0,1e-10);
+      ASSERT_NEAR((cov-updateCov).norm(),0.0,1e-10);
+      break;
+    default:
+      // No ASSERT
+      break;
+  }
+}
+
+// Test performUpdateLEKF3 (linearization point <> prediction, general)
+TYPED_TEST(UpdateModelTest, performUpdateLEKF3) {
+  // Linearization point
+  typename TestFixture::mtUpdateExample::mtState linState;
+  linState.setRandom(2);
+
+  typename TestFixture::mtUpdateExample::mtState::mtCovMat cov;
+  typename TestFixture::mtUpdateExample::mtState::mtCovMat updateCov;
+  cov.setIdentity();
+  typename TestFixture::mtUpdateExample::mtJacInput H = this->testUpdate_.jacInput(linState,this->testUpdateMeas_,this->dt_);
+  typename TestFixture::mtUpdateExample::mtJacNoise Hn = this->testUpdate_.jacNoise(linState,this->testUpdateMeas_,this->dt_);
+
+  typename TestFixture::mtUpdateExample::mtInnovation y = this->testUpdate_.eval(linState,this->testUpdateMeas_);
+  typename TestFixture::mtUpdateExample::mtInnovation yIdentity;
+  yIdentity.setIdentity();
+  typename TestFixture::mtUpdateExample::mtInnovation::mtDifVec innVector;
+
+  typename TestFixture::mtUpdateExample::mtState state;
+  typename TestFixture::mtUpdateExample::mtState stateUpdated;
+  state = this->testState_;
+
+  // Update
+  typename TestFixture::mtUpdateExample::mtInnovation::mtCovMat Py = H*cov*H.transpose() + Hn*this->testUpdate_.updnoiP_*Hn.transpose();
+  y.boxMinus(yIdentity,innVector);
+  typename TestFixture::mtUpdateExample::mtInnovation::mtCovMat Pyinv = Py.inverse();
+
+  // Kalman Update
+  Eigen::Matrix<double,TestFixture::mtUpdateExample::mtState::D_,TestFixture::mtUpdateExample::mtInnovation::D_> K = cov*H.transpose()*Pyinv;
+  updateCov = cov - K*Py*K.transpose();
+  typename TestFixture::mtUpdateExample::mtState::mtDifVec updateVec;
+  typename TestFixture::mtUpdateExample::mtState::mtDifVec difVecLin;
+  linState.boxMinus(state,difVecLin);
+  updateVec = -K*(innVector-H*difVecLin);
+  state.boxPlus(updateVec,stateUpdated);
+
+  this->testUpdate_.performUpdateLEKF(state,linState,cov,this->testUpdateMeas_);
+  typename TestFixture::mtUpdateExample::mtState::mtDifVec dif;
+  state.boxMinus(stateUpdated,dif);
+  switch(TestFixture::id_){
+    case 0:
+      ASSERT_NEAR(dif.norm(),0.0,1e-6);
+      ASSERT_NEAR((cov-updateCov).norm(),0.0,1e-6);
+      break;
+    case 1:
+      ASSERT_NEAR(dif.norm(),0.0,1e-10);
+      ASSERT_NEAR((cov-updateCov).norm(),0.0,1e-10);
+      break;
+    default:
+      ASSERT_NEAR(dif.norm(),0.0,1e-6);
+      ASSERT_NEAR((cov-updateCov).norm(),0.0,1e-6);
+      break;
+  }
+}
+
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
