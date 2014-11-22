@@ -244,6 +244,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
   mtInnovation yIdentity_;
   typename mtState::mtDifVec updateVec_;
   typename mtState::mtDifVec difVecLin_;
+  double updateVecNorm_;
   Eigen::Matrix<double,mtState::D_,mtInnovation::D_> K_;
   Eigen::Matrix<double,mtInnovation::D_,mtState::D_> Pyx_;
   SigmaPoints<mtState,2*mtState::D_+1,2*(mtState::D_+noiseDim_)+1,0> stateSigmaPoints_;
@@ -256,10 +257,14 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
   double alpha_;
   double beta_;
   double kappa_;
+  double updateVecNormTermination_;
+  int maxNumIteration_;
   Update(){
     alpha_ = 1e-3;
     beta_ = 2.0;
     kappa_ = 0.0;
+    updateVecNormTermination_ = 1e-6;
+    maxNumIteration_  = 10;
     mode_ = UpdateEKF;
     updnoiP_ = mtNoise::mtCovMat::Identity()*0.0001;
     preupdnoiP_ = Eigen::Matrix<double,mtPredictionNoise::D_,mtNoise::D_>::Zero();
@@ -269,6 +274,8 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     doubleRegister_.registerScalar("alpha",alpha_);
     doubleRegister_.registerScalar("beta",beta_);
     doubleRegister_.registerScalar("kappa",kappa_);
+    doubleRegister_.registerScalar("updateVecNormTermination",updateVecNormTermination_);
+    intRegister_.registerScalar("maxNumIteration",maxNumIteration_);
   };
   void refreshNoiseSigmaPoints(){
     if(noiP_ != updnoiP_){
@@ -360,7 +367,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     state.boxPlus(updateVec_,state);
     postProcess(state,cov,meas);
     return 0;
-  } // TODO: check outlier detection, combine with prediction, test for UKF
+  }
   int performUpdateLEKF(mtState& state, const mtState& linState, mtCovMat& cov, const mtMeas& meas, mtOutlierDetection* mpOutlierDetection = nullptr){
     static_assert(!isCoupled, "performUpdateLEKF() does not exist for coupled update");
     preProcess(state,cov,meas);
@@ -383,6 +390,37 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     linState.boxMinus(state,difVecLin_);
     updateVec_ = -K_*(innVector_-H_*difVecLin_); // includes correction for offseted linearization point
     state.boxPlus(updateVec_,state);
+    postProcess(state,cov,meas);
+    return 0;
+  }
+  int performUpdateIEKF(mtState& state, mtCovMat& cov, const mtMeas& meas, mtOutlierDetection* mpOutlierDetection = nullptr){
+    static_assert(!isCoupled, "performUpdateIEKF() does not exist for coupled update");
+    preProcess(state,cov,meas);
+    mtState linState = state;
+    updateVecNorm_ = updateVecNormTermination_;
+    for(unsigned int i=0;i<maxNumIteration_ & updateVecNorm_>=updateVecNormTermination_;i++){
+      H_ = this->jacInput(linState,meas);
+      Hn_ = this->jacNoise(linState,meas);
+      y_ = this->eval(linState,meas);
+
+      // Update
+      Py_ = H_*cov*H_.transpose() + Hn_*updnoiP_*Hn_.transpose();
+      y_.boxMinus(yIdentity_,innVector_);
+
+      // Outlier detection
+      if(mpOutlierDetection != nullptr) mpOutlierDetection->doOutlierDetection(innVector_,Py_,H_);
+      Pyinv_.setIdentity();
+      Py_.llt().solveInPlace(Pyinv_);
+
+      // Kalman Update
+      K_ = cov*H_.transpose()*Pyinv_;
+      linState.boxMinus(state,difVecLin_);
+      updateVec_ = -K_*(innVector_-H_*difVecLin_); // includes correction for offseted linearization point
+      state.boxPlus(updateVec_,linState);
+      updateVecNorm_ = updateVec_.norm();
+    }
+    state = linState;
+    cov = cov - K_*Py_*K_.transpose();
     postProcess(state,cov,meas);
     return 0;
   }
