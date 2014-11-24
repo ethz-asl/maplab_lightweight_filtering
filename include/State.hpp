@@ -21,16 +21,11 @@ namespace rot = kindr::rotations::eigen_impl;
 namespace LWF{
 
 /*
- * Make ElementBase as reduction of StateBase
- * Enable arrayELEMENT
  * ComposedState2 becomes new State (no name, getValue, getID, getName)
  * Auxilliary directly in State (could even be derived from ElementBase)
- * Improve registering of state and covariance -> Traits template<int N,typename Element>register(...)
- * setRandom has reference to seed
- * add typename for get return;
  */
 
-template<typename DERIVED, typename IMPL, unsigned int D>
+template<typename DERIVED, typename GET, unsigned int D>
 class ElementBase{
  public:
   ElementBase(){};
@@ -38,9 +33,8 @@ class ElementBase{
   static const unsigned int D_ = D;
   typedef Eigen::Matrix<double,D_,1> mtDifVec;
   typedef Eigen::Matrix<double,D_,D_> mtCovMat;
-  typedef IMPL mtImpl;
+  typedef GET mtGet;
   std::string name_;
-  mtImpl x_;
   virtual void boxPlus(const mtDifVec& vecIn, DERIVED& stateOut) const = 0;
   virtual void boxMinus(const DERIVED& stateIn, mtDifVec& vecOut) const = 0;
   virtual void print() const = 0;
@@ -56,96 +50,135 @@ class ElementBase{
     other.swap(*this);
     return *this;
   }
-  mtImpl& get(){
-    return x_;
-  }
-  const mtImpl& get() const{
-    return x_;
+  virtual mtGet& get(unsigned int i) = 0;
+  virtual const mtGet& get(unsigned int i) const = 0;
+  virtual void registerElementToPropertyHandler(PropertyHandler* mpPropertyHandler, const std::string& str) = 0;
+  template<int N,int j>
+  void registerCovarianceToPropertyHandler(Eigen::Matrix<double,N,N>& cov, PropertyHandler* mpPropertyHandler, const std::string& str){
+    assert(j+D_<=N);
+    for(unsigned int i=0;i<DERIVED::D_;i++){
+      mpPropertyHandler->doubleRegister_.registerScalar(str + name_ + "_" + std::to_string(i), cov(j+i,j+i));
+    }
   }
 };
 
 class ScalarElement: public ElementBase<ScalarElement,double,1>{
  public:
-  typedef ElementBase<ScalarElement,double,1> Base;
-  using typename  Base::mtDifVec;
+  double s_;
   ScalarElement(){}
   ScalarElement(const ScalarElement& other){
-    x_ = other.x_;
+    s_ = other.s_;
   }
   void boxPlus(const mtDifVec& vecIn, ScalarElement& stateOut) const{
-    stateOut.x_ = x_ + vecIn(0);
+    stateOut.s_ = s_ + vecIn(0);
   }
   void boxMinus(const ScalarElement& stateIn, mtDifVec& vecOut) const{
-    vecOut(0) = x_ - stateIn.x_;
+    vecOut(0) = s_ - stateIn.s_;
   }
   void print() const{
-    std::cout << x_ << std::endl;
+    std::cout << s_ << std::endl;
   }
   void setIdentity(){
-    x_ = 0.0;
+    s_ = 0.0;
   }
   void setRandom(unsigned int& s){
     std::default_random_engine generator (s);
     std::normal_distribution<double> distribution (0.0,1.0);
-    x_ = distribution(generator);
+    s_ = distribution(generator);
     s++;
   }
   void fix(){
   }
+  mtGet& get(unsigned int i = 0){
+    assert(i==0);
+    return s_;
+  }
+  const mtGet& get(unsigned int i = 0) const{
+    assert(i==0);
+    return s_;
+  }
+  void registerElementToPropertyHandler(PropertyHandler* mpPropertyHandler, const std::string& str){
+    mpPropertyHandler->doubleRegister_.registerScalar(str + name_,s_);
+  }
 };
 
-template<typename Element, unsigned int N>
-class ArrayElement: public ElementBase<ArrayElement<Element,N>,Element[N],N*Element::D_>{
+template<typename Element, unsigned int M>
+class ArrayElement: public ElementBase<ArrayElement<Element,M>,typename Element::mtGet,M*Element::D_>{
  public:
-  typedef ElementBase<ArrayElement<Element,N>,Element[N],N*Element::D_> Base;
-  using typename  Base::mtDifVec;
-  using Base::x_;
-  static const unsigned int N_ = N;
+  typedef ElementBase<ArrayElement<Element,M>,typename Element::mtGet,M*Element::D_> Base;
+  using typename Base::mtDifVec;
+  using typename Base::mtGet;
+  using typename Base::name_;
+  static const unsigned int M_ = M;
+  Element array_[M_];
   ArrayElement(){}
   ArrayElement(const ArrayElement& other){
-    for(unsigned int i=0; i<N_;i++){
-      x_[i] = other.x_[i];
+    for(unsigned int i=0; i<M_;i++){
+      array_[i] = other.array_[i];
     }
   }
   void boxPlus(const mtDifVec& vecIn, ArrayElement& stateOut) const{
-    for(unsigned int i=0; i<N_;i++){
-      x_[i].boxPlus(vecIn.template block<Element::D_,1>(Element::D_*i,0),stateOut.x_[i]);
+    for(unsigned int i=0; i<M_;i++){
+      array_[i].boxPlus(vecIn.template block<Element::D_,1>(Element::D_*i,0),stateOut.array_[i]);
     }
   }
   void boxMinus(const ArrayElement& stateIn, mtDifVec& vecOut) const{
     typename Element::mtDifVec difVec;
-    for(unsigned int i=0; i<N_;i++){
-      x_[i].boxMinus(stateIn.x_[i],difVec);
+    for(unsigned int i=0; i<M_;i++){
+      array_[i].boxMinus(stateIn.array_[i],difVec);
       vecOut.template block<Element::D_,1>(Element::D_*i,0) = difVec;
     }
   }
   void print() const{
-    for(unsigned int i=0; i<N_;i++){
-      x_[i].print();
+    for(unsigned int i=0; i<M_;i++){
+      array_[i].print();
     }
   }
   void setIdentity(){
-    for(unsigned int i=0; i<N_;i++){
-      x_[i].setIdentity();
+    for(unsigned int i=0; i<M_;i++){
+      array_[i].setIdentity();
     }
   }
   void setRandom(unsigned int& s){
-    for(unsigned int i=0; i<N_;i++){
-      x_[i].setRandom(s);
+    for(unsigned int i=0; i<M_;i++){
+      array_[i].setRandom(s);
     }
   }
   void fix(){
-    for(unsigned int i=0; i<N_;i++){
-      x_[i].fix();
+    for(unsigned int i=0; i<M_;i++){
+      array_[i].fix();
     }
   }
-  typename Element::mtImpl& get(unsigned int i){
-    return x_[i].get();
+  mtGet& get(unsigned int i){
+    assert(i<M_);
+    return array_[i].get();
   }
-  const typename Element::mtImpl& get(unsigned int i) const{
-    return x_[i].get();
+  const mtGet& get(unsigned int i) const{
+    assert(i<M_);
+    return array_[i].get();
+  }
+  void registerElementToPropertyHandler(PropertyHandler* mpPropertyHandler, const std::string& str){
+    for(unsigned int i=0; i<M_;i++){
+      array_[i].registerElementToPropertyHandler(mpPropertyHandler,str + name_ + "_" + std::to_string(i)); // TODO: check that name of array elements is ""
+    }
   }
 };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 template<typename DERIVED, unsigned int D, unsigned int E = 1>
 class StateBase{
