@@ -652,6 +652,14 @@ TEST_F(StateTesting2, naming) {
   ASSERT_TRUE(std::get<v2>(testState1_.mStates_).name_ == "test_6");
   ASSERT_TRUE(std::get<q0>(testState1_.mStates_).name_ == "test_7");
   ASSERT_TRUE(std::get<q1>(testState1_.mStates_).name_ == "test_8");
+
+//  TODO
+  LWF::ArrayElement<LWF::ScalarElement,4> test;
+  test.get(0) = 4.3;
+  test.get(1) = 1.3;
+  test.get(2) = 2.3;
+  test.get(3) = 3.3;
+  test.print();
 }
 
 // Test ZeroArray

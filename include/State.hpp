@@ -20,6 +20,133 @@ namespace rot = kindr::rotations::eigen_impl;
 
 namespace LWF{
 
+/*
+ * Make ElementBase as reduction of StateBase
+ * Enable arrayELEMENT
+ * ComposedState2 becomes new State (no name, getValue, getID, getName)
+ * Auxilliary directly in State (could even be derived from ElementBase)
+ * Improve registering of state and covariance -> Traits template<int N,typename Element>register(...)
+ * setRandom has reference to seed
+ * add typename for get return;
+ */
+
+template<typename DERIVED, typename IMPL, unsigned int D>
+class ElementBase{
+ public:
+  ElementBase(){};
+  virtual ~ElementBase(){};
+  static const unsigned int D_ = D;
+  typedef Eigen::Matrix<double,D_,1> mtDifVec;
+  typedef Eigen::Matrix<double,D_,D_> mtCovMat;
+  typedef IMPL mtImpl;
+  std::string name_;
+  mtImpl x_;
+  virtual void boxPlus(const mtDifVec& vecIn, DERIVED& stateOut) const = 0;
+  virtual void boxMinus(const DERIVED& stateIn, mtDifVec& vecOut) const = 0;
+  virtual void print() const = 0;
+  virtual void setIdentity() = 0;
+  virtual void setRandom(unsigned int& s) = 0;
+  virtual void fix() = 0;
+  static DERIVED Identity(){
+    DERIVED identity;
+    identity.setIdentity();
+    return identity;
+  }
+  DERIVED& operator=(const DERIVED& other){
+    other.swap(*this);
+    return *this;
+  }
+  mtImpl& get(){
+    return x_;
+  }
+  const mtImpl& get() const{
+    return x_;
+  }
+};
+
+class ScalarElement: public ElementBase<ScalarElement,double,1>{
+ public:
+  typedef ElementBase<ScalarElement,double,1> Base;
+  using typename  Base::mtDifVec;
+  ScalarElement(){}
+  ScalarElement(const ScalarElement& other){
+    x_ = other.x_;
+  }
+  void boxPlus(const mtDifVec& vecIn, ScalarElement& stateOut) const{
+    stateOut.x_ = x_ + vecIn(0);
+  }
+  void boxMinus(const ScalarElement& stateIn, mtDifVec& vecOut) const{
+    vecOut(0) = x_ - stateIn.x_;
+  }
+  void print() const{
+    std::cout << x_ << std::endl;
+  }
+  void setIdentity(){
+    x_ = 0.0;
+  }
+  void setRandom(unsigned int& s){
+    std::default_random_engine generator (s);
+    std::normal_distribution<double> distribution (0.0,1.0);
+    x_ = distribution(generator);
+    s++;
+  }
+  void fix(){
+  }
+};
+
+template<typename Element, unsigned int N>
+class ArrayElement: public ElementBase<ArrayElement<Element,N>,Element[N],N*Element::D_>{
+ public:
+  typedef ElementBase<ArrayElement<Element,N>,Element[N],N*Element::D_> Base;
+  using typename  Base::mtDifVec;
+  using Base::x_;
+  static const unsigned int N_ = N;
+  ArrayElement(){}
+  ArrayElement(const ArrayElement& other){
+    for(unsigned int i=0; i<N_;i++){
+      x_[i] = other.x_[i];
+    }
+  }
+  void boxPlus(const mtDifVec& vecIn, ArrayElement& stateOut) const{
+    for(unsigned int i=0; i<N_;i++){
+      x_[i].boxPlus(vecIn.template block<Element::D_,1>(Element::D_*i,0),stateOut.x_[i]);
+    }
+  }
+  void boxMinus(const ArrayElement& stateIn, mtDifVec& vecOut) const{
+    typename Element::mtDifVec difVec;
+    for(unsigned int i=0; i<N_;i++){
+      x_[i].boxMinus(stateIn.x_[i],difVec);
+      vecOut.template block<Element::D_,1>(Element::D_*i,0) = difVec;
+    }
+  }
+  void print() const{
+    for(unsigned int i=0; i<N_;i++){
+      x_[i].print();
+    }
+  }
+  void setIdentity(){
+    for(unsigned int i=0; i<N_;i++){
+      x_[i].setIdentity();
+    }
+  }
+  void setRandom(unsigned int& s){
+    for(unsigned int i=0; i<N_;i++){
+      x_[i].setRandom(s);
+    }
+  }
+  void fix(){
+    for(unsigned int i=0; i<N_;i++){
+      x_[i].fix();
+    }
+  }
+  typename Element::mtImpl& get(unsigned int i){
+    return x_[i].get();
+  }
+  const typename Element::mtImpl& get(unsigned int i) const{
+    return x_[i].get();
+  }
+};
+
 template<typename DERIVED, unsigned int D, unsigned int E = 1>
 class StateBase{
  public:
