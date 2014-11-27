@@ -20,11 +20,6 @@ namespace rot = kindr::rotations::eigen_impl;
 
 namespace LWF{
 
-/*
- * ComposedState2 becomes new State (no name, getValue, getID, getName)
- * Auxilliary directly in State (could even be derived from ElementBase)
- */
-
 template<typename DERIVED, typename GET, unsigned int D>
 class ElementBase{
  public:
@@ -102,6 +97,171 @@ class ScalarElement: public ElementBase<ScalarElement,double,1>{
   }
 };
 
+template<unsigned int N>
+class VectorElement: public ElementBase<VectorElement<N>,Eigen::Matrix<double,N,1>,N>{
+ public:
+  typedef ElementBase<VectorElement<N>,Eigen::Matrix<double,N,1>,N> Base;
+  using typename  Base::mtDifVec;
+  using typename  Base::mtGet;
+  using typename  Base::name_;
+  static const unsigned int N_ = N;
+  Eigen::Matrix<double,N_,1> v_;
+  VectorElement(){}
+  VectorElement(const VectorElement<N>& other){
+    v_ = other.v_;
+  }
+  void boxPlus(const mtDifVec& vecIn, VectorElement<N>& stateOut) const{
+    stateOut.v_ = v_ + vecIn;
+  }
+  void boxMinus(const VectorElement<N>& stateIn, mtDifVec& vecOut) const{
+    vecOut = v_ - stateIn.v_;
+  }
+  void print() const{
+    std::cout << v_.transpose() << std::endl;
+  }
+  void setIdentity(){
+    v_.setZero();
+  }
+  void setRandom(unsigned int& s){
+    std::default_random_engine generator (s);
+    std::normal_distribution<double> distribution (0.0,1.0);
+    for(unsigned int i=0;i<N_;i++){
+      v_(i) = distribution(generator);
+    }
+    s++;
+  }
+  void fix(){
+  }
+  mtGet& get(unsigned int i = 0){
+    assert(i==0);
+    return v_;
+  }
+  const mtGet& get(unsigned int i = 0) const{
+    assert(i==0);
+    return v_;
+  }
+  void registerElementToPropertyHandler(PropertyHandler* mpPropertyHandler, const std::string& str){
+    for(unsigned int i = 0;i<N_;i++){
+      mpPropertyHandler->doubleRegister_.registerScalar(str + name_ + "_" + std::to_string(i), v_(i));
+    }
+  }
+};
+
+class QuaternionElement: public ElementBase<QuaternionElement,rot::RotationQuaternionPD,3>{
+ public:
+  rot::RotationQuaternionPD q_;
+  QuaternionElement(){}
+  QuaternionElement(const QuaternionElement& other){
+    q_ = other.q_;
+  }
+  void boxPlus(const mtDifVec& vecIn, QuaternionElement& stateOut) const{
+    stateOut.q_ = q_.boxPlus(vecIn);
+  }
+  void boxMinus(const QuaternionElement& stateIn, mtDifVec& vecOut) const{
+    vecOut = q_.boxMinus(stateIn.q_);
+  }
+  void print() const{
+    std::cout << q_ << std::endl;
+  }
+  void setIdentity(){
+    q_.setIdentity();
+  }
+  void setRandom(unsigned int& s){
+    std::default_random_engine generator (s);
+    std::normal_distribution<double> distribution (0.0,1.0);
+    q_.toImplementation().w() = distribution(generator);
+    q_.toImplementation().x() = distribution(generator);
+    q_.toImplementation().y() = distribution(generator);
+    q_.toImplementation().z() = distribution(generator);
+    fix();
+    s++;
+  }
+  void fix(){
+    q_.fix();
+  }
+  mtGet& get(unsigned int i = 0){
+    assert(i==0);
+    return q_;
+  }
+  const mtGet& get(unsigned int i = 0) const{
+    assert(i==0);
+    return q_;
+  }
+  void registerElementToPropertyHandler(PropertyHandler* mpPropertyHandler, const std::string& str){
+    mpPropertyHandler->doubleRegister_.registerQuaternion(str + name_, q_);
+  }
+};
+
+class NormalVectorElement: public ElementBase<NormalVectorElement,Eigen::Vector3d,2>{
+ public:
+  Eigen::Vector3d n_;
+  NormalVectorElement(){}
+  NormalVectorElement(const NormalVectorElement& other){
+    n_ = other.n_;
+  }
+  void boxPlus(const mtDifVec& vecIn, NormalVectorElement& stateOut) const{
+    Eigen::Vector3d m0;
+    Eigen::Vector3d m1;
+    getTwoNormals(m0,m1);
+    rot::RotationQuaternionPD q = q.exponentialMap(vecIn(0)*m0+vecIn(1)*m1);
+    stateOut.n_ = q.rotate(n_);
+  }
+  void boxMinus(const NormalVectorElement& stateIn, mtDifVec& vecOut) const{
+    rot::RotationQuaternionPD q;
+    q.setFromVectors(stateIn.n_,n_);
+    Eigen::Vector3d vec = -q.logarithmicMap(); // Minus required (active/passiv messes things up probably)
+    Eigen::Vector3d m0;
+    Eigen::Vector3d m1;
+    stateIn.getTwoNormals(m0,m1);
+    vecOut(0) = m0.dot(vec);
+    vecOut(1) = m1.dot(vec);
+  }
+  void print() const{
+    std::cout << n_.transpose() << std::endl;
+  }
+  void setIdentity(){
+    n_ = Eigen::Vector3d(1.0,0.0,0.0);
+  }
+  void setRandom(unsigned int& s){
+    std::default_random_engine generator (s);
+    std::normal_distribution<double> distribution (0.0,1.0);
+    n_(0) = distribution(generator);
+    n_(1) = distribution(generator);
+    n_(2) = distribution(generator);
+    fix();
+    s++;
+  }
+  void fix(){
+    n_.normalize();
+  }
+  mtGet& get(unsigned int i = 0){
+    assert(i==0);
+    return n_;
+  }
+  const mtGet& get(unsigned int i = 0) const{
+    assert(i==0);
+    return n_;
+  }
+  void registerElementToPropertyHandler(PropertyHandler* mpPropertyHandler, const std::string& str){
+    mpPropertyHandler->doubleRegister_.registerVector(str + name_, n_);
+  }
+  void getTwoNormals(Eigen::Vector3d& m0,Eigen::Vector3d& m1) const {
+    Eigen::Vector3d vec = Eigen::Vector3d(1.0,0.0,0.0);
+    double min = n_(0);
+    if(n_(1)<min){
+      Eigen::Vector3d(0.0,1.0,0.0);
+      min = n_(1);
+    }
+    if(n_(2)<min){
+      Eigen::Vector3d(0.0,0.0,1.0);
+    }
+    m0 = vec.cross(n_);
+    m0.normalize();
+    m1 = m0.cross(n_);
+    m1.normalize();
+  }
+};
+
 template<typename Element, unsigned int M>
 class ArrayElement: public ElementBase<ArrayElement<Element,M>,typename Element::mtGet,M*Element::D_>{
  public:
@@ -168,10 +328,10 @@ class ArrayElement: public ElementBase<ArrayElement<Element,M>,typename Element:
   }
 };
 
-template <typename Arg>
+template <typename Element>
 class TH_convert{
  public:
-  typedef std::tuple<Arg> t;
+  typedef std::tuple<Element> t;
 };
 
 template <typename Arg, unsigned int N>
@@ -191,19 +351,19 @@ class TH_multiple_elements<Arg,0>{
   typedef std::tuple<> t;
 };
 
-template <typename Arg>
+template <typename Element>
 class TH_getDimension{
-  static const unsigned int D_ = Arg::D_;
+  static const unsigned int D_ = Element::D_;
 };
-template <typename Arg>
-class TH_getDimension<std::tuple<Arg>>{
+template <typename Element>
+class TH_getDimension<std::tuple<Element>>{
  public:
-  static const unsigned int D_ = Arg::D_;
+  static const unsigned int D_ = Element::D_;
 };
-template <typename Arg, typename... Args>
-class TH_getDimension<std::tuple<Arg, Args...>>{
+template <typename Element, typename... Elements>
+class TH_getDimension<std::tuple<Element, Elements...>>{
  public:
-  static const unsigned int D_ = Arg::D_ + TH_getDimension<std::tuple<Args...>>::D_;
+  static const unsigned int D_ = Element::D_ + TH_getDimension<std::tuple<Elements...>>::D_;
 };
 
 template<typename... Elements>
@@ -305,25 +465,17 @@ class State{
   void registerElementsToPropertyHandler_(PropertyHandler* mtPropertyHandler, const std::string& str){
     std::get<i>(mElements_).registerElementToPropertyHandler(mtPropertyHandler,str);
   }
-//  template<int N,int j>
-//  void registerCovarianceToPropertyHandler(Eigen::Matrix<double,N,N>& cov, PropertyHandler* mpPropertyHandler, const std::string& str){
-//    assert(j+D_<=N);
-//    for(unsigned int i=0;i<DERIVED::D_;i++){
-//      mpPropertyHandler->doubleRegister_.registerScalar(str + name_ + "_" + std::to_string(i), cov(j+i,j+i));
-//    }
-//  }
-//    template<int N,int j>
-  void registerCovarianceToPropertyHandler(PropertyHandler* mtPropertyHandler, const std::string& str){
-    registerCovarianceToPropertyHandler_(mtPropertyHandler,str);
+  void registerCovarianceToPropertyHandler(Eigen::Matrix<double,D_,D_>& cov, PropertyHandler* mpPropertyHandler, const std::string& str){
+    registerCovarianceToPropertyHandler_(cov,mpPropertyHandler,str);
   }
-  template<unsigned int i=0,typename std::enable_if<(i<E_-1)>::type* = nullptr>
-  void registerCovarianceToPropertyHandler_(PropertyHandler* mtPropertyHandler, const std::string& str){
-    std::get<i>(mElements_).registerCovarianceToPropertyHandler(mtPropertyHandler,str);
-    registerCovarianceToPropertyHandler_<i+1>(mtPropertyHandler,str);
+  template<unsigned int i=0,unsigned int j=0,typename std::enable_if<(i<E_-1)>::type* = nullptr>
+  void registerCovarianceToPropertyHandler_(Eigen::Matrix<double,D_,D_>& cov, PropertyHandler* mpPropertyHandler, const std::string& str){
+    std::get<i>(mElements_).registerCovarianceToPropertyHandler<D_,j>(cov,mpPropertyHandler,str);
+    registerCovarianceToPropertyHandler_<i+1,j+std::tuple_element<i,decltype(mElements_)>::type::D_>(cov,mpPropertyHandler,str);
   }
-  template<unsigned int i=0,typename std::enable_if<(i==E_-1)>::type* = nullptr>
-  void registerCovarianceToPropertyHandler_(PropertyHandler* mtPropertyHandler, const std::string& str){
-    std::get<i>(mElements_).registerCovarianceToPropertyHandler(mtPropertyHandler,str);
+  template<unsigned int i=0,unsigned int j=0,typename std::enable_if<(i==E_-1)>::type* = nullptr>
+  void registerCovarianceToPropertyHandler_(Eigen::Matrix<double,D_,D_>& cov, PropertyHandler* mpPropertyHandler, const std::string& str){
+    std::get<i>(mElements_).registerCovarianceToPropertyHandler<D_,j>(cov,mpPropertyHandler,str);
   }
   void createDefaultNames(const std::string& str = ""){
     createDefaultNames_(str);

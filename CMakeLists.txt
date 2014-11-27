@@ -7,10 +7,10 @@ SET(CMAKE_BUILD_TYPE "Debug")
 message(STATUS "cmake root folder:" ${CMAKE_ROOT})
 
 ##################### Find, include, and compile library #####################
-if(CATKIN_DEVEL_PREFIX)
+if(DEFINED CATKIN_DEVEL_PREFIX)
 	find_package(catkin REQUIRED)
 	message(STATUS "Building lightweight_filtering as catkin package")
-endif(CATKIN_DEVEL_PREFIX)
+endif()
 find_package(Eigen REQUIRED)
 find_package(Kindr REQUIRED)
 message(STATUS "Eigen Include Directory: ${EIGEN_INCLUDE_DIRS} ${EIGEN3_INCLUDE_DIR}")
@@ -19,12 +19,12 @@ include_directories(${EIGEN3_INCLUDE_DIR})
 include_directories(./include)
 include_directories(${Kindr_INCLUDE_DIRS})
 
-if(CATKIN_DEVEL_PREFIX)
+if(DEFINED CATKIN_DEVEL_PREFIX)
 	catkin_package(
 	   INCLUDE_DIRS include)
-endif(CATKIN_DEVEL_PREFIX)
+endif()
 
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/gtest/")
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/gtest/" AND (NOT DEFINED CATKIN_DEVEL_PREFIX))
 	message(STATUS "Building GTests!")
 	option(BUILD_GTEST "build gtest" ON)
 	add_subdirectory(gtest gtest)
