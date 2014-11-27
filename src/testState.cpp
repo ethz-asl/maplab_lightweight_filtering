@@ -660,6 +660,12 @@ TEST_F(StateTesting2, naming) {
   test.get(2) = 2.3;
   test.get(3) = 3.3;
   test.print();
+
+  LWF::State<LWF::TH_multiple_elements<LWF::ScalarElement,0>,LWF::TH_multiple_elements<LWF::QuaternionState,3>,LWF::ScalarElement> test2;
+//  std::get<0>(test2.tuple) = 5;
+//  std::get<1>(test2.tuple) = 5.2;
+//  std::get<2>(test2.tuple) = 3;
+  std::cout << test2.D_ << std::endl;
 }
 
 // Test ZeroArray

@@ -111,7 +111,11 @@ class ArrayElement: public ElementBase<ArrayElement<Element,M>,typename Element:
   using typename Base::name_;
   static const unsigned int M_ = M;
   Element array_[M_];
-  ArrayElement(){}
+  ArrayElement(){
+    for(unsigned int i=0; i<M_;i++){
+      array_[i].name_ = "";
+    }
+  }
   ArrayElement(const ArrayElement& other){
     for(unsigned int i=0; i<M_;i++){
       array_[i] = other.array_[i];
@@ -159,9 +163,216 @@ class ArrayElement: public ElementBase<ArrayElement<Element,M>,typename Element:
   }
   void registerElementToPropertyHandler(PropertyHandler* mpPropertyHandler, const std::string& str){
     for(unsigned int i=0; i<M_;i++){
-      array_[i].registerElementToPropertyHandler(mpPropertyHandler,str + name_ + "_" + std::to_string(i)); // TODO: check that name of array elements is ""
+      array_[i].registerElementToPropertyHandler(mpPropertyHandler,str + name_ + "_" + std::to_string(i));
     }
   }
+};
+
+template <typename Arg>
+class TH_convert{
+ public:
+  typedef std::tuple<Arg> t;
+};
+
+template <typename Arg, unsigned int N>
+class TH_multiple_elements{
+ private:
+ public:
+  typedef decltype(std::tuple_cat(typename TH_convert<Arg>::t(),typename TH_multiple_elements<Arg,N-1>::t())) t;
+};
+template <typename Arg>
+class TH_multiple_elements<Arg,1>{
+ public:
+  typedef typename TH_convert<Arg>::t t;
+};
+template <typename Arg>
+class TH_multiple_elements<Arg,0>{
+ public:
+  typedef std::tuple<> t;
+};
+
+template <typename Arg>
+class TH_getDimension{
+  static const unsigned int D_ = Arg::D_;
+};
+template <typename Arg>
+class TH_getDimension<std::tuple<Arg>>{
+ public:
+  static const unsigned int D_ = Arg::D_;
+};
+template <typename Arg, typename... Args>
+class TH_getDimension<std::tuple<Arg, Args...>>{
+ public:
+  static const unsigned int D_ = Arg::D_ + TH_getDimension<std::tuple<Args...>>::D_;
+};
+
+template<typename... Elements>
+class State{
+ public:
+  typedef decltype(std::tuple_cat(typename TH_convert<Elements>::t()...)) t;
+  static const unsigned int D_ = TH_getDimension<t>::D_;
+  static const unsigned int E_ = std::tuple_size<t>::value;
+  typedef Eigen::Matrix<double,D_,1> mtDifVec;
+  typedef Eigen::Matrix<double,D_,D_> mtCovMat;
+  t mElements_;
+  State(){}
+  State(const State<Elements...>& other): mElements_(other.mElements_){}
+  void boxPlus(const mtDifVec& vecIn, State<Elements...>& stateOut) const{
+    boxPlus_(vecIn,stateOut);
+  }
+  template<unsigned int i=0,unsigned int j=0,typename std::enable_if<(i<E_-1)>::type* = nullptr>
+  void boxPlus_(const mtDifVec& vecIn, State<Elements...>& stateOut) const{
+    std::get<i>(mElements_).boxPlus(vecIn.template block<std::tuple_element<i,decltype(mElements_)>::type::D_,1>(j,0),std::get<i>(stateOut.mElements_));
+    boxPlus_<i+1,j+std::tuple_element<i,decltype(mElements_)>::type::D_>(vecIn,stateOut);
+  }
+  template<unsigned int i=0,unsigned int j=0,typename std::enable_if<(i==E_-1)>::type* = nullptr>
+  void boxPlus_(const mtDifVec& vecIn, State<Elements...>& stateOut) const{
+    std::get<i>(mElements_).boxPlus(vecIn.template block<std::tuple_element<i,decltype(mElements_)>::type::D_,1>(j,0),std::get<i>(stateOut.mElements_));
+  }
+  void boxMinus(const State<Elements...>& stateIn, mtDifVec& vecOut) const{
+    boxMinus_(stateIn,vecOut);
+  }
+  template<unsigned int i=0,unsigned int j=0,typename std::enable_if<(i<E_-1)>::type* = nullptr>
+  void boxMinus_(const State<Elements...>& stateIn, mtDifVec& vecOut) const{
+    typename std::tuple_element<i,decltype(mElements_)>::type::mtDifVec difVec;
+    std::get<i>(mElements_).boxMinus(std::get<i>(stateIn.mElements_),difVec);
+    vecOut.template block<std::tuple_element<i,decltype(mElements_)>::type::D_,1>(j,0) = difVec;
+    boxMinus_<i+1,j+std::tuple_element<i,decltype(mElements_)>::type::D_>(stateIn,vecOut);
+  }
+  template<unsigned int i=0,unsigned int j=0,typename std::enable_if<(i==E_-1)>::type* = nullptr>
+  void boxMinus_(const State<Elements...>& stateIn, mtDifVec& vecOut) const{
+    typename std::tuple_element<i,decltype(mElements_)>::type::mtDifVec difVec;
+    std::get<i>(mElements_).boxMinus(std::get<i>(stateIn.mElements_),difVec);
+    vecOut.template block<std::tuple_element<i,decltype(mElements_)>::type::D_,1>(j,0) = difVec;
+  }
+  void print() const{
+    print_();
+  }
+  template<unsigned int i=0,typename std::enable_if<(i<E_-1)>::type* = nullptr>
+  void print_() const{
+    std::get<i>(mElements_).print();
+    print_<i+1>();
+  }
+  template<unsigned int i=0,typename std::enable_if<(i==E_-1)>::type* = nullptr>
+  void print_() const{
+    std::get<i>(mElements_).print();
+  }
+  void setIdentity(){
+    setIdentity_();
+  }
+  template<unsigned int i=0,typename std::enable_if<(i<E_-1)>::type* = nullptr>
+  void setIdentity_(){
+    std::get<i>(mElements_).setIdentity();
+    setIdentity_<i+1>();
+  }
+  template<unsigned int i=0,typename std::enable_if<(i==E_-1)>::type* = nullptr>
+  void setIdentity_(){
+    std::get<i>(mElements_).setIdentity();
+  }
+  void setRandom(unsigned int s){
+    setRandom_(s);
+  }
+  template<unsigned int i=0,typename std::enable_if<(i<E_-1)>::type* = nullptr>
+  void setRandom_(unsigned int s){
+    std::get<i>(mElements_).setRandom(s);
+    setRandom_<i+1>(s);
+  }
+  template<unsigned int i=0,typename std::enable_if<(i==E_-1)>::type* = nullptr>
+  void setRandom_(unsigned int s){
+    std::get<i>(mElements_).setRandom(s);
+  }
+  void fix(){
+    fix_();
+  }
+  template<unsigned int i=0,typename std::enable_if<(i<E_-1)>::type* = nullptr>
+  void fix_(){
+    std::get<i>(mElements_).fix();
+    fix_<i+1>();
+  }
+  template<unsigned int i=0,typename std::enable_if<(i==E_-1)>::type* = nullptr>
+  void fix_(){
+    std::get<i>(mElements_).fix();
+  }
+  void registerElementsToPropertyHandler(PropertyHandler* mtPropertyHandler, const std::string& str){
+    registerElementsToPropertyHandler_(mtPropertyHandler,str);
+  }
+  template<unsigned int i=0,typename std::enable_if<(i<E_-1)>::type* = nullptr>
+  void registerElementsToPropertyHandler_(PropertyHandler* mtPropertyHandler, const std::string& str){
+    std::get<i>(mElements_).registerElementToPropertyHandler(mtPropertyHandler,str);
+    registerElementsToPropertyHandler_<i+1>(mtPropertyHandler,str);
+  }
+  template<unsigned int i=0,typename std::enable_if<(i==E_-1)>::type* = nullptr>
+  void registerElementsToPropertyHandler_(PropertyHandler* mtPropertyHandler, const std::string& str){
+    std::get<i>(mElements_).registerElementToPropertyHandler(mtPropertyHandler,str);
+  }
+//  template<int N,int j>
+//  void registerCovarianceToPropertyHandler(Eigen::Matrix<double,N,N>& cov, PropertyHandler* mpPropertyHandler, const std::string& str){
+//    assert(j+D_<=N);
+//    for(unsigned int i=0;i<DERIVED::D_;i++){
+//      mpPropertyHandler->doubleRegister_.registerScalar(str + name_ + "_" + std::to_string(i), cov(j+i,j+i));
+//    }
+//  }
+//    template<int N,int j>
+  void registerCovarianceToPropertyHandler(PropertyHandler* mtPropertyHandler, const std::string& str){
+    registerCovarianceToPropertyHandler_(mtPropertyHandler,str);
+  }
+  template<unsigned int i=0,typename std::enable_if<(i<E_-1)>::type* = nullptr>
+  void registerCovarianceToPropertyHandler_(PropertyHandler* mtPropertyHandler, const std::string& str){
+    std::get<i>(mElements_).registerCovarianceToPropertyHandler(mtPropertyHandler,str);
+    registerCovarianceToPropertyHandler_<i+1>(mtPropertyHandler,str);
+  }
+  template<unsigned int i=0,typename std::enable_if<(i==E_-1)>::type* = nullptr>
+  void registerCovarianceToPropertyHandler_(PropertyHandler* mtPropertyHandler, const std::string& str){
+    std::get<i>(mElements_).registerCovarianceToPropertyHandler(mtPropertyHandler,str);
+  }
+  void createDefaultNames(const std::string& str = ""){
+    createDefaultNames_(str);
+  }
+  template<unsigned int i=0,typename std::enable_if<(i<E_-1)>::type* = nullptr>
+  void createDefaultNames_(const std::string& str){
+    std::get<i>(mElements_).name_ = str + "_" + std::to_string(i);
+    createDefaultNames_<i+1>(str);
+  }
+  template<unsigned int i=0,typename std::enable_if<(i==E_-1)>::type* = nullptr>
+  void createDefaultNames_(const std::string& str){
+    std::get<i>(mElements_).name_ = str + "_" + std::to_string(i);
+  }
+  template<unsigned int i>
+  auto get(unsigned int j = 0) -> decltype (std::get<i>(mElements_).get(j))& {
+    return std::get<i>(mElements_).get(j);
+  };
+  template<unsigned int i>
+  const auto get(unsigned int j = 0) const -> decltype (std::get<i>(mElements_).get(j))& {
+    return std::get<i>(mElements_).get(j);
+  };
+  template<unsigned int i,unsigned int D=0,typename std::enable_if<(i==0)>::type* = nullptr>
+  static constexpr unsigned int getId(){
+    return D;
+  };
+  template<unsigned int i,unsigned int D=0,typename std::enable_if<(i>0 & i<E_)>::type* = nullptr>
+  static constexpr unsigned int getId(){
+    return getId<i-1,D+std::tuple_element<i-1,decltype(mElements_)>::type::D_>();
+  };
+  template<unsigned int i>
+  std::string& getName(){
+    return std::get<i>(mElements_).name_;
+  };
+  template<unsigned int i>
+  const std::string& getName() const{
+    return std::get<i>(mElements_).name_;
+  };
+  static State Identity(){
+    State identity;
+    identity.setIdentity();
+    return identity;
+  }
+};
+
+template <typename... Args>
+class TH_convert<State<Args...>>: public State<Args...>{
+};
+template <typename Arg, unsigned int N>
+class TH_convert<TH_multiple_elements<Arg,N>>: public TH_multiple_elements<Arg,N>{
 };
 
 
