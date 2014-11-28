@@ -57,6 +57,32 @@ class ElementBase{
   }
 };
 
+template<typename DERIVED>
+class AuxiliaryBase: public ElementBase<AuxiliaryBase<DERIVED>,DERIVED,0>{
+ public:
+  typedef ElementBase<AuxiliaryBase<DERIVED>,DERIVED,0> Base;
+  using typename  Base::mtDifVec;
+  using typename  Base::mtGet;
+  AuxiliaryBase(){}
+  AuxiliaryBase(const AuxiliaryBase& other){}
+  virtual ~AuxiliaryBase(){}
+  virtual void boxPlus(const mtDifVec& vecIn, AuxiliaryBase& stateOut) const{
+    static_cast<DERIVED&>(stateOut) = static_cast<const DERIVED&>(*this);
+  }
+  virtual void boxMinus(const AuxiliaryBase& stateIn, mtDifVec& vecOut) const{}
+  virtual void print() const{}
+  virtual void setIdentity(){}
+  virtual void setRandom(unsigned int& s){}
+  virtual void fix(){}
+  mtGet& get(unsigned int i){
+    return static_cast<DERIVED&>(*this);
+  }
+  const mtGet& get(unsigned int i) const{
+    return static_cast<const DERIVED&>(*this);
+  }
+  virtual void registerElementToPropertyHandler(PropertyHandler* mpPropertyHandler, const std::string& str){}
+};
+
 class ScalarElement: public ElementBase<ScalarElement,double,1>{
  public:
   double s_;
@@ -272,6 +298,7 @@ class ArrayElement: public ElementBase<ArrayElement<Element,M>,typename Element:
   static const unsigned int M_ = M;
   Element array_[M_];
   ArrayElement(){
+    static_assert((M>0),"size of array must be larger than 0, please use TH_multiple_elements otherwise");
     for(unsigned int i=0; i<M_;i++){
       array_[i].name_ = "";
     }
@@ -282,15 +309,19 @@ class ArrayElement: public ElementBase<ArrayElement<Element,M>,typename Element:
     }
   }
   void boxPlus(const mtDifVec& vecIn, ArrayElement& stateOut) const{
-    for(unsigned int i=0; i<M_;i++){
-      array_[i].boxPlus(vecIn.template block<Element::D_,1>(Element::D_*i,0),stateOut.array_[i]);
+    if(Element::D_>0){
+      for(unsigned int i=0; i<M_;i++){
+        array_[i].boxPlus(vecIn.template block<Element::D_,1>(Element::D_*i,0),stateOut.array_[i]);
+      }
     }
   }
   void boxMinus(const ArrayElement& stateIn, mtDifVec& vecOut) const{
-    typename Element::mtDifVec difVec;
-    for(unsigned int i=0; i<M_;i++){
-      array_[i].boxMinus(stateIn.array_[i],difVec);
-      vecOut.template block<Element::D_,1>(Element::D_*i,0) = difVec;
+    if(Element::D_>0){
+      typename Element::mtDifVec difVec;
+      for(unsigned int i=0; i<M_;i++){
+        array_[i].boxMinus(stateIn.array_[i],difVec);
+        vecOut.template block<Element::D_,1>(Element::D_*i,0) = difVec;
+      }
     }
   }
   void print() const{
@@ -382,28 +413,42 @@ class State{
   }
   template<unsigned int i=0,unsigned int j=0,typename std::enable_if<(i<E_-1)>::type* = nullptr>
   void boxPlus_(const mtDifVec& vecIn, State<Elements...>& stateOut) const{
-    std::get<i>(mElements_).boxPlus(vecIn.template block<std::tuple_element<i,decltype(mElements_)>::type::D_,1>(j,0),std::get<i>(stateOut.mElements_));
+    if(std::tuple_element<i,decltype(mElements_)>::type::D_>0){
+      std::get<i>(mElements_).boxPlus(vecIn.template block<std::tuple_element<i,decltype(mElements_)>::type::D_,1>(j,0),std::get<i>(stateOut.mElements_));
+    } else { // Required for auxiliary states
+      Eigen::Matrix<double,std::tuple_element<i,decltype(mElements_)>::type::D_,1> dummyVec;
+      std::get<i>(mElements_).boxPlus(dummyVec,std::get<i>(stateOut.mElements_));
+    }
     boxPlus_<i+1,j+std::tuple_element<i,decltype(mElements_)>::type::D_>(vecIn,stateOut);
   }
   template<unsigned int i=0,unsigned int j=0,typename std::enable_if<(i==E_-1)>::type* = nullptr>
   void boxPlus_(const mtDifVec& vecIn, State<Elements...>& stateOut) const{
-    std::get<i>(mElements_).boxPlus(vecIn.template block<std::tuple_element<i,decltype(mElements_)>::type::D_,1>(j,0),std::get<i>(stateOut.mElements_));
+    if(std::tuple_element<i,decltype(mElements_)>::type::D_>0){
+      std::get<i>(mElements_).boxPlus(vecIn.template block<std::tuple_element<i,decltype(mElements_)>::type::D_,1>(j,0),std::get<i>(stateOut.mElements_));
+    } else { // Required for auxiliary states
+      Eigen::Matrix<double,std::tuple_element<i,decltype(mElements_)>::type::D_,1> dummyVec;
+      std::get<i>(mElements_).boxPlus(dummyVec,std::get<i>(stateOut.mElements_));
+    }
   }
   void boxMinus(const State<Elements...>& stateIn, mtDifVec& vecOut) const{
     boxMinus_(stateIn,vecOut);
   }
   template<unsigned int i=0,unsigned int j=0,typename std::enable_if<(i<E_-1)>::type* = nullptr>
   void boxMinus_(const State<Elements...>& stateIn, mtDifVec& vecOut) const{
-    typename std::tuple_element<i,decltype(mElements_)>::type::mtDifVec difVec;
-    std::get<i>(mElements_).boxMinus(std::get<i>(stateIn.mElements_),difVec);
-    vecOut.template block<std::tuple_element<i,decltype(mElements_)>::type::D_,1>(j,0) = difVec;
+    if(std::tuple_element<i,decltype(mElements_)>::type::D_>0){
+      typename std::tuple_element<i,decltype(mElements_)>::type::mtDifVec difVec;
+      std::get<i>(mElements_).boxMinus(std::get<i>(stateIn.mElements_),difVec);
+      vecOut.template block<std::tuple_element<i,decltype(mElements_)>::type::D_,1>(j,0) = difVec;
+    }
     boxMinus_<i+1,j+std::tuple_element<i,decltype(mElements_)>::type::D_>(stateIn,vecOut);
   }
   template<unsigned int i=0,unsigned int j=0,typename std::enable_if<(i==E_-1)>::type* = nullptr>
   void boxMinus_(const State<Elements...>& stateIn, mtDifVec& vecOut) const{
-    typename std::tuple_element<i,decltype(mElements_)>::type::mtDifVec difVec;
-    std::get<i>(mElements_).boxMinus(std::get<i>(stateIn.mElements_),difVec);
-    vecOut.template block<std::tuple_element<i,decltype(mElements_)>::type::D_,1>(j,0) = difVec;
+    if(std::tuple_element<i,decltype(mElements_)>::type::D_>0){
+      typename std::tuple_element<i,decltype(mElements_)>::type::mtDifVec difVec;
+      std::get<i>(mElements_).boxMinus(std::get<i>(stateIn.mElements_),difVec);
+      vecOut.template block<std::tuple_element<i,decltype(mElements_)>::type::D_,1>(j,0) = difVec;
+    }
   }
   void print() const{
     print_();
@@ -477,7 +522,7 @@ class State{
   void registerCovarianceToPropertyHandler_(Eigen::Matrix<double,D_,D_>& cov, PropertyHandler* mpPropertyHandler, const std::string& str){
     std::get<i>(mElements_).registerCovarianceToPropertyHandler<D_,j>(cov,mpPropertyHandler,str);
   }
-  void createDefaultNames(const std::string& str = ""){
+  void createDefaultNames(const std::string& str = "def"){
     createDefaultNames_(str);
   }
   template<unsigned int i=0,typename std::enable_if<(i<E_-1)>::type* = nullptr>
