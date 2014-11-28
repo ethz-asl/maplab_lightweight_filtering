@@ -702,6 +702,288 @@ TEST_F(StateTesting, LMat) {
   ASSERT_NEAR((J-LWF::Lmat(vec.v(0))).norm(),0.0,1e-5);
 }
 
+
+
+
+
+
+
+
+
+
+
+
+// The fixture for testing class ScalarState
+class ScalarElementTest : public virtual ::testing::Test {
+ protected:
+  ScalarElementTest() {
+    unsigned int s = 1;
+    testElement1_.setRandom(s);
+    testElement2_.setRandom(s);
+  }
+  virtual ~ScalarElementTest() {
+  }
+  LWF::ScalarElement testElement1_;
+  LWF::ScalarElement testElement2_;
+  LWF::ScalarElement::mtDifVec difVec_;
+};
+
+// Test constructors
+TEST_F(ScalarElementTest, constructor) {
+  LWF::ScalarElement testElement1;
+}
+
+// Test setIdentity and Identity
+TEST_F(ScalarElementTest, setIdentity) {
+  testElement1_.setIdentity();
+  ASSERT_EQ(testElement1_.s_,0.0);
+  ASSERT_EQ(LWF::ScalarElement::Identity().s_,0.0);
+}
+
+// Test plus and minus
+TEST_F(ScalarElementTest, plusAndMinus) {
+  testElement2_.boxMinus(testElement1_,difVec_);
+  ASSERT_EQ(difVec_(0),testElement2_.s_-testElement1_.s_);
+  LWF::ScalarElement testElement3;
+  testElement1_.boxPlus(difVec_,testElement3);
+  ASSERT_NEAR(testElement2_.s_,testElement3.s_,1e-6);
+}
+
+// Test getValue
+TEST_F(ScalarElementTest, accessors) {
+  ASSERT_TRUE(testElement1_.get() == testElement1_.s_);
+}
+
+// Test operator=
+TEST_F(ScalarElementTest, operatorEQ) {
+  testElement2_ = testElement1_;
+  ASSERT_NEAR(testElement2_.s_,testElement1_.s_,1e-6);
+}
+
+// The fixture for testing class VectorState
+class VectorElementTest : public virtual ::testing::Test {
+ protected:
+  VectorElementTest() {
+    unsigned int s = 1;
+    testElement1_.setRandom(s);
+    testElement2_.setRandom(s);
+  }
+  virtual ~VectorElementTest() {
+  }
+  static const unsigned int N_ = 4;
+  LWF::VectorElement<N_> testElement1_;
+  LWF::VectorElement<N_> testElement2_;
+  LWF::VectorElement<N_>::mtDifVec difVec_;
+};
+
+// Test constructors
+TEST_F(VectorElementTest, constructor) {
+  LWF::VectorElement<N_> testElement1;
+}
+
+// Test setIdentity and Identity
+TEST_F(VectorElementTest, setIdentity) {
+  testElement1_.setIdentity();
+  ASSERT_EQ(testElement1_.v_.norm(),0.0);
+  ASSERT_EQ(LWF::VectorElement<N_>::Identity().v_.norm(),0.0);
+}
+
+// Test plus and minus
+TEST_F(VectorElementTest, plusAndMinus) {
+  testElement2_.boxMinus(testElement1_,difVec_);
+  ASSERT_NEAR((difVec_-(testElement2_.v_-testElement1_.v_)).norm(),0.0,1e-6);
+  LWF::VectorElement<N_> testElement3;
+  testElement1_.boxPlus(difVec_,testElement3);
+  ASSERT_NEAR((testElement2_.v_-testElement3.v_).norm(),0.0,1e-6);
+}
+
+// Test getValue, getId
+TEST_F(VectorElementTest, accessors) {
+  ASSERT_TRUE(testElement1_.get() == testElement1_.v_);
+}
+
+// Test operator=
+TEST_F(VectorElementTest, operatorEQ) {
+  testElement2_ = testElement1_;
+  ASSERT_NEAR((testElement2_.v_-testElement1_.v_).norm(),0.0,1e-6);
+}
+
+// The fixture for testing class QuaternionElementTest
+class QuaternionElementTest : public virtual ::testing::Test {
+ protected:
+  QuaternionElementTest() {
+    unsigned int s = 1;
+    testElement1_.setRandom(s);
+    testElement2_.setRandom(s);
+  }
+  virtual ~QuaternionElementTest() {
+  }
+  LWF::QuaternionElement testElement1_;
+  LWF::QuaternionElement testElement2_;
+  LWF::QuaternionElement::mtDifVec difVec_;
+};
+
+// Test constructors
+TEST_F(QuaternionElementTest, constructor) {
+  LWF::QuaternionElement testElement1;
+}
+
+// Test setIdentity and Identity
+TEST_F(QuaternionElementTest, setIdentity) {
+  testElement1_.setIdentity();
+  ASSERT_TRUE(testElement1_.q_.isNear(rot::RotationQuaternionPD(),1e-6));
+  ASSERT_TRUE(LWF::QuaternionElement::Identity().q_.isNear(rot::RotationQuaternionPD(),1e-6));
+}
+
+// Test plus and minus
+TEST_F(QuaternionElementTest, plusAndMinus) {
+  testElement2_.boxMinus(testElement1_,difVec_);
+  ASSERT_NEAR((difVec_-testElement2_.q_.boxMinus(testElement1_.q_)).norm(),0.0,1e-6);
+  LWF::QuaternionElement testElement3;
+  testElement1_.boxPlus(difVec_,testElement3);
+  ASSERT_TRUE(testElement2_.q_.isNear(testElement3.q_,1e-6));
+}
+
+// Test getValue, getId
+TEST_F(QuaternionElementTest, accessors) {
+  ASSERT_TRUE(testElement1_.get().isNear(testElement1_.q_,1e-6));
+}
+
+// Test operator=
+TEST_F(QuaternionElementTest, operatorEQ) {
+  testElement2_ = testElement1_;
+  ASSERT_TRUE(testElement2_.q_.isNear(testElement1_.q_,1e-6));
+}
+
+// The fixture for testing class NormalVectorElementTest
+class NormalVectorElementTest : public virtual ::testing::Test {
+ protected:
+  NormalVectorElementTest() {
+    unsigned int s = 1;
+    testElement1_.setRandom(s);
+    testElement2_.setRandom(s);
+  }
+  virtual ~NormalVectorElementTest() {
+  }
+  LWF::NormalVectorElement testElement1_;
+  LWF::NormalVectorElement testElement2_;
+  LWF::NormalVectorElement::mtDifVec difVec_;
+};
+
+// Test constructors
+TEST_F(NormalVectorElementTest, constructor) {
+  LWF::NormalVectorElement testElement1;
+}
+
+// Test setIdentity and Identity
+TEST_F(NormalVectorElementTest, setIdentity) {
+  testElement1_.setIdentity();
+  ASSERT_TRUE(testElement1_.n_ == Eigen::Vector3d(1,0,0));
+  ASSERT_TRUE(LWF::NormalVectorElement::Identity().n_ == Eigen::Vector3d(1,0,0));
+}
+
+// Test plus and minus
+TEST_F(NormalVectorElementTest, plusAndMinus) {
+  testElement2_.boxMinus(testElement1_,difVec_);
+  LWF::NormalVectorElement testElement3;
+  testElement1_.boxPlus(difVec_,testElement3);
+  ASSERT_NEAR((testElement2_.n_-testElement3.n_).norm(),0.0,1e-6);
+}
+
+// Test getValue, getId
+TEST_F(NormalVectorElementTest, accessors) {
+  ASSERT_TRUE(testElement1_.get() == testElement1_.n_);
+}
+
+// Test operator=
+TEST_F(NormalVectorElementTest, operatorEQ) {
+  testElement2_ = testElement1_;
+  ASSERT_TRUE(testElement2_.n_ == testElement1_.n_);
+}
+
+// Test getTwoNormals
+TEST_F(NormalVectorElementTest, getTwoNormals) {
+  Eigen::Vector3d m0;
+  Eigen::Vector3d m1;
+  testElement1_.getTwoNormals(m0,m1);
+  ASSERT_NEAR(m0.dot(testElement1_.n_),0.0,1e-6);
+  ASSERT_NEAR(m1.dot(testElement1_.n_),0.0,1e-6);
+}
+
+// Test derivative of boxplus
+TEST_F(NormalVectorElementTest, derivative) {
+  const double d  = 1e-6;
+  Eigen::Vector3d m0;
+  Eigen::Vector3d m1;
+  testElement1_.getTwoNormals(m0,m1);
+  difVec_.setZero();
+  difVec_(0) = d;
+  testElement1_.boxPlus(difVec_,testElement2_);
+  ASSERT_NEAR(((testElement2_.n_-testElement1_.n_)/d-(-m1)).norm(),0.0,1e-6);
+  difVec_.setZero();
+  difVec_(1) = d;
+  testElement1_.boxPlus(difVec_,testElement2_);
+  ASSERT_NEAR(((testElement2_.n_-testElement1_.n_)/d-m0).norm(),0.0,1e-6);
+}
+
+// The fixture for testing class ArrayElementTest
+class ArrayElementTest : public virtual ::testing::Test {
+ protected:
+  ArrayElementTest() {
+    unsigned int s = 1;
+    testElement1_.setRandom(s);
+    testElement2_.setRandom(s);
+  }
+  virtual ~ArrayElementTest() {
+  }
+  static const unsigned int N_ = 5;
+  LWF::ArrayElement<LWF::QuaternionElement,N_> testElement1_;
+  LWF::ArrayElement<LWF::QuaternionElement,N_> testElement2_;
+  LWF::ArrayElement<LWF::QuaternionElement,N_>::mtDifVec difVec_;
+};
+
+// Test constructors
+TEST_F(ArrayElementTest, constructor) {
+  LWF::ArrayElement<LWF::QuaternionElement,N_> testElement1;
+}
+
+// Test setIdentity and Identity
+TEST_F(ArrayElementTest, setIdentity) {
+  testElement1_.setIdentity();
+  for(unsigned int i=0;i<N_;i++){
+    ASSERT_TRUE(testElement1_.array_[i].q_.isNear(rot::RotationQuaternionPD(),1e-6));
+    ASSERT_TRUE((LWF::ArrayElement<LWF::QuaternionElement,N_>::Identity().array_[i].q_.isNear(rot::RotationQuaternionPD(),1e-6)));
+  }
+}
+
+// Test plus and minus
+TEST_F(ArrayElementTest, plusAndMinus) {
+  testElement2_.boxMinus(testElement1_,difVec_);
+  for(unsigned int i=0;i<N_;i++){
+    ASSERT_NEAR((difVec_.block<3,1>(i*3,0)-testElement2_.array_[i].q_.boxMinus(testElement1_.array_[i].q_)).norm(),0.0,1e-6);
+  }
+  LWF::ArrayElement<LWF::QuaternionElement,N_> testElement3;
+  testElement1_.boxPlus(difVec_,testElement3);
+  for(unsigned int i=0;i<N_;i++){
+    ASSERT_TRUE(testElement2_.array_[i].q_.isNear(testElement3.array_[i].q_,1e-6));
+  }
+}
+
+// Test getValue, getId
+TEST_F(ArrayElementTest, accessors) {
+  for(unsigned int i=0;i<N_;i++){
+    ASSERT_TRUE(testElement1_.get(i).isNear(testElement1_.array_[i].q_,1e-6));
+  }
+}
+
+// Test operator=
+TEST_F(ArrayElementTest, operatorEQ) {
+  testElement2_ = testElement1_;
+  for(unsigned int i=0;i<N_;i++){
+    ASSERT_TRUE(testElement2_.array_[i].q_.isNear(testElement1_.array_[i].q_,1e-6));
+  }
+}
+
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
