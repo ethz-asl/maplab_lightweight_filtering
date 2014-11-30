@@ -16,7 +16,7 @@ namespace LWFTest{
 
 namespace Nonlinear{
 
-class State: public LWF::StateSVQ<0,4,1>{
+class State: public LWF::State<LWF::TH_multiple_elements<LWF::VectorElement<3>,4>,LWF::QuaternionElement>{
  public:
   enum StateNames {
     POS,
@@ -26,15 +26,15 @@ class State: public LWF::StateSVQ<0,4,1>{
     ATT
   };
   State(){
-    getState<1>().getState<0>().name_ = "pos";
-    getState<1>().getState<1>().name_ = "vel";
-    getState<1>().getState<2>().name_ = "acb";
-    getState<1>().getState<3>().name_ = "gyb";
-    getState<2>().getState<0>().name_ = "att";
+    getName<0>() = "pos";
+    getName<1>() = "vel";
+    getName<2>() = "acb";
+    getName<3>() = "gyb";
+    getName<4>() = "att";
   }
   ~State(){};
 };
-class UpdateMeas: public LWF::StateSVQ<0,1,1>{
+class UpdateMeas: public LWF::State<LWF::VectorElement<3>,LWF::QuaternionElement>{
  public:
   enum StateNames {
     POS,
@@ -43,7 +43,7 @@ class UpdateMeas: public LWF::StateSVQ<0,1,1>{
   UpdateMeas(){};
   ~UpdateMeas(){};
 };
-class UpdateNoise: public LWF::StateSVQ<0,2,0>{
+class UpdateNoise: public LWF::State<LWF::TH_multiple_elements<LWF::VectorElement<3>,2>>{
  public:
   enum StateNames {
     POS,
@@ -52,7 +52,7 @@ class UpdateNoise: public LWF::StateSVQ<0,2,0>{
   UpdateNoise(){};
   ~UpdateNoise(){};
 };
-class Innovation: public LWF::StateSVQ<0,1,1>{
+class Innovation: public LWF::State<LWF::VectorElement<3>,LWF::QuaternionElement>{
  public:
   enum StateNames {
     POS,
@@ -61,7 +61,7 @@ class Innovation: public LWF::StateSVQ<0,1,1>{
   Innovation(){};
   ~Innovation(){};
 };
-class PredictionNoise: public LWF::StateSVQ<0,5,0>{
+class PredictionNoise: public LWF::State<LWF::TH_multiple_elements<LWF::VectorElement<3>,5>>{
  public:
   enum StateNames {
     POS,
@@ -73,7 +73,7 @@ class PredictionNoise: public LWF::StateSVQ<0,5,0>{
   PredictionNoise(){};
   ~PredictionNoise(){};
 };
-class PredictionMeas: public LWF::StateSVQ<0,2,0>{
+class PredictionMeas: public LWF::State<LWF::TH_multiple_elements<LWF::VectorElement<3>,2>>{
  public:
   enum StateNames {
     ACC,
@@ -97,16 +97,16 @@ class UpdateExample: public LWF::Update<Innovation,State,UpdateMeas,UpdateNoise,
   ~UpdateExample(){};
   mtInnovation eval(const mtState& state, const mtMeas& meas, const mtNoise noise, double dt = 0.0) const{
     mtInnovation inn;
-    inn.getValue<Innovation::POS>() = state.getValue<State::ATT>().rotate(state.getValue<State::POS>())-meas.getValue<UpdateMeas::POS>()+noise.getValue<UpdateNoise::POS>();
-    inn.getValue<Innovation::ATT>() = (state.getValue<State::ATT>()*meas.getValue<UpdateMeas::ATT>().inverted()).boxPlus(noise.getValue<UpdateNoise::ATT>());
+    inn.get<Innovation::POS>() = state.get<State::ATT>().rotate(state.get<State::POS>())-meas.get<UpdateMeas::POS>()+noise.get<UpdateNoise::POS>();
+    inn.get<Innovation::ATT>() = (state.get<State::ATT>()*meas.get<UpdateMeas::ATT>().inverted()).boxPlus(noise.get<UpdateNoise::ATT>());
     return inn;
   }
   mtJacInput jacInput(const mtState& state, const mtMeas& meas, double dt = 0.0) const{
     mtJacInput J;
     mtInnovation inn;
     J.setZero();
-    J.template block<3,3>(mtInnovation::getId<Innovation::POS>(),mtState::getId<State::POS>()) = rot::RotationMatrixPD(state.getValue<State::ATT>()).matrix();
-    J.template block<3,3>(mtInnovation::getId<Innovation::POS>(),mtState::getId<State::ATT>()) = kindr::linear_algebra::getSkewMatrixFromVector(state.getValue<State::ATT>().rotate(state.getValue<State::POS>()));
+    J.template block<3,3>(mtInnovation::getId<Innovation::POS>(),mtState::getId<State::POS>()) = rot::RotationMatrixPD(state.get<State::ATT>()).matrix();
+    J.template block<3,3>(mtInnovation::getId<Innovation::POS>(),mtState::getId<State::ATT>()) = kindr::linear_algebra::getSkewMatrixFromVector(state.get<State::ATT>().rotate(state.get<State::POS>()));
     J.template block<3,3>(mtInnovation::getId<Innovation::ATT>(),mtState::getId<State::ATT>()) = Eigen::Matrix3d::Identity();
     return J;
   }
@@ -132,32 +132,32 @@ class PredictionExample: public LWF::Prediction<State,PredictionMeas,PredictionN
   mtState eval(const mtState& state, const mtMeas& meas, const mtNoise noise, double dt) const{
     mtState output;
     Eigen::Vector3d g_(0,0,-9.81);
-    Eigen::Vector3d dOmega = -dt*(meas.getValue<PredictionMeas::GYR>()-state.getValue<State::GYB>()+noise.getValue<PredictionNoise::ATT>()/sqrt(dt));
+    Eigen::Vector3d dOmega = -dt*(meas.get<PredictionMeas::GYR>()-state.get<State::GYB>()+noise.get<PredictionNoise::ATT>()/sqrt(dt));
     rot::RotationQuaternionPD dQ = dQ.exponentialMap(dOmega);
-    output.q(0) = state.getValue<State::ATT>()*dQ;
-    output.q(0).fix();
-    output.v(0) = (Eigen::Matrix3d::Identity()+kindr::linear_algebra::getSkewMatrixFromVector(dOmega))*state.getValue<State::POS>()-dt*state.getValue<State::VEL>()+noise.getValue<PredictionNoise::POS>()*sqrt(dt);
-    output.v(1) = (Eigen::Matrix3d::Identity()+kindr::linear_algebra::getSkewMatrixFromVector(dOmega))*state.getValue<State::VEL>()
-        -dt*(meas.getValue<PredictionMeas::ACC>()-state.getValue<State::ACB>()+state.getValue<State::ATT>().inverseRotate(g_)+noise.getValue<PredictionNoise::VEL>()/sqrt(dt));
-    output.v(2) = state.getValue<State::ACB>()+noise.getValue<PredictionNoise::ACB>()*sqrt(dt);
-    output.v(3) = state.getValue<State::GYB>()+noise.getValue<PredictionNoise::GYB>()*sqrt(dt);
+    output.get<State::ATT>() = state.get<State::ATT>()*dQ;
+    output.get<State::ATT>().fix();
+    output.get<State::POS>() = (Eigen::Matrix3d::Identity()+kindr::linear_algebra::getSkewMatrixFromVector(dOmega))*state.get<State::POS>()-dt*state.get<State::VEL>()+noise.get<PredictionNoise::POS>()*sqrt(dt);
+    output.get<State::VEL>() = (Eigen::Matrix3d::Identity()+kindr::linear_algebra::getSkewMatrixFromVector(dOmega))*state.get<State::VEL>()
+        -dt*(meas.get<PredictionMeas::ACC>()-state.get<State::ACB>()+state.get<State::ATT>().inverseRotate(g_)+noise.get<PredictionNoise::VEL>()/sqrt(dt));
+    output.get<State::ACB>() = state.get<State::ACB>()+noise.get<PredictionNoise::ACB>()*sqrt(dt);
+    output.get<State::GYB>() = state.get<State::GYB>()+noise.get<PredictionNoise::GYB>()*sqrt(dt);
     return output;
   }
   mtJacInput jacInput(const mtState& state, const mtMeas& meas, double dt) const{
     mtJacInput J;
     Eigen::Vector3d g_(0,0,-9.81);
-    Eigen::Vector3d dOmega = -dt*(meas.getValue<PredictionMeas::GYR>()-state.getValue<State::GYB>());
+    Eigen::Vector3d dOmega = -dt*(meas.get<PredictionMeas::GYR>()-state.get<State::GYB>());
     J.setZero();
     J.template block<3,3>(mtState::getId<State::POS>(),mtState::getId<State::POS>()) = (Eigen::Matrix3d::Identity()+kindr::linear_algebra::getSkewMatrixFromVector(dOmega));
     J.template block<3,3>(mtState::getId<State::POS>(),mtState::getId<State::VEL>()) = -dt*Eigen::Matrix3d::Identity();
-    J.template block<3,3>(mtState::getId<State::POS>(),mtState::getId<State::GYB>()) = -dt*kindr::linear_algebra::getSkewMatrixFromVector(state.getValue<State::POS>());
+    J.template block<3,3>(mtState::getId<State::POS>(),mtState::getId<State::GYB>()) = -dt*kindr::linear_algebra::getSkewMatrixFromVector(state.get<State::POS>());
     J.template block<3,3>(mtState::getId<State::VEL>(),mtState::getId<State::VEL>()) = (Eigen::Matrix3d::Identity()+kindr::linear_algebra::getSkewMatrixFromVector(dOmega));
     J.template block<3,3>(mtState::getId<State::VEL>(),mtState::getId<State::ACB>()) = dt*Eigen::Matrix3d::Identity();
-    J.template block<3,3>(mtState::getId<State::VEL>(),mtState::getId<State::GYB>()) = -dt*kindr::linear_algebra::getSkewMatrixFromVector(state.getValue<State::VEL>());
-    J.template block<3,3>(mtState::getId<State::VEL>(),mtState::getId<State::ATT>()) = dt*rot::RotationMatrixPD(state.getValue<State::ATT>()).matrix().transpose()*kindr::linear_algebra::getSkewMatrixFromVector(g_);
+    J.template block<3,3>(mtState::getId<State::VEL>(),mtState::getId<State::GYB>()) = -dt*kindr::linear_algebra::getSkewMatrixFromVector(state.get<State::VEL>());
+    J.template block<3,3>(mtState::getId<State::VEL>(),mtState::getId<State::ATT>()) = dt*rot::RotationMatrixPD(state.get<State::ATT>()).matrix().transpose()*kindr::linear_algebra::getSkewMatrixFromVector(g_);
     J.template block<3,3>(mtState::getId<State::ACB>(),mtState::getId<State::ACB>()) = Eigen::Matrix3d::Identity();
     J.template block<3,3>(mtState::getId<State::GYB>(),mtState::getId<State::GYB>()) = Eigen::Matrix3d::Identity();
-    J.template block<3,3>(mtState::getId<State::ATT>(),mtState::getId<State::GYB>()) = dt*rot::RotationMatrixPD(state.getValue<State::ATT>()).matrix()*LWF::Lmat(dOmega);
+    J.template block<3,3>(mtState::getId<State::ATT>(),mtState::getId<State::GYB>()) = dt*rot::RotationMatrixPD(state.get<State::ATT>()).matrix()*LWF::Lmat(dOmega);
     J.template block<3,3>(mtState::getId<State::ATT>(),mtState::getId<State::ATT>()) = Eigen::Matrix3d::Identity();
     return J;
   }
@@ -165,15 +165,15 @@ class PredictionExample: public LWF::Prediction<State,PredictionMeas,PredictionN
     mtJacNoise J;
     mtNoise noise;
     Eigen::Vector3d g_(0,0,-9.81);
-    Eigen::Vector3d dOmega = -dt*(meas.getValue<PredictionMeas::GYR>()-state.getValue<State::GYB>());
+    Eigen::Vector3d dOmega = -dt*(meas.get<PredictionMeas::GYR>()-state.get<State::GYB>());
     J.setZero();
     J.template block<3,3>(mtState::getId<State::POS>(),mtNoise::getId<mtNoise::POS>()) = Eigen::Matrix3d::Identity()*sqrt(dt);
-    J.template block<3,3>(mtState::getId<State::POS>(),mtNoise::getId<mtNoise::ATT>()) = kindr::linear_algebra::getSkewMatrixFromVector(state.getValue<State::POS>())*sqrt(dt);
+    J.template block<3,3>(mtState::getId<State::POS>(),mtNoise::getId<mtNoise::ATT>()) = kindr::linear_algebra::getSkewMatrixFromVector(state.get<State::POS>())*sqrt(dt);
     J.template block<3,3>(mtState::getId<State::VEL>(),mtNoise::getId<mtNoise::VEL>()) = -Eigen::Matrix3d::Identity()*sqrt(dt);
-    J.template block<3,3>(mtState::getId<State::VEL>(),mtNoise::getId<mtNoise::ATT>()) = kindr::linear_algebra::getSkewMatrixFromVector(state.getValue<State::VEL>())*sqrt(dt);
+    J.template block<3,3>(mtState::getId<State::VEL>(),mtNoise::getId<mtNoise::ATT>()) = kindr::linear_algebra::getSkewMatrixFromVector(state.get<State::VEL>())*sqrt(dt);
     J.template block<3,3>(mtState::getId<State::ACB>(),mtNoise::getId<mtNoise::ACB>()) = Eigen::Matrix3d::Identity()*sqrt(dt);
     J.template block<3,3>(mtState::getId<State::GYB>(),mtNoise::getId<mtNoise::GYB>()) = Eigen::Matrix3d::Identity()*sqrt(dt);
-    J.template block<3,3>(mtState::getId<State::ATT>(),mtNoise::getId<mtNoise::ATT>()) = -rot::RotationMatrixPD(state.getValue<State::ATT>()).matrix()*LWF::Lmat(dOmega)*sqrt(dt);
+    J.template block<3,3>(mtState::getId<State::ATT>(),mtNoise::getId<mtNoise::ATT>()) = -rot::RotationMatrixPD(state.get<State::ATT>()).matrix()*LWF::Lmat(dOmega)*sqrt(dt);
     return J;
   }
 };
@@ -190,16 +190,16 @@ class PredictAndUpdateExample: public LWF::Update<Innovation,State,UpdateMeas,Up
   ~PredictAndUpdateExample(){};
   mtInnovation eval(const mtState& state, const mtMeas& meas, const mtNoise noise, double dt = 0.0) const{
     mtInnovation inn;
-    inn.getValue<Innovation::POS>() = state.getValue<State::ATT>().rotate(state.getValue<State::POS>())-meas.getValue<UpdateMeas::POS>()+noise.getValue<UpdateNoise::POS>();
-    inn.getValue<Innovation::ATT>() = (state.getValue<State::ATT>()*meas.getValue<UpdateMeas::ATT>().inverted()).boxPlus(noise.getValue<UpdateNoise::ATT>());
+    inn.get<Innovation::POS>() = state.get<State::ATT>().rotate(state.get<State::POS>())-meas.get<UpdateMeas::POS>()+noise.get<UpdateNoise::POS>();
+    inn.get<Innovation::ATT>() = (state.get<State::ATT>()*meas.get<UpdateMeas::ATT>().inverted()).boxPlus(noise.get<UpdateNoise::ATT>());
     return inn;
   }
   mtJacInput jacInput(const mtState& state, const mtMeas& meas, double dt = 0.0) const{
     mtJacInput J;
     mtInnovation inn;
     J.setZero();
-    J.template block<3,3>(mtInnovation::getId<Innovation::POS>(),mtState::getId<State::POS>()) = rot::RotationMatrixPD(state.getValue<State::ATT>()).matrix();
-    J.template block<3,3>(mtInnovation::getId<Innovation::POS>(),mtState::getId<State::ATT>()) = kindr::linear_algebra::getSkewMatrixFromVector(state.getValue<State::ATT>().rotate(state.getValue<State::POS>()));
+    J.template block<3,3>(mtInnovation::getId<Innovation::POS>(),mtState::getId<State::POS>()) = rot::RotationMatrixPD(state.get<State::ATT>()).matrix();
+    J.template block<3,3>(mtInnovation::getId<Innovation::POS>(),mtState::getId<State::ATT>()) = kindr::linear_algebra::getSkewMatrixFromVector(state.get<State::ATT>().rotate(state.get<State::POS>()));
     J.template block<3,3>(mtInnovation::getId<Innovation::ATT>(),mtState::getId<State::ATT>()) = Eigen::Matrix3d::Identity();
     return J;
   }
@@ -217,7 +217,7 @@ class PredictAndUpdateExample: public LWF::Update<Innovation,State,UpdateMeas,Up
 
 namespace Linear{
 
-class State: public LWF::StateSVQ<0,2,0>{
+class State: public LWF::State<LWF::TH_multiple_elements<LWF::VectorElement<3>,2>>{
  public:
   enum StateNames {
     POS,
@@ -228,7 +228,7 @@ class State: public LWF::StateSVQ<0,2,0>{
   };
   ~State(){};
 };
-class UpdateMeas: public LWF::StateSVQ<1,1,0>{
+class UpdateMeas: public LWF::State<LWF::ScalarElement,LWF::VectorElement<3>>{
  public:
   enum StateNames {
     HEI,
@@ -237,7 +237,7 @@ class UpdateMeas: public LWF::StateSVQ<1,1,0>{
   UpdateMeas(){};
   ~UpdateMeas(){};
 };
-class UpdateNoise: public LWF::StateSVQ<1,1,0>{
+class UpdateNoise: public LWF::State<LWF::ScalarElement,LWF::VectorElement<3>>{
  public:
   enum StateNames {
     HEI,
@@ -246,7 +246,7 @@ class UpdateNoise: public LWF::StateSVQ<1,1,0>{
   UpdateNoise(){};
   ~UpdateNoise(){};
 };
-class Innovation: public LWF::StateSVQ<1,1,0>{
+class Innovation: public LWF::State<LWF::ScalarElement,LWF::VectorElement<3>>{
  public:
   enum StateNames {
     HEI,
@@ -255,7 +255,7 @@ class Innovation: public LWF::StateSVQ<1,1,0>{
   Innovation(){};
   ~Innovation(){};
 };
-class PredictionNoise: public LWF::StateSVQ<0,1,0>{
+class PredictionNoise: public LWF::State<LWF::VectorElement<3>>{
  public:
   enum StateNames {
     VEL
@@ -263,7 +263,7 @@ class PredictionNoise: public LWF::StateSVQ<0,1,0>{
   PredictionNoise(){};
   ~PredictionNoise(){};
 };
-class PredictionMeas: public LWF::StateSVQ<0,1,0>{
+class PredictionMeas: public LWF::State<LWF::VectorElement<3>>{
  public:
   enum StateNames {
     ACC
@@ -286,8 +286,8 @@ class UpdateExample: public LWF::Update<Innovation,State,UpdateMeas,UpdateNoise,
   ~UpdateExample(){};
   mtInnovation eval(const mtState& state, const mtMeas& meas, const mtNoise noise, double dt = 0.0) const{
     mtInnovation inn;
-    inn.getValue<Innovation::POS>() = state.getValue<State::POS>()-meas.getValue<UpdateMeas::POS>()+noise.getValue<UpdateNoise::POS>();
-    inn.getValue<Innovation::HEI>() = Eigen::Vector3d(0,0,1).dot(state.getValue<State::POS>())-meas.getValue<UpdateMeas::HEI>()+noise.getValue<UpdateNoise::HEI>();;
+    inn.get<Innovation::POS>() = state.get<State::POS>()-meas.get<UpdateMeas::POS>()+noise.get<UpdateNoise::POS>();
+    inn.get<Innovation::HEI>() = Eigen::Vector3d(0,0,1).dot(state.get<State::POS>())-meas.get<UpdateMeas::HEI>()+noise.get<UpdateNoise::HEI>();;
     return inn;
   }
   mtJacInput jacInput(const mtState& state, const mtMeas& meas, double dt = 0.0) const{
@@ -319,8 +319,8 @@ class PredictionExample: public LWF::Prediction<State,PredictionMeas,PredictionN
   ~PredictionExample(){};
   mtState eval(const mtState& state, const mtMeas& meas, const mtNoise noise, double dt) const{
     mtState output;
-    output.getValue<mtState::POS>() = state.getValue<mtState::POS>()+dt*state.getValue<mtState::VEL>();
-    output.getValue<mtState::VEL>()  = state.getValue<mtState::VEL>()+dt*(meas.getValue<mtMeas::ACC>()+noise.getValue<PredictionNoise::VEL>()/sqrt(dt));
+    output.get<mtState::POS>() = state.get<mtState::POS>()+dt*state.get<mtState::VEL>();
+    output.get<mtState::VEL>()  = state.get<mtState::VEL>()+dt*(meas.get<mtMeas::ACC>()+noise.get<PredictionNoise::VEL>()/sqrt(dt));
     return output;
   }
   mtJacInput jacInput(const mtState& state, const mtMeas& meas, double dt) const{
@@ -351,8 +351,8 @@ class PredictAndUpdateExample: public LWF::Update<Innovation,State,UpdateMeas,Up
   ~PredictAndUpdateExample(){};
   mtInnovation eval(const mtState& state, const mtMeas& meas, const mtNoise noise, double dt = 0.0) const{
     mtInnovation inn;
-    inn.getValue<Innovation::POS>() = state.getValue<State::POS>()-meas.getValue<UpdateMeas::POS>()+noise.getValue<UpdateNoise::POS>();
-    inn.getValue<Innovation::HEI>() = Eigen::Vector3d(0,0,1).dot(state.getValue<State::POS>())-meas.getValue<UpdateMeas::HEI>()+noise.getValue<UpdateNoise::HEI>();;
+    inn.get<Innovation::POS>() = state.get<State::POS>()-meas.get<UpdateMeas::POS>()+noise.get<UpdateNoise::POS>();
+    inn.get<Innovation::HEI>() = Eigen::Vector3d(0,0,1).dot(state.get<State::POS>())-meas.get<UpdateMeas::HEI>()+noise.get<UpdateNoise::HEI>();;
     return inn;
   }
   mtJacInput jacInput(const mtState& state, const mtMeas& meas, double dt = 0.0) const{
@@ -389,15 +389,15 @@ class NonlinearTest{
   typedef Nonlinear::PredictAndUpdateExample mtPredictAndUpdateExample;
   typedef Nonlinear::OutlierDetectionExample mtOutlierDetectionExample;
   void init(mtState& state,mtUpdateMeas& updateMeas,mtPredictionMeas& predictionMeas){
-    state.v(0) = Eigen::Vector3d(2.1,-0.2,-1.9);
-    state.v(1) = Eigen::Vector3d(0.3,10.9,2.3);
-    state.v(2) = Eigen::Vector3d(0.3,10.9,2.3);
-    state.v(3) = Eigen::Vector3d(0.3,10.9,2.3);
-    state.q(0) = rot::RotationQuaternionPD(4.0/sqrt(30.0),3.0/sqrt(30.0),1.0/sqrt(30.0),2.0/sqrt(30.0));
-    updateMeas.v(0) = Eigen::Vector3d(-1.5,12,5.23);
-    updateMeas.q(0) = rot::RotationQuaternionPD(3.0/sqrt(15.0),-1.0/sqrt(15.0),1.0/sqrt(15.0),2.0/sqrt(15.0));
-    predictionMeas.v(0) = Eigen::Vector3d(-5,2,17.3);
-    predictionMeas.v(1) = Eigen::Vector3d(15.7,0.45,-2.3);
+    state.get<mtState::POS>() = Eigen::Vector3d(2.1,-0.2,-1.9);
+    state.get<mtState::VEL>() = Eigen::Vector3d(0.3,10.9,2.3);
+    state.get<mtState::ACB>() = Eigen::Vector3d(0.3,10.9,2.3);
+    state.get<mtState::GYB>() = Eigen::Vector3d(0.3,10.9,2.3);
+    state.get<mtState::ATT>() = rot::RotationQuaternionPD(4.0/sqrt(30.0),3.0/sqrt(30.0),1.0/sqrt(30.0),2.0/sqrt(30.0));
+    updateMeas.get<mtUpdateMeas::POS>() = Eigen::Vector3d(-1.5,12,5.23);
+    updateMeas.get<mtUpdateMeas::ATT>() = rot::RotationQuaternionPD(3.0/sqrt(15.0),-1.0/sqrt(15.0),1.0/sqrt(15.0),2.0/sqrt(15.0));
+    predictionMeas.get<mtPredictionMeas::ACC>() = Eigen::Vector3d(-5,2,17.3);
+    predictionMeas.get<mtPredictionMeas::GYR>() = Eigen::Vector3d(15.7,0.45,-2.3);
   }
 };
 
@@ -415,11 +415,11 @@ class LinearTest{
   typedef Linear::PredictAndUpdateExample mtPredictAndUpdateExample;
   typedef Linear::OutlierDetectionExample mtOutlierDetectionExample;
   void init(mtState& state,mtUpdateMeas& updateMeas,mtPredictionMeas& predictionMeas){
-    state.v(0) = Eigen::Vector3d(2.1,-0.2,-1.9);
-    state.v(1) = Eigen::Vector3d(0.3,10.9,2.3);
-    updateMeas.v(0) = Eigen::Vector3d(-1.5,12,5.23);
-    updateMeas.s(0) = 0.5;
-    predictionMeas.v(0) = Eigen::Vector3d(-5,2,17.3);
+    state.get<mtState::POS>() = Eigen::Vector3d(2.1,-0.2,-1.9);
+    state.get<mtState::VEL>() = Eigen::Vector3d(0.3,10.9,2.3);
+    updateMeas.get<mtUpdateMeas::POS>() = Eigen::Vector3d(-1.5,12,5.23);
+    updateMeas.get<mtUpdateMeas::HEI>() = 0.5;
+    predictionMeas.get<mtPredictionMeas::ACC>() = Eigen::Vector3d(-5,2,17.3);
   }
 };
 

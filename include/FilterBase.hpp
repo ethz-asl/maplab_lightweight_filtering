@@ -105,8 +105,9 @@ class FilterBase: public PropertyHandler{
   double frontWarningTime_;
   bool gotFrontWarning_;
   FilterBase(){
-    init_.state_.registerToPropertyHandler(this,"Init.State.");
-    doubleRegister_.registerDiagonalMatrix("Init.Covariance.p",init_.cov_);
+    init_.state_.registerElementsToPropertyHandler(this,"Init.State.");
+    init_.state_.registerCovarianceToPropertyHandler_(init_.cov_,this,"Init.Covariance.");
+//    doubleRegister_.registerDiagonalMatrix("Init.Covariance.p",init_.cov_);
     registerSubHandler("Prediction",mPrediction_);
     registerUpdates();
     reset();

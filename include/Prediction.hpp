@@ -205,19 +205,19 @@ class Prediction: public ModelBase<State,State,Meas,Noise>, public PropertyHandl
   }
 };
 
-class DummyPrediction: public Prediction<ScalarState,ScalarState,ScalarState>{
+class DummyPrediction: public Prediction<ScalarElement,ScalarElement,ScalarElement>{
  public:
-  ScalarState eval(const ScalarState& state, const ScalarState& meas, const ScalarState noise, double dt) const{
-    ScalarState output;
+  ScalarElement eval(const ScalarElement& state, const ScalarElement& meas, const ScalarElement noise, double dt) const{
+    ScalarElement output;
     output.s_ = state.s_ + meas.s_ + noise.s_;
     return output;
   }
-  Eigen::Matrix<double,1,1> jacInput(const ScalarState& state, const ScalarState& meas, double dt) const{
+  Eigen::Matrix<double,1,1> jacInput(const ScalarElement& state, const ScalarElement& meas, double dt) const{
     Eigen::Matrix<double,1,1> J;
     J.setIdentity();
     return J;
   }
-  Eigen::Matrix<double,1,1> jacNoise(const ScalarState& state, const ScalarState& meas, double dt) const{
+  Eigen::Matrix<double,1,1> jacNoise(const ScalarElement& state, const ScalarElement& meas, double dt) const{
     Eigen::Matrix<double,1,1> J;
     J.setIdentity();
     return J;

@@ -51,11 +51,11 @@ class SigmaPointTest : public ::testing::Test {
   static const unsigned int O_ = 2;
   static const unsigned int L_ = N_+O_+2;
   typedef LWF::StateSVQ<S_,V_,Q_> mtState;
-  typedef LWF::VectorState<3> mtStateVector;
+  typedef LWF::VectorElement<3> mtElementVector;
   typedef mtState::mtDifVec mtDifVec;
   typedef mtState::mtCovMat mtCovMat;
   LWF::SigmaPoints<mtState,N_,L_,O_> sigmaPoints_;
-  LWF::SigmaPoints<mtStateVector,L_,L_,0> sigmaPointsVector_;
+  LWF::SigmaPoints<mtElementVector,L_,L_,0> sigmaPointsVector_;
   mtState mean_;
   mtCovMat P_;
   mtCovMat Qmat_;
@@ -152,13 +152,13 @@ TEST_F(SigmaPointTest, getCovariance2) {
     sigmaPointsVector_(i).v_ = sigmaPoints_(i).v(0)*2.45+Eigen::Vector3d::Ones()*sigmaPoints_(i).s(0)*0.51;
   }
 
-  Eigen::Matrix<double,mtStateVector::D_,mtState::D_> M = sigmaPointsVector_.getCovarianceMatrix(sigmaPoints_);
-  Eigen::Matrix<double,mtStateVector::D_,mtState::D_> H; // Jacobian of linear transformation
+  Eigen::Matrix<double,mtElementVector::D_,mtState::D_> M = sigmaPointsVector_.getCovarianceMatrix(sigmaPoints_);
+  Eigen::Matrix<double,mtElementVector::D_,mtState::D_> H; // Jacobian of linear transformation
   H.setZero();
   H.block(0,S_,3,3) = Eigen::Matrix3d::Identity()*2.45;
   H.block(0,0,3,1) = Eigen::Vector3d::Ones()*0.51;
-  Eigen::Matrix<double,mtStateVector::D_,mtState::D_> Mref = H*P_;
-  for(int i=0;i<mtStateVector::D_;i++){
+  Eigen::Matrix<double,mtElementVector::D_,mtState::D_> Mref = H*P_;
+  for(int i=0;i<mtElementVector::D_;i++){
     for(int j=0;j<mtState::D_;j++){
       ASSERT_NEAR(Mref(i,j),M(i,j),1e-8);
     }

@@ -226,7 +226,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
   typedef OutlierDetection mtOutlierDetection;
   typedef typename Prediction::mtMeas mtPredictionMeas;
   typedef typename Prediction::mtNoise mtPredictionNoise;
-  typedef ComposedState<mtPredictionNoise,mtNoise> mtJointNoise;
+  typedef LWF::ComposedState<mtPredictionNoise,mtNoise> mtJointNoise;
   static const int noiseDim_ = (isCoupled)*mtPredictionNoise::D_+mtNoise::D_;
   static const bool coupledToPrediction_ = isCoupled;
   UpdateFilteringMode mode_;
@@ -252,7 +252,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
   SigmaPoints<mtNoise,2*mtNoise::D_+1,2*(mtState::D_+mtNoise::D_)+1,2*mtState::D_> stateSigmaPointsNoi_;
   SigmaPoints<mtJointNoise,2*mtJointNoise::D_+1,2*(mtState::D_+mtJointNoise::D_)+1,2*(mtState::D_)> coupledStateSigmaPointsNoi_;
   SigmaPoints<mtInnovation,2*(mtState::D_+noiseDim_)+1,2*(mtState::D_+noiseDim_)+1,0> innSigmaPoints_;
-  SigmaPoints<LWF::VectorState<mtState::D_>,2*mtState::D_+1,2*mtState::D_+1,0> updateVecSP_;
+  SigmaPoints<LWF::VectorElement<mtState::D_>,2*mtState::D_+1,2*mtState::D_+1,0> updateVecSP_;
   SigmaPoints<mtState,2*mtState::D_+1,2*mtState::D_+1,0> posterior_;
   double alpha_;
   double beta_;
