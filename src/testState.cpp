@@ -306,7 +306,7 @@ class AuxillaryElement: public LWF::AuxiliaryBase<AuxillaryElement>{
 };
 
 // The fixture for testing class StateSVQ
-class StateTesting3 : public virtual ::testing::Test { // TODO rename
+class StateTesting : public virtual ::testing::Test {
  protected:
   static const unsigned int _sca = 0;
   static const unsigned int _vec0 = _sca+1;
@@ -316,7 +316,7 @@ class StateTesting3 : public virtual ::testing::Test { // TODO rename
   static const unsigned int _qua0 = _vec3+1;
   static const unsigned int _qua1 = _qua0+1;
   static const unsigned int _aux = _qua1+1;
-  StateTesting3() {
+  StateTesting() {
     testScalar1_ = 4.5;
     testScalar2_ = -17.34;
     testVector1_[0] << 2.1, -0.2, -1.9;
@@ -352,7 +352,7 @@ class StateTesting3 : public virtual ::testing::Test { // TODO rename
     testState2_.get<_qua1>(1) = testQuat2_[3];
     testState2_.get<_aux>().x_ = 3.2;
   }
-  virtual ~StateTesting3() {
+  virtual ~StateTesting() {
   }
   typedef LWF::State<
       LWF::ScalarElement,
@@ -371,7 +371,7 @@ class StateTesting3 : public virtual ::testing::Test { // TODO rename
 };
 
 // Test constructors
-TEST_F(StateTesting3, constructors) {
+TEST_F(StateTesting, constructors) {
   mtState testState1;
   ASSERT_EQ(testState1.get<_aux>().x_,1.0);
   mtState testState2(testState2_);
@@ -381,7 +381,7 @@ TEST_F(StateTesting3, constructors) {
 }
 
 // Test setIdentity and Identity
-TEST_F(StateTesting3, setIdentity) {
+TEST_F(StateTesting, setIdentity) {
   testState1_.setIdentity();
   ASSERT_EQ(testState1_.get<_sca>(),0);
   ASSERT_EQ(testState1_.get<_vec0>().norm(),0);
@@ -406,7 +406,7 @@ TEST_F(StateTesting3, setIdentity) {
 }
 
 // Test plus and minus
-TEST_F(StateTesting3, plusAndMinus) {
+TEST_F(StateTesting, plusAndMinus) {
   testState2_.boxMinus(testState1_,difVec_);
   unsigned int index=0;
   ASSERT_EQ(difVec_(index),testScalar2_-testScalar1_);
@@ -433,7 +433,7 @@ TEST_F(StateTesting3, plusAndMinus) {
 }
 
 // Test getValue, getId
-TEST_F(StateTesting3, accessors) {
+TEST_F(StateTesting, accessors) {
   ASSERT_NEAR(testState1_.get<_sca>(),testScalar1_,1e-10);
   ASSERT_NEAR((testState1_.get<_vec0>()-testVector1_[0]).norm(),0,1e-10);
   ASSERT_NEAR((testState1_.get<_vec1>()-testVector1_[1]).norm(),0,1e-10);
@@ -456,7 +456,7 @@ TEST_F(StateTesting3, accessors) {
 }
 
 // Test operator=
-TEST_F(StateTesting3, operatorEQ) {
+TEST_F(StateTesting, operatorEQ) {
   testState2_ = testState1_;
   ASSERT_NEAR(testState2_.get<_sca>(),testScalar1_,1e-10);
   ASSERT_NEAR((testState2_.get<_vec0>()-testVector1_[0]).norm(),0,1e-10);
@@ -471,7 +471,7 @@ TEST_F(StateTesting3, operatorEQ) {
 }
 
 // Test createDefaultNames
-TEST_F(StateTesting3, naming) {
+TEST_F(StateTesting, naming) {
   testState1_.createDefaultNames("test");
   ASSERT_TRUE(testState1_.getName<_sca>() == "test_0");
   ASSERT_TRUE(testState1_.getName<_vec0>() == "test_1");
@@ -484,13 +484,13 @@ TEST_F(StateTesting3, naming) {
 }
 
 // Test ZeroArray
-TEST_F(StateTesting3, ZeroArray) {
+TEST_F(StateTesting, ZeroArray) {
   LWF::State<LWF::TH_multiple_elements<LWF::ScalarElement,0>,LWF::QuaternionElement> testState1;
   ASSERT_EQ(std::tuple_size<decltype(testState1.mElements_)>::value,1);
 }
 
 // Test Constness
-TEST_F(StateTesting3, Constness) {
+TEST_F(StateTesting, Constness) {
   const mtState testState1(testState1_);
   ASSERT_NEAR(testState1.get<_qua0>(0).boxMinus(testQuat1_[0]).norm(),0,1e-10);
 }
