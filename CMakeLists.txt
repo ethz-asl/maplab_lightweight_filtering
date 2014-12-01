@@ -4,7 +4,6 @@ add_definitions(-std=c++11)
 
 ##################### Set some variables #####################
 SET(CMAKE_BUILD_TYPE "Debug")
-message(STATUS "cmake root folder:" ${CMAKE_ROOT})
 
 ##################### Find, include, and compile library #####################
 if(DEFINED CATKIN_DEVEL_PREFIX)
@@ -13,7 +12,6 @@ if(DEFINED CATKIN_DEVEL_PREFIX)
 endif()
 find_package(Eigen REQUIRED)
 find_package(Kindr REQUIRED)
-message(STATUS "Eigen Include Directory: ${EIGEN_INCLUDE_DIRS} ${EIGEN3_INCLUDE_DIR}")
 include_directories(${EIGEN_INCLUDE_DIRS})
 include_directories(${EIGEN3_INCLUDE_DIR})
 include_directories(./include)
