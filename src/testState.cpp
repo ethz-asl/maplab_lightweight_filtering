@@ -450,8 +450,10 @@ TEST_F(StateTesting, accessors) {
   ASSERT_TRUE(testState1_.getId<_vec1>() == 4);
   ASSERT_TRUE(testState1_.getId<_vec2>() == 7);
   ASSERT_TRUE(testState1_.getId<_vec3>() == 10);
-  ASSERT_TRUE(testState1_.getId<_qua0>() == 13);
-  ASSERT_TRUE(testState1_.getId<_qua1>() == 19);
+  ASSERT_TRUE(testState1_.getId<_qua0>(0) == 13);
+  ASSERT_TRUE(testState1_.getId<_qua0>(1) == 16);
+  ASSERT_TRUE(testState1_.getId<_qua1>(0) == 19);
+  ASSERT_TRUE(testState1_.getId<_qua1>(1) == 22);
   ASSERT_TRUE(testState1_.getId<_aux>() == 25);
 }
 

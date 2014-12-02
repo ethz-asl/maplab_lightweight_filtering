@@ -82,7 +82,7 @@ class PredictionMeas: public LWF::State<LWF::TH_multiple_elements<LWF::VectorEle
   PredictionMeas(){};
   ~PredictionMeas(){};
 };
-class OutlierDetectionExample: public LWF::OutlierDetection<0,3>{
+class OutlierDetectionExample: public LWF::OutlierDetection<LWF::ODEntry<0,3,1>>{
 };
 
 class UpdateExample: public LWF::Update<Innovation,State,UpdateMeas,UpdateNoise,OutlierDetectionExample,LWF::DummyPrediction,false>{
@@ -271,7 +271,7 @@ class PredictionMeas: public LWF::State<LWF::VectorElement<3>>{
   PredictionMeas(){};
   ~PredictionMeas(){};
 };
-class OutlierDetectionExample: public LWF::OutlierDetection<0,3>{
+class OutlierDetectionExample: public LWF::OutlierDetection<LWF::ODEntry<0,3,1>>{
 };
 
 class UpdateExample: public LWF::Update<Innovation,State,UpdateMeas,UpdateNoise,OutlierDetectionExample,LWF::DummyPrediction,false>{

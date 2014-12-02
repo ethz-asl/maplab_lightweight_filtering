@@ -20,12 +20,13 @@ namespace rot = kindr::rotations::eigen_impl;
 
 namespace LWF{
 
-template<typename DERIVED, typename GET, unsigned int D>
+template<typename DERIVED, typename GET, unsigned int D, unsigned int E = D>
 class ElementBase{
  public:
   ElementBase(){};
   virtual ~ElementBase(){};
   static const unsigned int D_ = D;
+  static const unsigned int E_ = E;
   typedef Eigen::Matrix<double,D_,1> mtDifVec;
   typedef Eigen::Matrix<double,D_,D_> mtCovMat;
   typedef GET mtGet;
@@ -289,9 +290,9 @@ class NormalVectorElement: public ElementBase<NormalVectorElement,Eigen::Vector3
 };
 
 template<typename Element, unsigned int M>
-class ArrayElement: public ElementBase<ArrayElement<Element,M>,typename Element::mtGet,M*Element::D_>{
+class ArrayElement: public ElementBase<ArrayElement<Element,M>,typename Element::mtGet,M*Element::D_,Element::D_>{
  public:
-  typedef ElementBase<ArrayElement<Element,M>,typename Element::mtGet,M*Element::D_> Base;
+  typedef ElementBase<ArrayElement<Element,M>,typename Element::mtGet,M*Element::D_,Element::D_> Base;
   using typename Base::mtDifVec;
   using typename Base::mtGet;
   using typename Base::name_;
@@ -543,12 +544,12 @@ class State{
     return std::get<i>(mElements_).get(j);
   };
   template<unsigned int i,unsigned int D=0,typename std::enable_if<(i==0)>::type* = nullptr>
-  static constexpr unsigned int getId(){
+  static constexpr unsigned int getId(unsigned int j = 0){
     return D;
   };
   template<unsigned int i,unsigned int D=0,typename std::enable_if<(i>0 & i<E_)>::type* = nullptr>
-  static constexpr unsigned int getId(){
-    return getId<i-1,D+std::tuple_element<i-1,decltype(mElements_)>::type::D_>();
+  static constexpr unsigned int getId(unsigned int j = 0){
+    return getId<i-1,D+std::tuple_element<i-1,decltype(mElements_)>::type::D_>(0)+j*std::tuple_element<i,decltype(mElements_)>::type::E_;
   };
   template<unsigned int i>
   std::string& getName(){

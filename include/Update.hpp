@@ -15,35 +15,54 @@
 #include "Prediction.hpp"
 #include "State.hpp"
 #include "PropertyHandler.hpp"
-#include <initializer_list>
 
 namespace LWF{
+//template<unsigned int S, unsigned int D, unsigned int N = 1> struct OD_entry{
+//  typedef typename boost::mpl::push_front<typename OD_entry<S+D,D,N-1>::mtVectorS,boost::mpl::int_<S>>::type mtVectorS;
+//  typedef typename boost::mpl::push_front<typename OD_entry<S+D,D,N-1>::mtVectorD,boost::mpl::int_<D>>::type mtVectorD;
+//  static const unsigned int N_ = N;
+//};
+//template<unsigned int S, unsigned int D> struct OD_entry<S,D,1>{
+//  typedef boost::mpl::vector_c<int,S> mtVectorS;
+//  typedef boost::mpl::vector_c<int,D> mtVectorD;
+//  static const unsigned int N_ = 1;
+//};
+//
+//template<typename arg, typename... args>
+//class OD_concatenate{
+//
+//};
+
+template<unsigned int S, unsigned int D, unsigned int N = 1> struct ODEntry{
+  static const unsigned int S_ = S;
+  static const unsigned int D_ = D;
+};
+
 
 enum UpdateFilteringMode{
   UpdateEKF,
   UpdateUKF
 };
 
-template<unsigned int S, unsigned int N, unsigned int L>
+template<unsigned int S, unsigned int D>
 class OutlierDetectionBase{
  public:
   static const unsigned int S_ = S;
-  static const unsigned int N_ = N;
-  static const unsigned int L_ = L;
+  static const unsigned int D_ = D;
   bool outlier_;
   bool enabled_;
   double mahalanobisTh_;
   unsigned int outlierCount_;
   OutlierDetectionBase(){
-    mahalanobisTh_ = -0.0376136*N_*N_+1.99223*N_+2.05183; // Quadratic fit to chi square
+    mahalanobisTh_ = -0.0376136*D_*D_+1.99223*D_+2.05183; // Quadratic fit to chi square
     enabled_ = false;
     outlier_ = false;
     outlierCount_ = 0;
   }
   virtual ~OutlierDetectionBase(){};
-  template<int D>
-  void check(const Eigen::Matrix<double,D,1>& innVector,const Eigen::Matrix<double,D,D>& Py){
-    const double d = ((innVector.block(S_,0,N_,1)).transpose()*Py.block(S_,S_,N_,N_).inverse()*innVector.block(S_,0,N_,1))(0,0);
+  template<int E>
+  void check(const Eigen::Matrix<double,E,1>& innVector,const Eigen::Matrix<double,E,E>& Py){
+    const double d = ((innVector.block(S_,0,D_,1)).transpose()*Py.block(S_,S_,D_,D_).inverse()*innVector.block(S_,0,D_,1))(0,0);
     outlier_ = d > mahalanobisTh_;
     if(outlier_){
       outlierCount_++;
@@ -60,27 +79,27 @@ class OutlierDetectionBase{
   virtual double& getMahalTh(unsigned int i) = 0;
 };
 
-template<unsigned int S, unsigned int N, unsigned int... I>
-class OutlierDetection: OutlierDetectionBase<S,N,sizeof...(I)/2+1>{
+template<unsigned int S, unsigned int D,typename T>
+class OutlierDetectionConcat: public OutlierDetectionBase<S,D>{
  public:
-  using OutlierDetectionBase<S,N,sizeof...(I)/2+1>::S_;
-  using OutlierDetectionBase<S,N,sizeof...(I)/2+1>::N_;
-  using OutlierDetectionBase<S,N,sizeof...(I)/2+1>::outlier_;
-  using OutlierDetectionBase<S,N,sizeof...(I)/2+1>::enabled_;
-  using OutlierDetectionBase<S,N,sizeof...(I)/2+1>::mahalanobisTh_;
-  using OutlierDetectionBase<S,N,sizeof...(I)/2+1>::outlierCount_;
-  using OutlierDetectionBase<S,N,sizeof...(I)/2+1>::check;
-  OutlierDetection<I...> sub_;
+  using OutlierDetectionBase<S,D>::S_;
+  using OutlierDetectionBase<S,D>::D_;
+  using OutlierDetectionBase<S,D>::outlier_;
+  using OutlierDetectionBase<S,D>::enabled_;
+  using OutlierDetectionBase<S,D>::mahalanobisTh_;
+  using OutlierDetectionBase<S,D>::outlierCount_;
+  using OutlierDetectionBase<S,D>::check;
+  T sub_;
   template<int dI, int dS>
   void doOutlierDetection(const Eigen::Matrix<double,dI,1>& innVector,Eigen::Matrix<double,dI,dI>& Py,Eigen::Matrix<double,dI,dS>& H){
-    static_assert(dI>=S+N,"Outlier detection out of range");
+    static_assert(dI>=S+D,"Outlier detection out of range");
     check(innVector,Py);
     sub_.doOutlierDetection(innVector,Py,H);
     if(outlier_ && enabled_){
-      Py.block(0,S_,dI,N_).setZero();
-      Py.block(S_,0,N_,dI).setZero();
-      Py.block(S_,S_,N_,N_).setIdentity();
-      H.block(S_,0,N_,dS).setZero();
+      Py.block(0,S_,dI,D_).setZero();
+      Py.block(S_,0,D_,dI).setZero();
+      Py.block(S_,S_,D_,D_).setIdentity();
+      H.block(S_,0,D_,dS).setZero();
     }
   }
   void registerToPropertyHandler(PropertyHandler* mpPropertyHandler, const std::string& str, unsigned int i = 0){
@@ -126,94 +145,51 @@ class OutlierDetection: OutlierDetectionBase<S,N,sizeof...(I)/2+1>{
   }
 };
 
-template<unsigned int S, unsigned int N>
-class OutlierDetection<S,N>: OutlierDetectionBase<S,N,1>{
+class OutlierDetectionDefault: public OutlierDetectionBase<0,0>{
  public:
-  using OutlierDetectionBase<S,N,1>::S_;
-  using OutlierDetectionBase<S,N,1>::N_;
-  using OutlierDetectionBase<S,N,1>::outlier_;
-  using OutlierDetectionBase<S,N,1>::enabled_;
-  using OutlierDetectionBase<S,N,1>::mahalanobisTh_;
-  using OutlierDetectionBase<S,N,1>::outlierCount_;
-  using OutlierDetectionBase<S,N,1>::check;
+  using OutlierDetectionBase<0,0>::mahalanobisTh_;
+  using OutlierDetectionBase<0,0>::outlierCount_;
   template<int dI, int dS>
   void doOutlierDetection(const Eigen::Matrix<double,dI,1>& innVector,Eigen::Matrix<double,dI,dI>& Py,Eigen::Matrix<double,dI,dS>& H){
-    static_assert(dI>=S+N,"Outlier detection out of range");
-    check(innVector,Py);
-    if(outlier_ && enabled_){
-      Py.block(0,S_,dI,N_).setZero();
-      Py.block(S_,0,N_,dI).setZero();
-      Py.block(S_,S_,N_,N_).setIdentity();
-      H.block(S_,0,N_,dS).setZero();
-    }
   }
   void registerToPropertyHandler(PropertyHandler* mpPropertyHandler, const std::string& str, unsigned int i = 0){
-    mpPropertyHandler->doubleRegister_.registerScalar(str + std::to_string(i), mahalanobisTh_);
   }
   void reset(){
-    outlier_ = false;
-    outlierCount_ = 0;
   }
   bool isOutlier(unsigned int i) const{
-    if(i>0){
-      std::cout << "Error: too large index in isOutlier()" << std::endl;
-      return false;
-    }
-    return outlier_;
+    assert(0);
+    return false;
   }
   void setEnabled(unsigned int i,bool enabled){
-    if(i>0){
-      std::cout << "Error: too large index in setEnabled()" << std::endl;
-      return;
-    }
-    enabled_ = enabled;
+    assert(0);
   }
   void setEnabledAll(bool enabled){
-    enabled_ = enabled;
   }
   unsigned int& getCount(unsigned int i){
-    if(i>0){
-      std::cout << "Error: too large index in getCount()" << std::endl;
-    }
+    assert(0);
     return outlierCount_;
   }
   double& getMahalTh(unsigned int i){
-    if(i>0){
-      std::cout << "Error: too large index in getMahalTh()" << std::endl;
-    }
+    assert(0);
     return mahalanobisTh_;
   }
 };
 
-class OutlierDetectionDefault: OutlierDetectionBase<0,0,0>{
- public:
-  using OutlierDetectionBase<0,0,0>::mahalanobisTh_;
-  using OutlierDetectionBase<0,0,0>::outlierCount_;
-  template<int dI, int dS>
-  void doOutlierDetection(const Eigen::Matrix<double,dI,1>& innVector,Eigen::Matrix<double,dI,dI>& Py,Eigen::Matrix<double,dI,dS>& H){
-  }
-  void registerToPropertyHandler(PropertyHandler* mpPropertyHandler, const std::string& str, unsigned int i = 0){
-  }
-  void reset(){
-  }
-  bool isOutlier(unsigned int i){
-    std::cout << "Error: too large index in isOutlier()" << std::endl;
-    return false;
-  }
-  void setEnabled(unsigned int i,bool enabled){
-    std::cout << "Error: too large index in setEnabled()" << std::endl;
-  }
-  void setEnabledAll(bool enabled){
-  }
-  unsigned int& getCount(unsigned int i){
-    std::cout << "Error: too large index in getCount()" << std::endl;
-    return outlierCount_;
-  }
-  double& getMahalTh(unsigned int i){
-    std::cout << "Error: too large index in getMahalTh()" << std::endl;
-    return mahalanobisTh_;
-  }
-};
+template<typename... ODEntries>
+class OutlierDetection{};
+
+template<unsigned int S, unsigned int D, unsigned int N, typename... ODEntries>
+class OutlierDetection<ODEntry<S,D,N>,ODEntries...>: public OutlierDetectionConcat<S,D,OutlierDetection<ODEntry<S+D,D,N-1>,ODEntries...>>{};
+template<unsigned int S, unsigned int D, typename... ODEntries>
+class OutlierDetection<ODEntry<S,D,1>,ODEntries...>: public OutlierDetectionConcat<S,D,OutlierDetection<ODEntries...>>{};
+template<unsigned int S, unsigned int D, typename... ODEntries>
+class OutlierDetection<ODEntry<S,D,0>,ODEntries...>: public OutlierDetection<ODEntries...>{};
+template<unsigned int S, unsigned int D, unsigned int N>
+class OutlierDetection<ODEntry<S,D,N>>: public OutlierDetectionConcat<S,D,OutlierDetection<ODEntry<S+D,D,N-1>>>{};
+template<unsigned int S, unsigned int D>
+class OutlierDetection<ODEntry<S,D,1>>: public OutlierDetectionConcat<S,D,OutlierDetectionDefault>{};
+template<unsigned int S, unsigned int D>
+class OutlierDetection<ODEntry<S,D,0>>: public OutlierDetectionDefault{};
 
 template<typename Innovation, typename State, typename Meas, typename Noise, typename OutlierDetection = OutlierDetectionDefault, typename Prediction = DummyPrediction, bool isCoupled = false>
 class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHandler{
@@ -291,7 +267,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
       jointNoiP_.template block<mtPredictionNoise::D_,mtNoise::D_>(0,mtPredictionNoise::D_) = preupdnoiP_;
       jointNoiP_.template block<mtNoise::D_,mtPredictionNoise::D_>(mtPredictionNoise::D_,0) = preupdnoiP_.transpose();
       jointNoiP_.template block<mtNoise::D_,mtNoise::D_>(mtPredictionNoise::D_,mtPredictionNoise::D_) = updnoiP_;
-      coupledStateSigmaPointsNoi_.computeFromZeroMeanGaussian(jointNoiP_);
+      coupledStateSigmaPointsNoi_.computeFromZeroMeanGaussian(jointNoiP_); // TODO: test
     }
   }
   void refreshUKFParameter(){
