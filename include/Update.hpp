@@ -201,6 +201,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
   typedef Meas mtMeas;
   typedef Noise mtNoise;
   typedef OutlierDetection mtOutlierDetection;
+  typedef Prediction mtPrediction;
   typedef typename Prediction::mtMeas mtPredictionMeas;
   typedef typename Prediction::mtNoise mtPredictionNoise;
   typedef LWF::ComposedState<mtPredictionNoise,mtNoise> mtJointNoise;
