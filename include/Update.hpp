@@ -15,6 +15,7 @@
 #include "Prediction.hpp"
 #include "State.hpp"
 #include "PropertyHandler.hpp"
+#include <type_traits>
 
 namespace LWF{
 //template<unsigned int S, unsigned int D, unsigned int N = 1> struct OD_entry{
@@ -300,6 +301,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
   void setMode(UpdateFilteringMode mode){
     mode_ = mode;
   }
+  template<bool IC = isCoupled, typename std::enable_if<(!IC)>::type* = nullptr>
   int performUpdate(mtState& state, mtCovMat& cov, const mtMeas& meas, mtOutlierDetection* mpOutlierDetection = nullptr){
     switch(mode_){
       case UpdateEKF:
@@ -310,6 +312,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
         return performUpdateEKF(state,cov,meas,mpOutlierDetection);
     }
   }
+  template<bool IC = isCoupled, typename std::enable_if<(IC)>::type* = nullptr>
   int performPredictionAndUpdate(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt, mtOutlierDetection* mpOutlierDetection = nullptr){
     switch(mode_){
       case UpdateEKF:
@@ -320,8 +323,8 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
         return performPredictionAndUpdateEKF(state,cov,meas,prediction,predictionMeas,dt,mpOutlierDetection);
     }
   }
+  template<bool IC = isCoupled, typename std::enable_if<(!IC)>::type* = nullptr>
   int performUpdateEKF(mtState& state, mtCovMat& cov, const mtMeas& meas, mtOutlierDetection* mpOutlierDetection = nullptr){
-    static_assert(!isCoupled, "performUpdateEKF() does not exist for coupled update");
     preProcess(state,cov,meas);
     H_ = this->jacInput(state,meas);
     Hn_ = this->jacNoise(state,meas);
@@ -344,8 +347,8 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     postProcess(state,cov,meas);
     return 0;
   }
+  template<bool IC = isCoupled, typename std::enable_if<(!IC)>::type* = nullptr>
   int performUpdateLEKF(mtState& state, const mtState& linState, mtCovMat& cov, const mtMeas& meas, mtOutlierDetection* mpOutlierDetection = nullptr){
-    static_assert(!isCoupled, "performUpdateLEKF() does not exist for coupled update");
     preProcess(state,cov,meas);
     H_ = this->jacInput(linState,meas);
     Hn_ = this->jacNoise(linState,meas);
@@ -369,8 +372,8 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     postProcess(state,cov,meas);
     return 0;
   }
+  template<bool IC = isCoupled, typename std::enable_if<(!IC)>::type* = nullptr>
   int performUpdateIEKF(mtState& state, mtCovMat& cov, const mtMeas& meas, mtOutlierDetection* mpOutlierDetection = nullptr){
-    static_assert(!isCoupled, "performUpdateIEKF() does not exist for coupled update");
     preProcess(state,cov,meas);
     mtState linState = state;
     updateVecNorm_ = updateVecNormTermination_;
@@ -400,8 +403,8 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     postProcess(state,cov,meas);
     return 0;
   }
+  template<bool IC = isCoupled, typename std::enable_if<(!IC)>::type* = nullptr>
   int performUpdateUKF(mtState& state, mtCovMat& cov, const mtMeas& meas, mtOutlierDetection* mpOutlierDetection = nullptr){
-    static_assert(!isCoupled, "performUpdateUKF() does not exist for coupled update");
     refreshNoiseSigmaPoints();
     preProcess(state,cov,meas);
     stateSigmaPoints_.computeFromGaussian(state,cov);
@@ -434,8 +437,8 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     postProcess(state,cov,meas);
     return 0;
   }
+  template<bool IC = isCoupled, typename std::enable_if<(IC)>::type* = nullptr>
   int performPredictionAndUpdateEKF(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt, mtOutlierDetection* mpOutlierDetection = nullptr){
-    static_assert(isCoupled, "performPredictionAndUpdateEKF() does not exist for uncoupled update");
     preProcess(state,cov,meas,prediction,predictionMeas,dt);
     // Predict
     prediction.F_ = prediction.jacInput(state,predictionMeas,dt);
@@ -464,8 +467,8 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     postProcess(state,cov,meas,prediction,predictionMeas,dt);
     return 0;
   }
+  template<bool IC = isCoupled, typename std::enable_if<(IC)>::type* = nullptr>
   int performPredictionAndUpdateUKF(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt, mtOutlierDetection* mpOutlierDetection = nullptr){
-    static_assert(isCoupled, "performPredictionAndUpdateUKF() does not exist for uncoupled update");
     refreshJointNoiseSigmaPoints(prediction.prenoiP_);
     preProcess(state,cov,meas,prediction,predictionMeas,dt);
     // Predict
