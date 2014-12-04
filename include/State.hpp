@@ -545,7 +545,7 @@ class State{
   };
   template<unsigned int i,unsigned int D=0,typename std::enable_if<(i==0)>::type* = nullptr>
   static constexpr unsigned int getId(unsigned int j = 0){
-    return D;
+    return D+j*std::tuple_element<i,decltype(mElements_)>::type::E_;
   };
   template<unsigned int i,unsigned int D=0,typename std::enable_if<(i>0 & i<E_)>::type* = nullptr>
   static constexpr unsigned int getId(unsigned int j = 0){
