@@ -385,6 +385,7 @@ class TH_multiple_elements<Arg,0>{
 
 template <typename Element>
 class TH_getDimension{
+ public:
   static const unsigned int D_ = Element::D_;
 };
 template <typename Element>
