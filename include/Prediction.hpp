@@ -72,7 +72,7 @@ class Prediction: public ModelBase<State,State,Meas,Noise>, public PropertyHandl
     refreshUKFParameter();
   }
   virtual void refreshPropertiesCustom(){}
-  virtual void noMeasCase(mtState& state, mtCovMat& cov, const mtMeas& meas, double dt){};
+  virtual void noMeasCase(mtState& state, mtCovMat& cov, mtMeas& meas, double dt){};
   virtual void preProcess(mtState& state, mtCovMat& cov, const mtMeas& meas, double dt){};
   virtual void postProcess(mtState& state, mtCovMat& cov, const mtMeas& meas, double dt){};
   void resetPrediction(){
