@@ -89,7 +89,8 @@ class MeasurementTimeline{
 template<typename Prediction,typename... Updates>
 class FilterBase: public PropertyHandler{
  public:
-  typedef typename Prediction::mtState mtState;
+  typedef Prediction mtPrediction;
+  typedef typename mtPrediction::mtState mtState;
   typedef typename mtState::mtCovMat mtCovMat;
   static const unsigned int D_ = mtState::D_;
   static const unsigned int nUpdates_ = sizeof...(Updates);
@@ -97,9 +98,9 @@ class FilterBase: public PropertyHandler{
   mtFilterState safe_;
   mtFilterState front_;
   mtFilterState init_;
-  MeasurementTimeline<typename Prediction::mtMeas> predictionTimeline_;
+  MeasurementTimeline<typename mtPrediction::mtMeas> predictionTimeline_;
   std::tuple<MeasurementTimeline<typename Updates::mtMeas>...> updateTimelineTuple_;
-  Prediction mPrediction_;
+  mtPrediction mPrediction_;
   std::tuple<Updates...> mUpdates_;
   double safeWarningTime_;
   double frontWarningTime_;
@@ -115,6 +116,7 @@ class FilterBase: public PropertyHandler{
   virtual ~FilterBase(){
   };
   void reset(double t = 0.0){
+    init_.t_ = t;
     safe_ = init_;
     front_ = init_;
     safeWarningTime_ = t;
