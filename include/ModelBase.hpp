@@ -75,6 +75,34 @@ class ModelBase{
     }
     return H;
   }
+  void testJacInput(double d = 1e-6,double th = 1e-6,double s = 0,double dt = 0.1){
+    mtInput input;
+    mtMeas meas;
+    input.setRandom(s);
+    meas.setRandom(s);
+    double r = (jacInput(input,meas,dt)-jacInputFD(input,meas,dt,d)).maxCoeff();
+    if(r>th){
+      std::cout << "==== Model jacInput Test failed: " << r << " is larger than " << th << " ====" << std::endl;
+    } else {
+      std::cout << "==== Test successful (" << r << ") ====" << std::endl;
+    }
+  }
+  void testJacNoise(double d = 1e-6,double th = 1e-6,double s = 0,double dt = 0.1){
+    mtInput input;
+    mtMeas meas;
+    input.setRandom(s);
+    meas.setRandom(s);
+    double r = (jacNoise(input,meas,dt)-jacNoiseFD(input,meas,dt,d)).maxCoeff();
+    if(r>th){
+      std::cout << "==== Model jacNoise Test failed: " << r << " is larger than " << th << " ====" << std::endl;
+    } else {
+      std::cout << "==== Test successful (" << r << ") ====" << std::endl;
+    }
+  }
+  void testJacs(double d = 1e-6,double th = 1e-6,double s = 0,double dt = 0.1){
+    testJacInput(d,th,s,dt);
+    testJacNoise(d,th,s,dt);
+  }
 };
 
 }
