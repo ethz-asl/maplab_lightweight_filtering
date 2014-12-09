@@ -21,6 +21,7 @@ class CoordinateTransform: public ModelBase<Input,Output,Input,Input>{
  public:
   typedef ModelBase<Input,Output,Input,Input> Base;
   using Base::eval;
+  using Base::jacInput;
   typedef Input mtInput;
   typedef typename Input::mtCovMat mtInputCovMat;
   typedef Output mtOutput;
