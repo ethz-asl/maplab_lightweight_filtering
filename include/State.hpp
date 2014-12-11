@@ -287,6 +287,15 @@ class NormalVectorElement: public ElementBase<NormalVectorElement,Eigen::Vector3
     m1 = m0.cross(n_);
     m1.normalize();
   }
+  Eigen::Matrix<double,3,2> getM() const {
+    Eigen::Vector3d m0;
+    Eigen::Vector3d m1;
+    getTwoNormals(m0,m1);
+    Eigen::Matrix<double,3,2> M;
+    M.col(0) = m0;
+    M.col(1) = m1;
+    return M;
+  }
 };
 
 template<typename Element, unsigned int M>
