@@ -146,6 +146,10 @@ class PropertyHandler{
       std::cout << "An exception occurred. " << e.what() << std::endl;
       std::cout << "Overriding current info file with valid format." << std::endl;
       write_info(filename,ptDefault);
+      refreshProperties();
+      for(typename std::unordered_map<std::string,PropertyHandler*>::iterator it=subHandlers_.begin(); it != subHandlers_.end(); ++it){
+        it->second->refreshProperties();
+      }
     }
   }
   virtual void refreshProperties(){};

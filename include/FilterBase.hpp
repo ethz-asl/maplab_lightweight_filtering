@@ -108,7 +108,6 @@ class FilterBase: public PropertyHandler{
   FilterBase(){
     init_.state_.registerElementsToPropertyHandler(this,"Init.State.");
     init_.state_.registerCovarianceToPropertyHandler_(init_.cov_,this,"Init.Covariance.");
-//    doubleRegister_.registerDiagonalMatrix("Init.Covariance.p",init_.cov_);
     registerSubHandler("Prediction",mPrediction_);
     registerUpdates();
     reset();

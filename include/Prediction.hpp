@@ -50,7 +50,8 @@ class Prediction: public ModelBase<State,State,Meas,Noise>, public PropertyHandl
     mode_ = PredictionEKF;
     prenoiP_ = mtNoise::mtCovMat::Identity()*0.0001;
     resetPrediction();
-    doubleRegister_.registerDiagonalMatrix("PredictionNoise",prenoiP_);
+    mtNoise n;
+    n.registerCovarianceToPropertyHandler_(prenoiP_,this,"PredictionNoise.");
     doubleRegister_.registerScalar("alpha",alpha_);
     doubleRegister_.registerScalar("beta",beta_);
     doubleRegister_.registerScalar("kappa",kappa_);

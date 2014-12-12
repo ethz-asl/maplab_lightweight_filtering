@@ -417,7 +417,9 @@ class State{
   typedef Eigen::Matrix<double,D_,1> mtDifVec;
   typedef Eigen::Matrix<double,D_,D_> mtCovMat;
   t mElements_;
-  State(){}
+  State(){
+    createDefaultNames();
+  }
   State(const State<Elements...>& other): mElements_(other.mElements_){}
   void boxPlus(const mtDifVec& vecIn, State<Elements...>& stateOut) const{
     boxPlus_(vecIn,stateOut);
