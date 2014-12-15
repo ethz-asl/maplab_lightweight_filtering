@@ -115,6 +115,7 @@ class Prediction: public ModelBase<State,State,Meas,Noise>, public PropertyHandl
     cov = F_*cov*F_.transpose() + Fn_*prenoiP_*Fn_.transpose();
     postProcess(state,cov,meas,dt);
     state.fix();
+    cov = 0.5*(cov+cov.transpose()); // Enforce symmetry
     return 0;
   }
   int performPredictionUKF(mtState& state, mtCovMat& cov, const mtMeas& meas, double dt){
@@ -171,6 +172,7 @@ class Prediction: public ModelBase<State,State,Meas,Noise>, public PropertyHandl
     cov = F_*cov*F_.transpose() + Fn_*prenoiP_*Fn_.transpose();
     postProcess(state,cov,meanMeas,dT);
     state.fix();
+    cov = 0.5*(cov+cov.transpose()); // Enforce symmetry
     return 0;
   }
   virtual int predictMergedUKF(mtState& state, mtCovMat& cov, double tStart, const typename std::map<double,mtMeas>::iterator itMeasStart, unsigned int N){
