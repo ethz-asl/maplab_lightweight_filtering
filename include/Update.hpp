@@ -447,6 +447,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     prediction.Fn_ = prediction.jacNoise(state,predictionMeas,dt);
     state = prediction.eval(state,predictionMeas,dt);
     cov = prediction.F_*cov*prediction.F_.transpose() + prediction.Fn_*prediction.prenoiP_*prediction.Fn_.transpose();
+    cov = 0.5*(cov+cov.transpose()); // Enforce symmetry
 
     // Update
     H_ = this->jacInput(state,meas);
