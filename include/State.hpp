@@ -128,9 +128,9 @@ template<unsigned int N>
 class VectorElement: public ElementBase<VectorElement<N>,Eigen::Matrix<double,N,1>,N>{
  public:
   typedef ElementBase<VectorElement<N>,Eigen::Matrix<double,N,1>,N> Base;
-  using typename  Base::mtDifVec;
-  using typename  Base::mtGet;
-  using typename  Base::name_;
+  using typename Base::mtDifVec;
+  using typename Base::mtGet;
+  using Base::name_;
   static const unsigned int N_ = N;
   Eigen::Matrix<double,N_,1> v_;
   VectorElement(){}
@@ -304,7 +304,7 @@ class ArrayElement: public ElementBase<ArrayElement<Element,M>,typename Element:
   typedef ElementBase<ArrayElement<Element,M>,typename Element::mtGet,M*Element::D_,Element::D_> Base;
   using typename Base::mtDifVec;
   using typename Base::mtGet;
-  using typename Base::name_;
+  using Base::name_;
   static const unsigned int M_ = M;
   Element array_[M_];
   ArrayElement(){
