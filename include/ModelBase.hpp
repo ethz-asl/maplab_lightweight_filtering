@@ -80,7 +80,7 @@ class ModelBase{
     mtMeas meas;
     input.setRandom(s);
     meas.setRandom(s);
-    double r = (jacInput(input,meas,dt)-jacInputFD(input,meas,dt,d)).maxCoeff();
+    double r = (jacInput(input,meas,dt)-jacInputFD(input,meas,dt,d)).array().abs().maxCoeff();
     if(r>th){
       std::cout << "==== Model jacInput Test failed: " << r << " is larger than " << th << " ====" << std::endl;
     } else {
@@ -92,7 +92,7 @@ class ModelBase{
     mtMeas meas;
     input.setRandom(s);
     meas.setRandom(s);
-    double r = (jacNoise(input,meas,dt)-jacNoiseFD(input,meas,dt,d)).maxCoeff();
+    double r = (jacNoise(input,meas,dt)-jacNoiseFD(input,meas,dt,d)).array().abs().maxCoeff();
     if(r>th){
       std::cout << "==== Model jacNoise Test failed: " << r << " is larger than " << th << " ====" << std::endl;
     } else {
