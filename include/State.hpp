@@ -276,11 +276,11 @@ class NormalVectorElement: public ElementBase<NormalVectorElement,Eigen::Vector3
     Eigen::Vector3d vec = Eigen::Vector3d(1.0,0.0,0.0);
     double min = n_(0);
     if(n_(1)<min){
-      Eigen::Vector3d(0.0,1.0,0.0);
+      vec = Eigen::Vector3d(0.0,1.0,0.0);
       min = n_(1);
     }
     if(n_(2)<min){
-      Eigen::Vector3d(0.0,0.0,1.0);
+      vec = Eigen::Vector3d(0.0,0.0,1.0);
     }
     m0 = vec.cross(n_);
     m0.normalize();
