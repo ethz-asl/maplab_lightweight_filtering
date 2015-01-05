@@ -49,6 +49,7 @@ class Prediction: public ModelBase<State,State,Meas,Noise>, public PropertyHandl
     kappa_ = 0.0;
     mode_ = PredictionEKF;
     prenoiP_ = mtNoise::mtCovMat::Identity()*0.0001;
+    noiP_.setZero();
     resetPrediction();
     mtNoise n;
     n.registerCovarianceToPropertyHandler_(prenoiP_,this,"PredictionNoise.");

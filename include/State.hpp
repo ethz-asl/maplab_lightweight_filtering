@@ -237,23 +237,18 @@ class NormalVectorElement: public ElementBase<NormalVectorElement,Eigen::Vector3
     Eigen::Vector3d m0;
     Eigen::Vector3d m1;
     stateIn.getTwoNormals(m0,m1);
-
-    rot::RotationQuaternionPD q;
-    q.setFromVectors(stateIn.n_,n_);
-    std::cout << stateIn.n_.transpose() << std::endl;
-    std::cout << n_.transpose() << std::endl;
-    std::cout << -q.logarithmicMap() << std::endl;
-    std::cout << q.logarithmicMap().norm() << std::endl;
-
     const Eigen::Vector3d vec = -stateIn.n_.cross(n_);
     const double vecNorm = vec.norm();
-    const double a = std::acos(stateIn.n_.dot(n_));
-    std::cout << vec*(a/vecNorm) << std::endl;
-    std::cout << a << std::endl;
-
+    const double c = stateIn.n_.dot(n_);
+    const double a = std::acos(c);
     if(vecNorm<1e-6){
-      vecOut(0) = m0.dot(vec);
-      vecOut(1) = m1.dot(vec);
+      if(c>0){
+        vecOut(0) = m0.dot(vec);
+        vecOut(1) = m1.dot(vec);
+      } else { // TODO: imprecise
+        vecOut(0) = M_PI;
+        vecOut(1) = 0.0;
+      }
     } else {
       vecOut(0) = m0.dot(vec)*a/vecNorm;
       vecOut(1) = m1.dot(vec)*a/vecNorm;
