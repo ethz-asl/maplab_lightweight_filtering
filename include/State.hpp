@@ -234,14 +234,25 @@ class NormalVectorElement: public ElementBase<NormalVectorElement,Eigen::Vector3
     stateOut.n_ = q.rotate(n_);
   }
   void boxMinus(const NormalVectorElement& stateIn, mtDifVec& vecOut) const{
-    rot::RotationQuaternionPD q;
-    q.setFromVectors(stateIn.n_,n_);
-    Eigen::Vector3d vec = -q.logarithmicMap(); // Minus required (active/passiv messes things up probably)
     Eigen::Vector3d m0;
     Eigen::Vector3d m1;
     stateIn.getTwoNormals(m0,m1);
-    vecOut(0) = m0.dot(vec);
-    vecOut(1) = m1.dot(vec);
+    const Eigen::Vector3d vec = -stateIn.n_.cross(n_);
+    const double vecNorm = vec.norm();
+    const double c = stateIn.n_.dot(n_);
+    const double a = std::acos(c);
+    if(vecNorm<1e-6){
+      if(c>0){
+        vecOut(0) = m0.dot(vec);
+        vecOut(1) = m1.dot(vec);
+      } else { // TODO: imprecise
+        vecOut(0) = M_PI;
+        vecOut(1) = 0.0;
+      }
+    } else {
+      vecOut(0) = m0.dot(vec)*a/vecNorm;
+      vecOut(1) = m1.dot(vec)*a/vecNorm;
+    }
   }
   void print() const{
     std::cout << n_.transpose() << std::endl;
@@ -276,11 +287,11 @@ class NormalVectorElement: public ElementBase<NormalVectorElement,Eigen::Vector3
     Eigen::Vector3d vec = Eigen::Vector3d(1.0,0.0,0.0);
     double min = n_(0);
     if(n_(1)<min){
-      Eigen::Vector3d(0.0,1.0,0.0);
+      vec = Eigen::Vector3d(0.0,1.0,0.0);
       min = n_(1);
     }
     if(n_(2)<min){
-      Eigen::Vector3d(0.0,0.0,1.0);
+      vec = Eigen::Vector3d(0.0,0.0,1.0);
     }
     m0 = vec.cross(n_);
     m0.normalize();
@@ -294,6 +305,15 @@ class NormalVectorElement: public ElementBase<NormalVectorElement,Eigen::Vector3
     Eigen::Matrix<double,3,2> M;
     M.col(0) = -m1;
     M.col(1) = m0;
+    return M;
+  }
+  Eigen::Matrix<double,3,2> getN() const {
+    Eigen::Vector3d m0;
+    Eigen::Vector3d m1;
+    getTwoNormals(m0,m1);
+    Eigen::Matrix<double,3,2> M;
+    M.col(0) = m0;
+    M.col(1) = m1;
     return M;
   }
 };

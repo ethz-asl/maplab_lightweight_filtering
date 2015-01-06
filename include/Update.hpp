@@ -245,7 +245,9 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     maxNumIteration_  = 10;
     mode_ = UpdateEKF;
     updnoiP_ = mtNoise::mtCovMat::Identity()*0.0001;
+    noiP_.setZero();
     preupdnoiP_ = Eigen::Matrix<double,mtPredictionNoise::D_,mtNoise::D_>::Zero();
+    jointNoiP_.setZero();
     initUpdate();
     mtNoise n;
     n.registerCovarianceToPropertyHandler_(updnoiP_,this,"UpdateNoise.");
