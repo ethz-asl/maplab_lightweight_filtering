@@ -291,9 +291,9 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
   }
   virtual void refreshPropertiesCustom(){}
   virtual void preProcess(mtState& state, mtCovMat& cov, const mtMeas& meas){};
-  virtual void postProcess(mtState& state, mtCovMat& cov, const mtMeas& meas){};
+  virtual void postProcess(mtState& state, mtCovMat& cov, const mtMeas& meas, mtOutlierDetection* mpOutlierDetection){};
   virtual void preProcess(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt){};
-  virtual void postProcess(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt){};
+  virtual void postProcess(mtState& state, mtCovMat& cov, const mtMeas& meas, mtOutlierDetection* mpOutlierDetection, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt){};
   void initUpdate(){
     yIdentity_.setIdentity();
     updateVec_.setIdentity();
@@ -348,7 +348,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     cov = cov - K_*Py_*K_.transpose();
     updateVec_ = -K_*innVector_;
     state.boxPlus(updateVec_,state);
-    postProcess(state,cov,meas);
+    postProcess(state,cov,meas,mpOutlierDetection);
     return 0;
   }
   template<bool IC = isCoupled, typename std::enable_if<(!IC)>::type* = nullptr>
@@ -373,7 +373,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     linState.boxMinus(state,difVecLin_);
     updateVec_ = -K_*(innVector_-H_*difVecLin_); // includes correction for offseted linearization point
     state.boxPlus(updateVec_,state);
-    postProcess(state,cov,meas);
+    postProcess(state,cov,meas,mpOutlierDetection);
     return 0;
   }
   template<bool IC = isCoupled, typename std::enable_if<(!IC)>::type* = nullptr>
@@ -404,7 +404,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     }
     state = linState;
     cov = cov - K_*Py_*K_.transpose();
-    postProcess(state,cov,meas);
+    postProcess(state,cov,meas,mpOutlierDetection);
     return 0;
   }
   template<bool IC = isCoupled, typename std::enable_if<(!IC)>::type* = nullptr>
@@ -438,7 +438,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     }
     state = posterior_.getMean();
     cov = posterior_.getCovarianceMatrix(state);
-    postProcess(state,cov,meas);
+    postProcess(state,cov,meas,mpOutlierDetection);
     return 0;
   }
   template<bool IC = isCoupled, typename std::enable_if<(IC)>::type* = nullptr>
@@ -469,7 +469,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     cov = cov - K_*Py_*K_.transpose();
     updateVec_ = -K_*innVector_;
     state.boxPlus(updateVec_,state);
-    postProcess(state,cov,meas,prediction,predictionMeas,dt);
+    postProcess(state,cov,meas,mpOutlierDetection,prediction,predictionMeas,dt);
     return 0;
   }
   template<bool IC = isCoupled, typename std::enable_if<(IC)>::type* = nullptr>
@@ -513,7 +513,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     }
     state = posterior_.getMean();
     cov = posterior_.getCovarianceMatrix(state);
-    postProcess(state,cov,meas,prediction,predictionMeas,dt);
+    postProcess(state,cov,meas,mpOutlierDetection,prediction,predictionMeas,dt);
     return 0;
   }
 };
