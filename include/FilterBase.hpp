@@ -171,7 +171,10 @@ class FilterBase: public PropertyHandler{
   }
   void updateSafe(){
     double nextSafeTime;
-    if(!getSafeTime(nextSafeTime)) return;
+    if(!getSafeTime(nextSafeTime)){
+      std::cout << "Performed safe Update with RegPre: 0, MerPre: 0, BadPre: 0, RegUpd: 0, ComUpd: 0" << std::endl;
+      return;
+    }
     if(front_.t_<=nextSafeTime && !gotFrontWarning_ && front_.t_>safe_.t_){
       safe_ = front_;
     }
