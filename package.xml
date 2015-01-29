@@ -8,5 +8,4 @@
   <license>Proprietary</license>
   <version>0.0.9</version>
   <buildtool_depend>catkin</buildtool_depend>
-  <depend>kindr_catkin</depend>
 </package>
