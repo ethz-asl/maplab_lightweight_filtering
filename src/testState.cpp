@@ -144,7 +144,7 @@ TEST_F(QuaternionElementTest, operatorEQ) {
   ASSERT_TRUE(testElement2_.q_.isNear(testElement1_.q_,1e-6));
 }
 
-// Test LMat
+// Test LMat and derivative of rotation
 TEST_F(QuaternionElementTest, LMat) {
   double d = 0.00001;
   LWF::QuaternionElement att;
@@ -165,6 +165,27 @@ TEST_F(QuaternionElementTest, LMat) {
     J.col(i) = dif*1/d;
   }
   ASSERT_NEAR((J-LWF::Lmat(vec.v_)).norm(),0.0,1e-5);
+}
+
+// Test LMat and derivative of rotation
+TEST_F(QuaternionElementTest, DerivativeOfRotation) {
+  double d = 1e-6;
+  LWF::QuaternionElement att;
+  unsigned int s = 1;
+  att.setRandom(s);
+  LWF::QuaternionElement attDisturbed;
+  Eigen::Matrix3d J;
+  Eigen::Vector3d dif;
+  Eigen::Vector3d a(2.1,0.7,-1.7);
+  Eigen::Vector3d b = att.q_.rotate(a);
+  Eigen::Vector3d b_disturbed;
+  for(unsigned int i=0;i<3;i++){
+    dif.setZero(); dif(i) = d;
+    att.boxPlus(dif,attDisturbed);
+    b_disturbed = attDisturbed.q_.rotate(a);
+    J.col(i) = (b_disturbed-b)/d;
+  }
+  ASSERT_NEAR((J-kindr::linear_algebra::getSkewMatrixFromVector(b)).norm(),0.0,1e-5);
 }
 
 // The fixture for testing class NormalVectorElementTest
@@ -190,8 +211,8 @@ TEST_F(NormalVectorElementTest, constructor) {
 // Test setIdentity and Identity
 TEST_F(NormalVectorElementTest, setIdentity) {
   testElement1_.setIdentity();
-  ASSERT_TRUE(testElement1_.n_ == Eigen::Vector3d(1,0,0));
-  ASSERT_TRUE(LWF::NormalVectorElement::Identity().n_ == Eigen::Vector3d(1,0,0));
+  ASSERT_TRUE(testElement1_.getVec() == Eigen::Vector3d(0,0,1));
+  ASSERT_TRUE(LWF::NormalVectorElement::Identity().getVec() == Eigen::Vector3d(0,0,1));
 }
 
 // Test plus and minus
@@ -199,43 +220,58 @@ TEST_F(NormalVectorElementTest, plusAndMinus) {
   testElement2_.boxMinus(testElement1_,difVec_);
   LWF::NormalVectorElement testElement3;
   testElement1_.boxPlus(difVec_,testElement3);
-  ASSERT_NEAR((testElement2_.n_-testElement3.n_).norm(),0.0,1e-6);
+  ASSERT_NEAR((testElement2_.getVec()-testElement3.getVec()).norm(),0.0,1e-6);
 }
 
 // Test getValue, getId
 TEST_F(NormalVectorElementTest, accessors) {
-  ASSERT_TRUE(testElement1_.get() == testElement1_.n_);
+  ASSERT_TRUE(testElement1_.get().getVec() == testElement1_.getVec());
 }
 
 // Test operator=
 TEST_F(NormalVectorElementTest, operatorEQ) {
   testElement2_ = testElement1_;
-  ASSERT_TRUE(testElement2_.n_ == testElement1_.n_);
+  ASSERT_TRUE(testElement2_.getVec() == testElement1_.getVec());
 }
 
-// Test getTwoNormals
+// Test getPerpendiculars
 TEST_F(NormalVectorElementTest, getTwoNormals) {
-  Eigen::Vector3d m0;
-  Eigen::Vector3d m1;
-  testElement1_.getTwoNormals(m0,m1);
-  ASSERT_NEAR(m0.dot(testElement1_.n_),0.0,1e-6);
-  ASSERT_NEAR(m1.dot(testElement1_.n_),0.0,1e-6);
+  ASSERT_NEAR(testElement1_.getPerp1().dot(testElement1_.getVec()),0.0,1e-6);
+  ASSERT_NEAR(testElement1_.getPerp2().dot(testElement1_.getVec()),0.0,1e-6);
+  ASSERT_NEAR(testElement1_.getPerp2().dot(testElement1_.getPerp1()),0.0,1e-6);
 }
 
-// Test derivative of boxplus
+// Test set from vector
+TEST_F(NormalVectorElementTest, setFromVector) {
+  testElement2_.setFromVector(testElement1_.getVec());
+  ASSERT_NEAR((testElement2_.getVec()-testElement1_.getVec()).norm(),0.0,1e-6);
+}
+
+// Test rotated
+TEST_F(NormalVectorElementTest, rotated) {
+  LWF::QuaternionElement q;
+  unsigned int s = 1;
+  q.setRandom(s);
+  testElement2_.setFromVector(testElement1_.getVec());
+  ASSERT_NEAR((q.q_.rotate(testElement1_.getVec())-testElement1_.rotated(q.q_).getVec()).norm(),0.0,1e-6);
+}
+
+// Test inverted
+TEST_F(NormalVectorElementTest, inverted) {
+  ASSERT_NEAR((testElement1_.getVec()+testElement1_.inverted().getVec()).norm(),0.0,1e-6);
+}
+
+// Test derivative of vector
 TEST_F(NormalVectorElementTest, derivative) {
   const double d  = 1e-6;
-  Eigen::Vector3d m0;
-  Eigen::Vector3d m1;
-  testElement1_.getTwoNormals(m0,m1);
   difVec_.setZero();
   difVec_(0) = d;
   testElement1_.boxPlus(difVec_,testElement2_);
-  ASSERT_NEAR(((testElement2_.n_-testElement1_.n_)/d-(-m1)).norm(),0.0,1e-6);
+  ASSERT_NEAR(((testElement2_.getVec()-testElement1_.getVec())/d-testElement1_.getVecJac().col(0)).norm(),0.0,1e-6);
   difVec_.setZero();
   difVec_(1) = d;
   testElement1_.boxPlus(difVec_,testElement2_);
-  ASSERT_NEAR(((testElement2_.n_-testElement1_.n_)/d-m0).norm(),0.0,1e-6);
+  ASSERT_NEAR(((testElement2_.getVec()-testElement1_.getVec())/d-testElement1_.getVecJac().col(1)).norm(),0.0,1e-6);
 }
 
 // The fixture for testing class ArrayElementTest

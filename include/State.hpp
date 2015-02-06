@@ -219,102 +219,120 @@ class QuaternionElement: public ElementBase<QuaternionElement,rot::RotationQuate
   }
 };
 
-class NormalVectorElement: public ElementBase<NormalVectorElement,Eigen::Vector3d,2>{
+class NormalVectorElement: public ElementBase<NormalVectorElement,NormalVectorElement,2>{
  public:
-  Eigen::Vector3d n_;
-  NormalVectorElement(){}
-  NormalVectorElement(const NormalVectorElement& other){
-    n_ = other.n_;
+  rot::RotationQuaternionPD q_;
+  const Eigen::Vector3d e_x;
+  const Eigen::Vector3d e_y;
+  const Eigen::Vector3d e_z;
+  NormalVectorElement(): e_x(1,0,0), e_y(0,1,0), e_z(0,0,1){}
+  NormalVectorElement(const NormalVectorElement& other): e_x(1,0,0), e_y(0,1,0), e_z(0,0,1){
+    q_ = other.q_;
+  }
+  NormalVectorElement(const rot::RotationQuaternionPD& q): e_x(1,0,0), e_y(0,1,0), e_z(0,0,1){
+    q_ = q;
+  }
+  Eigen::Vector3d getVec() const{
+    return q_.rotate(e_z);
+  }
+  Eigen::Vector3d getPerp1() const{
+    return q_.rotate(e_x);
+  }
+  Eigen::Vector3d getPerp2() const{
+    return q_.rotate(e_y);
+  }
+  NormalVectorElement& operator=(const NormalVectorElement& other){
+    q_ = other.q_;
+    return *this;
+  }
+  void setFromVector(Eigen::Vector3d vec){
+    assert(vec.norm() != 0.0);
+    vec.normalize();
+    const Eigen::Vector3d cross = e_z.cross(vec);
+    const double crossNorm = cross.norm();
+    const double c = e_z.dot(vec);
+    const double a = std::acos(c);
+    if(crossNorm<1e-6){
+      if(c>0){
+        q_ = q_.exponentialMap(-cross);
+      } else { // TODO: imprecise
+        q_ = q_.exponentialMap(-Eigen::Vector3d(M_PI,0.0,0.0));
+      }
+    } else {
+      q_ = q_.exponentialMap(-cross*a/crossNorm);
+    }
+  }
+  NormalVectorElement rotated(const rot::RotationQuaternionPD& q) const{
+    return NormalVectorElement(q*q_);
+  }
+  NormalVectorElement inverted() const{
+    rot::RotationQuaternionPD q = q.exponentialMap(M_PI*getPerp1());
+    return NormalVectorElement(q*q_);
   }
   void boxPlus(const mtDifVec& vecIn, NormalVectorElement& stateOut) const{
-    Eigen::Vector3d m0;
-    Eigen::Vector3d m1;
-    getTwoNormals(m0,m1);
-    rot::RotationQuaternionPD q = q.exponentialMap(vecIn(0)*m0+vecIn(1)*m1);
-    stateOut.n_ = q.rotate(n_);
+    rot::RotationQuaternionPD q = q.exponentialMap(-vecIn(0)*getPerp1()-vecIn(1)*getPerp2());
+    stateOut.q_ = q*q_;
   }
   void boxMinus(const NormalVectorElement& stateIn, mtDifVec& vecOut) const{
-    Eigen::Vector3d m0;
-    Eigen::Vector3d m1;
-    stateIn.getTwoNormals(m0,m1);
-    const Eigen::Vector3d vec = -stateIn.n_.cross(n_);
-    const double vecNorm = vec.norm();
-    const double c = stateIn.n_.dot(n_);
+    const Eigen::Vector3d cross = stateIn.getVec().cross(getVec());
+    const double crossNorm = cross.norm();
+    const double c = stateIn.getVec().dot(getVec());
     const double a = std::acos(c);
-    if(vecNorm<1e-6){
+    if(crossNorm<1e-6){
       if(c>0){
-        vecOut(0) = m0.dot(vec);
-        vecOut(1) = m1.dot(vec);
+        vecOut(0) = stateIn.getPerp1().dot(cross);
+        vecOut(1) = stateIn.getPerp2().dot(cross);
       } else { // TODO: imprecise
         vecOut(0) = M_PI;
         vecOut(1) = 0.0;
       }
     } else {
-      vecOut(0) = m0.dot(vec)*a/vecNorm;
-      vecOut(1) = m1.dot(vec)*a/vecNorm;
+      vecOut(0) = stateIn.getPerp1().dot(cross)*a/crossNorm;
+      vecOut(1) = stateIn.getPerp2().dot(cross)*a/crossNorm;
     }
   }
   void print() const{
-    std::cout << n_.transpose() << std::endl;
+    std::cout << getVec().transpose() << std::endl;
   }
   void setIdentity(){
-    n_ = Eigen::Vector3d(1.0,0.0,0.0);
+    q_.setIdentity();
   }
   void setRandom(unsigned int& s){
     std::default_random_engine generator (s);
     std::normal_distribution<double> distribution (0.0,1.0);
-    n_(0) = distribution(generator);
-    n_(1) = distribution(generator);
-    n_(2) = distribution(generator);
-    fix();
+    q_.toImplementation().w() = distribution(generator);
+    q_.toImplementation().x() = distribution(generator);
+    q_.toImplementation().y() = distribution(generator);
+    q_.toImplementation().z() = distribution(generator);
+    q_.fix();
     s++;
   }
-  void fix(){
-    n_.normalize();
-  }
+  void fix(){}
   mtGet& get(unsigned int i = 0){
     assert(i==0);
-    return n_;
+    return *this;
   }
   const mtGet& get(unsigned int i = 0) const{
     assert(i==0);
-    return n_;
+    return *this;
   }
   void registerElementToPropertyHandler(PropertyHandler* mpPropertyHandler, const std::string& str){
-    mpPropertyHandler->doubleRegister_.registerVector(str + name_, n_);
-  }
-  void getTwoNormals(Eigen::Vector3d& m0,Eigen::Vector3d& m1) const {
-    Eigen::Vector3d vec = Eigen::Vector3d(1.0,0.0,0.0);
-    double min = n_(0);
-    if(n_(1)<min){
-      vec = Eigen::Vector3d(0.0,1.0,0.0);
-      min = n_(1);
-    }
-    if(n_(2)<min){
-      vec = Eigen::Vector3d(0.0,0.0,1.0);
-    }
-    m0 = vec.cross(n_);
-    m0.normalize();
-    m1 = m0.cross(n_);
-    m1.normalize();
+    mpPropertyHandler->doubleRegister_.registerQuaternion(str + name_, q_);
   }
   Eigen::Matrix<double,3,2> getM() const {
-    Eigen::Vector3d m0;
-    Eigen::Vector3d m1;
-    getTwoNormals(m0,m1);
     Eigen::Matrix<double,3,2> M;
-    M.col(0) = -m1;
-    M.col(1) = m0;
+    M.col(0) = getPerp2();
+    M.col(1) = -getPerp1();
     return M;
   }
   Eigen::Matrix<double,3,2> getN() const {
-    Eigen::Vector3d m0;
-    Eigen::Vector3d m1;
-    getTwoNormals(m0,m1);
     Eigen::Matrix<double,3,2> M;
-    M.col(0) = m0;
-    M.col(1) = m1;
+    M.col(0) = getPerp1();
+    M.col(1) = getPerp2();
     return M;
+  }
+  Eigen::Matrix<double,3,2> getVecJac() const {
+    return -getM();
   }
 };
 
