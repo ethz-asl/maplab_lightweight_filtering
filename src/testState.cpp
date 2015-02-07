@@ -267,11 +267,41 @@ TEST_F(NormalVectorElementTest, derivative) {
   difVec_.setZero();
   difVec_(0) = d;
   testElement1_.boxPlus(difVec_,testElement2_);
-  ASSERT_NEAR(((testElement2_.getVec()-testElement1_.getVec())/d-testElement1_.getVecJac().col(0)).norm(),0.0,1e-6);
+  ASSERT_NEAR(((testElement2_.getVec()-testElement1_.getVec())/d-testElement1_.getM().col(0)).norm(),0.0,1e-6);
   difVec_.setZero();
   difVec_(1) = d;
   testElement1_.boxPlus(difVec_,testElement2_);
-  ASSERT_NEAR(((testElement2_.getVec()-testElement1_.getVec())/d-testElement1_.getVecJac().col(1)).norm(),0.0,1e-6);
+  ASSERT_NEAR(((testElement2_.getVec()-testElement1_.getVec())/d-testElement1_.getM().col(1)).norm(),0.0,1e-6);
+}
+
+// Test getRotationFromTwoNormals
+TEST_F(NormalVectorElementTest, getRotationFromTwoNormals) {
+  Eigen::Vector3d theta = LWF::NormalVectorElement::getRotationFromTwoNormals(testElement1_,testElement2_);
+  rot::RotationQuaternionPD q = q.exponentialMap(theta);
+  ASSERT_NEAR((testElement1_.rotated(q).getVec()-testElement2_.getVec()).norm(),0.0,1e-6);
+  ASSERT_NEAR((LWF::NormalVectorElement::getRotationFromTwoNormals(testElement1_,testElement2_)+LWF::NormalVectorElement::getRotationFromTwoNormals(testElement2_,testElement1_)).norm(),0.0,1e-6);
+}
+
+// Test derivative of boxminus (includes test of derivative of getRotationFromTwoNormals)
+TEST_F(NormalVectorElementTest, derivativeBoxMinus) {
+  const double d  = 1e-6;
+  Eigen::Matrix2d J;
+  LWF::NormalVectorElement::mtDifVec perturbation;
+  LWF::NormalVectorElement::mtDifVec out;
+  LWF::NormalVectorElement::mtDifVec out_perturbed;
+  LWF::NormalVectorElement testElement2_perturbed;
+  testElement2_.boxMinus(testElement1_,out);
+  perturbation.setZero();
+  perturbation(0) = d;
+  testElement2_.boxPlus(perturbation,testElement2_perturbed);
+  testElement2_perturbed.boxMinus(testElement1_,out_perturbed);
+  J.col(0) = (out_perturbed-out)/d;
+  perturbation.setZero();
+  perturbation(1) = d;
+  testElement2_.boxPlus(perturbation,testElement2_perturbed);
+  testElement2_perturbed.boxMinus(testElement1_,out_perturbed);
+  J.col(1) = (out_perturbed-out)/d;
+  ASSERT_NEAR((testElement1_.getN().transpose()*-LWF::NormalVectorElement::getRotationFromTwoNormalsJac(testElement2_,testElement1_)*testElement2_.getM()-J).norm(),0.0,1e-6);
 }
 
 // The fixture for testing class ArrayElementTest

@@ -245,22 +245,48 @@ class NormalVectorElement: public ElementBase<NormalVectorElement,NormalVectorEl
     q_ = other.q_;
     return *this;
   }
+  static Eigen::Vector3d getRotationFromTwoNormals(const Eigen::Vector3d& a, const Eigen::Vector3d& b, const Eigen::Vector3d& a_perp){
+    const Eigen::Vector3d cross = a.cross(b);
+    const double crossNorm = cross.norm();
+    const double c = a.dot(b);
+    const double angle = std::acos(c);
+    if(crossNorm<1e-6){
+      if(c>0){
+        return -cross;
+      } else {
+        return a_perp*M_PI;
+      }
+    } else {
+      return -cross*(angle/crossNorm);
+    }
+  }
+  static Eigen::Vector3d getRotationFromTwoNormals(const NormalVectorElement& a, const NormalVectorElement& b){
+    return getRotationFromTwoNormals(a.getVec(),b.getVec(),a.getPerp1());
+  }
+  static Eigen::Matrix3d getRotationFromTwoNormalsJac(const Eigen::Vector3d& a, const Eigen::Vector3d& b){ // TODO: test
+    const Eigen::Vector3d cross = a.cross(b);
+    const double crossNorm = cross.norm();
+    Eigen::Vector3d crossNormalized = cross/crossNorm;
+    Eigen::Matrix3d crossNormalizedSqew = kindr::linear_algebra::getSkewMatrixFromVector(crossNormalized);
+    const double c = a.dot(b);
+    const double angle = std::acos(c);
+    if(crossNorm<1e-6){
+      if(c>0){
+        return -kindr::linear_algebra::getSkewMatrixFromVector(a);
+      } else {
+        return Eigen::Matrix3d::Zero();
+      }
+    } else {
+      return 1/crossNorm*(crossNormalized*b.transpose()-(crossNormalizedSqew*crossNormalizedSqew*kindr::linear_algebra::getSkewMatrixFromVector(b)*angle));
+    }
+  }
+  static Eigen::Matrix3d getRotationFromTwoNormalsJac(const NormalVectorElement& a, const NormalVectorElement& b){
+    return getRotationFromTwoNormalsJac(a.getVec(),b.getVec());
+  }
   void setFromVector(Eigen::Vector3d vec){
     assert(vec.norm() != 0.0);
     vec.normalize();
-    const Eigen::Vector3d cross = e_z.cross(vec);
-    const double crossNorm = cross.norm();
-    const double c = e_z.dot(vec);
-    const double a = std::acos(c);
-    if(crossNorm<1e-6){
-      if(c>0){
-        q_ = q_.exponentialMap(-cross);
-      } else { // TODO: imprecise
-        q_ = q_.exponentialMap(-Eigen::Vector3d(M_PI,0.0,0.0));
-      }
-    } else {
-      q_ = q_.exponentialMap(-cross*a/crossNorm);
-    }
+    q_ = q_.exponentialMap(getRotationFromTwoNormals(e_z,vec,e_x));
   }
   NormalVectorElement rotated(const rot::RotationQuaternionPD& q) const{
     return NormalVectorElement(q*q_);
@@ -270,26 +296,11 @@ class NormalVectorElement: public ElementBase<NormalVectorElement,NormalVectorEl
     return NormalVectorElement(q*q_);
   }
   void boxPlus(const mtDifVec& vecIn, NormalVectorElement& stateOut) const{
-    rot::RotationQuaternionPD q = q.exponentialMap(-vecIn(0)*getPerp1()-vecIn(1)*getPerp2());
+    rot::RotationQuaternionPD q = q.exponentialMap(vecIn(0)*getPerp1()+vecIn(1)*getPerp2());
     stateOut.q_ = q*q_;
   }
   void boxMinus(const NormalVectorElement& stateIn, mtDifVec& vecOut) const{
-    const Eigen::Vector3d cross = stateIn.getVec().cross(getVec());
-    const double crossNorm = cross.norm();
-    const double c = stateIn.getVec().dot(getVec());
-    const double a = std::acos(c);
-    if(crossNorm<1e-6){
-      if(c>0){
-        vecOut(0) = stateIn.getPerp1().dot(cross);
-        vecOut(1) = stateIn.getPerp2().dot(cross);
-      } else { // TODO: imprecise
-        vecOut(0) = M_PI;
-        vecOut(1) = 0.0;
-      }
-    } else {
-      vecOut(0) = stateIn.getPerp1().dot(cross)*a/crossNorm;
-      vecOut(1) = stateIn.getPerp2().dot(cross)*a/crossNorm;
-    }
+    vecOut = stateIn.getN().transpose()*getRotationFromTwoNormals(stateIn,*this);
   }
   void print() const{
     std::cout << getVec().transpose() << std::endl;
@@ -330,9 +341,6 @@ class NormalVectorElement: public ElementBase<NormalVectorElement,NormalVectorEl
     M.col(0) = getPerp1();
     M.col(1) = getPerp2();
     return M;
-  }
-  Eigen::Matrix<double,3,2> getVecJac() const {
-    return -getM();
   }
 };
 
