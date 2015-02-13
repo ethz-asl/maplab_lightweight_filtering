@@ -78,6 +78,21 @@ class Register{
       }
     }
   }
+  void removeScalarByStr(std::string str){ // slow
+    bool found = false;
+    for(auto it=registerMap_.begin(); it != registerMap_.end(); ++it){
+      if(it->second == str){
+        registerMap_.erase(it);
+        found = true;
+        break;
+      }
+    }
+    if(!found) std::cout << "Property Handler Error: Cannot remove variable with str = " << str << std::endl;
+  }
+  void removeScalarByVar(TYPE& var){
+    if(registerMap_.count(&var)==0) std::cout << "Property Handler Error: Cannot remove variable, does not exist!" << std::endl;
+    registerMap_.erase(&var);
+  }
   void buildPropertyTree(ptree& pt){
     for(typename std::map<TYPE*,std::string>::iterator it=registerMap_.begin(); it != registerMap_.end(); ++it){
       pt.put(it->second, *(it->first));
