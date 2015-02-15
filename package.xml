@@ -1,11 +1,13 @@
 <?xml version="1.0"?>
-<package format="2">
+<package>
   <name>lightweight_filtering</name>
   <description>description</description>
-  <url>url</url>
-  <author>author</author>
-  <maintainer email="email@email.email">maintainer</maintainer>
+  <url>https://bitbucket.org/ethz-asl-lr/lightweight_filtering</url>
+  <author>Michael Bloesch</author>
+  <maintainer email="bloeschm@ethz.ch">Michael Bloesch</maintainer>
   <license>Proprietary</license>
   <version>0.0.9</version>
   <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>kindr</build_depend>
+  <run_depend>kindr</run_depend>
 </package>
