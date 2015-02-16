@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package  format="2">
   <name>lightweight_filtering</name>
-  <description>lightweight_filtering</description>
+  <description>Lightweight filtering library</description>
   <url>https://bitbucket.org/ethz-asl-lr/lightweight_filtering</url>
   <author>Michael Bloesch</author>
   <maintainer email="bloeschm@ethz.ch">Michael Bloesch</maintainer>
