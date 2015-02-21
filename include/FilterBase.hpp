@@ -226,7 +226,6 @@ class FilterBase: public PropertyHandler{
     while(filterState.t_<tEnd){
       tNext = tEnd;
       getNextUpdate(filterState.t_,tNext);
-      double tPrediction = tNext;
       int r = 0;
 
       // Count mergeable prediction steps (always without update) TODO: adapt for decoupled prediction
@@ -262,15 +261,14 @@ class FilterBase: public PropertyHandler{
         if(predictionTimeline_.itMeas_ != predictionTimeline_.measMap_.end()){
           r = mPrediction_.performPrediction(filterState.state_,filterState.cov_,predictionTimeline_.itMeas_->second,tNext-filterState.t_);
           if(r!=0) std::cout << "Error during performPrediction: " << r << std::endl;
-          filterState.t_ = tNext;
           logCountRegPre_++;
         } else {
           r = mPrediction_.performPrediction(filterState.state_,filterState.cov_,tNext-filterState.t_);
           if(r!=0) std::cout << "Error during performPrediction: " << r << std::endl;
-          filterState.t_ = tNext;
           logCountBadPre_++;
         }
       }
+      filterState.t_ = tNext;
 
       doAvailableUpdates(filterState,tNext);
     }

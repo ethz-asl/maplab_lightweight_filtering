@@ -29,8 +29,10 @@ class CoordinateTransform: public ModelBase<Input,Output,Input,Input>{
   typedef typename Base::mtJacInput mtJacInput;
   mtJacInput J_;
   mtOutputCovMat outputCov_;
-  mtOutput transformState(const mtInput& input) const{
-    return eval(input, input);
+  mtOutput transformState(mtInput& input) const{
+    mtOutput output;
+    eval(output, input, input);
+    return output;
   }
   mtOutputCovMat transformCovMat(const mtInput& input,const mtInputCovMat& inputCov){
     J_ = jacInput(input,input);

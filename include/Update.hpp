@@ -332,7 +332,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     preProcess(state,cov,meas);
     H_ = this->jacInput(state,meas);
     Hn_ = this->jacNoise(state,meas);
-    y_ = this->eval(state,meas);
+    this->eval(y_,state,meas);
 
     // Update
     Py_ = H_*cov*H_.transpose() + Hn_*updnoiP_*Hn_.transpose();
@@ -356,7 +356,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     preProcess(state,cov,meas);
     H_ = this->jacInput(linState,meas);
     Hn_ = this->jacNoise(linState,meas);
-    y_ = this->eval(linState,meas);
+    this->eval(y_,linState,meas);
 
     // Update
     Py_ = H_*cov*H_.transpose() + Hn_*updnoiP_*Hn_.transpose();
@@ -384,7 +384,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     for(unsigned int i=0;i<maxNumIteration_ & updateVecNorm_>=updateVecNormTermination_;i++){
       H_ = this->jacInput(linState,meas);
       Hn_ = this->jacNoise(linState,meas);
-      y_ = this->eval(linState,meas);
+      this->eval(y_,linState,meas);
 
       // Update
       Py_ = H_*cov*H_.transpose() + Hn_*updnoiP_*Hn_.transpose();
@@ -415,7 +415,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
 
     // Update
     for(unsigned int i=0;i<stateSigmaPoints_.L_;i++){
-      innSigmaPoints_(i) = this->eval(stateSigmaPoints_(i),meas,stateSigmaPointsNoi_(i));
+      this->eval(innSigmaPoints_(i),stateSigmaPoints_(i),meas,stateSigmaPointsNoi_(i));
     }
     y_ = innSigmaPoints_.getMean();
     Py_ = innSigmaPoints_.getCovarianceMatrix(y_);
@@ -447,7 +447,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     // Predict
     prediction.F_ = prediction.jacInput(state,predictionMeas,dt);
     prediction.Fn_ = prediction.jacNoise(state,predictionMeas,dt);
-    state = prediction.eval(state,predictionMeas,dt);
+    prediction.eval(state,state,predictionMeas,dt);
     cov = prediction.F_*cov*prediction.F_.transpose() + prediction.Fn_*prediction.prenoiP_*prediction.Fn_.transpose();
     cov = 0.5*(cov+cov.transpose()); // Enforce symmetry
 
@@ -455,7 +455,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     H_ = this->jacInput(state,meas);
     Hn_ = this->jacNoise(state,meas);
     C_ = prediction.Fn_*preupdnoiP_*Hn_.transpose();
-    y_ = this->eval(state,meas);
+    this->eval(y_,state,meas);
     Py_ = H_*cov*H_.transpose() + Hn_*updnoiP_*Hn_.transpose() + H_*C_ + C_.transpose()*H_.transpose();
     y_.boxMinus(yIdentity_,innVector_);
 
@@ -481,7 +481,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
 
     // Prediction
     for(unsigned int i=0;i<coupledStateSigmaPointsPre_.L_;i++){
-      coupledStateSigmaPointsPre_(i) = prediction.eval(stateSigmaPoints_(i),predictionMeas,coupledStateSigmaPointsNoi_(i).template getState<0>(),dt);
+      prediction.eval(coupledStateSigmaPointsPre_(i),stateSigmaPoints_(i),predictionMeas,coupledStateSigmaPointsNoi_(i).template getState<0>(),dt);
     }
 
     // Calculate mean and variance
@@ -490,7 +490,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
 
     // Update
     for(unsigned int i=0;i<innSigmaPoints_.L_;i++){
-      innSigmaPoints_(i) = this->eval(coupledStateSigmaPointsPre_(i),meas,coupledStateSigmaPointsNoi_(i).template getState<1>());
+      this->eval(innSigmaPoints_(i),coupledStateSigmaPointsPre_(i),meas,coupledStateSigmaPointsNoi_(i).template getState<1>());
     }
     y_ = innSigmaPoints_.getMean();
     Py_ = innSigmaPoints_.getCovarianceMatrix(y_);

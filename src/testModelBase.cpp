@@ -39,12 +39,10 @@ class ModelExample: public LWF::ModelBase<Input,Output,Meas,Noise>{
  public:
   ModelExample(){};
   ~ModelExample(){};
-  Output eval(const Input& input, const Meas& meas, const Noise noise, double dt) const{
-    Output output;
+  void eval(Output& output, const Input& input, const Meas& meas, const Noise noise, double dt) const{
     output.get<Output::v0>() = (input.get<Input::q0>().inverted()*input.get<Input::q1>()).rotate(input.get<Input::v1>())-input.get<Input::v0>()+noise.get<Noise::v0>()-meas.get<Meas::v0>();
     rot::RotationQuaternionPD dQ = dQ.exponentialMap(noise.get<Noise::v1>());
     output.get<Output::q0>() = meas.get<Meas::q0>().inverted()*dQ*input.get<Input::q1>().inverted()*input.get<Input::q0>();
-    return output;
   }
   mtJacInput jacInput(const Input& input, const Meas& meas, double dt) const{
     Output output;

@@ -112,7 +112,7 @@ class Prediction: public ModelBase<State,State,Meas,Noise>, public PropertyHandl
     preProcess(state,cov,meas,dt);
     F_ = this->jacInput(state,meas,dt);
     Fn_ = this->jacNoise(state,meas,dt);
-    state = this->eval(state,meas,dt);
+    this->eval(state,state,meas,dt);
     cov = F_*cov*F_.transpose() + Fn_*prenoiP_*Fn_.transpose();
     postProcess(state,cov,meas,dt);
     state.fix();
@@ -126,7 +126,7 @@ class Prediction: public ModelBase<State,State,Meas,Noise>, public PropertyHandl
 
     // Prediction
     for(unsigned int i=0;i<stateSigmaPoints_.L_;i++){
-      stateSigmaPointsPre_(i) = this->eval(stateSigmaPoints_(i),meas,stateSigmaPointsNoi_(i),dt);
+      this->eval(stateSigmaPointsPre_(i),stateSigmaPoints_(i),meas,stateSigmaPointsNoi_(i),dt);
     }
     // Calculate mean and variance
     state = stateSigmaPointsPre_.getMean();
@@ -167,7 +167,7 @@ class Prediction: public ModelBase<State,State,Meas,Noise>, public PropertyHandl
     Fn_ = this->jacNoise(state,meanMeas,dT); // Works for time continuous parametrization of noise
     double t = tStart;
     for(itMeas=itMeasStart;itMeas!=itMeasEnd;itMeas++){
-      state = this->eval(state,itMeas->second,itMeas->first-t);
+      this->eval(state,state,itMeas->second,itMeas->first-t);
       t = itMeas->first;
     }
     cov = F_*cov*F_.transpose() + Fn_*prenoiP_*Fn_.transpose();
@@ -199,7 +199,7 @@ class Prediction: public ModelBase<State,State,Meas,Noise>, public PropertyHandl
 
     // Prediction
     for(unsigned int i=0;i<stateSigmaPoints_.L_;i++){
-      stateSigmaPointsPre_(i) = this->eval(stateSigmaPoints_(i),meanMeas,stateSigmaPointsNoi_(i),dT);
+      this->eval(stateSigmaPointsPre_(i),stateSigmaPoints_(i),meanMeas,stateSigmaPointsNoi_(i),dT);
     }
     state = stateSigmaPointsPre_.getMean();
     cov = stateSigmaPointsPre_.getCovarianceMatrix(state);
@@ -211,10 +211,8 @@ class Prediction: public ModelBase<State,State,Meas,Noise>, public PropertyHandl
 
 class DummyPrediction: public Prediction<ScalarElement,ScalarElement,ScalarElement>{
  public:
-  ScalarElement eval(const ScalarElement& state, const ScalarElement& meas, const ScalarElement noise, double dt) const{
-    ScalarElement output;
+  void eval(ScalarElement& output, const ScalarElement& state, const ScalarElement& meas, const ScalarElement noise, double dt) const{
     output.s_ = state.s_ + meas.s_ + noise.s_;
-    return output;
   }
   Eigen::Matrix<double,1,1> jacInput(const ScalarElement& state, const ScalarElement& meas, double dt) const{
     Eigen::Matrix<double,1,1> J;

@@ -88,7 +88,8 @@ TYPED_TEST(UpdateModelTest, performUpdateEKF) {
   typename TestFixture::mtUpdateExample::mtJacInput H = this->testUpdate_.jacInput(this->testState_,this->testUpdateMeas_,this->dt_);
   typename TestFixture::mtUpdateExample::mtJacNoise Hn = this->testUpdate_.jacNoise(this->testState_,this->testUpdateMeas_,this->dt_);
 
-  typename TestFixture::mtUpdateExample::mtInnovation y = this->testUpdate_.eval(this->testState_,this->testUpdateMeas_);
+  typename TestFixture::mtUpdateExample::mtInnovation y;
+  this->testUpdate_.eval(y,this->testState_,this->testUpdateMeas_);
   typename TestFixture::mtUpdateExample::mtInnovation yIdentity;
   yIdentity.setIdentity();
   typename TestFixture::mtUpdateExample::mtInnovation::mtDifVec innVector;
@@ -135,7 +136,8 @@ TYPED_TEST(UpdateModelTest, updateEKFWithOutlier) {
   typename TestFixture::mtUpdateExample::mtJacInput H = this->testUpdate_.jacInput(this->testState_,this->testUpdateMeas_,this->dt_);
   typename TestFixture::mtUpdateExample::mtJacNoise Hn = this->testUpdate_.jacNoise(this->testState_,this->testUpdateMeas_,this->dt_);
 
-  typename TestFixture::mtUpdateExample::mtInnovation y = this->testUpdate_.eval(this->testState_,this->testUpdateMeas_);
+  typename TestFixture::mtUpdateExample::mtInnovation y;
+  this->testUpdate_.eval(y,this->testState_,this->testUpdateMeas_);
   typename TestFixture::mtUpdateExample::mtInnovation yIdentity;
   yIdentity.setIdentity();
   typename TestFixture::mtUpdateExample::mtInnovation::mtDifVec innVector;
@@ -453,7 +455,8 @@ TYPED_TEST(UpdateModelTest, performUpdateLEKF2) {
 TYPED_TEST(UpdateModelTest, performUpdateLEKF3) {
   // Linearization point
   typename TestFixture::mtUpdateExample::mtState linState;
-  linState.setRandom(2);
+  unsigned int s = 2;
+  linState.setRandom(s);
 
   typename TestFixture::mtUpdateExample::mtState::mtCovMat cov;
   typename TestFixture::mtUpdateExample::mtState::mtCovMat updateCov;
@@ -461,7 +464,8 @@ TYPED_TEST(UpdateModelTest, performUpdateLEKF3) {
   typename TestFixture::mtUpdateExample::mtJacInput H = this->testUpdate_.jacInput(linState,this->testUpdateMeas_,this->dt_);
   typename TestFixture::mtUpdateExample::mtJacNoise Hn = this->testUpdate_.jacNoise(linState,this->testUpdateMeas_,this->dt_);
 
-  typename TestFixture::mtUpdateExample::mtInnovation y = this->testUpdate_.eval(linState,this->testUpdateMeas_);
+  typename TestFixture::mtUpdateExample::mtInnovation y;
+  this->testUpdate_.eval(y,linState,this->testUpdateMeas_);
   typename TestFixture::mtUpdateExample::mtInnovation yIdentity;
   yIdentity.setIdentity();
   typename TestFixture::mtUpdateExample::mtInnovation::mtDifVec innVector;
@@ -559,7 +563,7 @@ TYPED_TEST(UpdateModelTest, performUpdateIEKF2) {
     H = this->testUpdate_.jacInput(linState,this->testUpdateMeas_,this->dt_);
     Hn = this->testUpdate_.jacNoise(linState,this->testUpdateMeas_,this->dt_);
 
-    y = this->testUpdate_.eval(linState,this->testUpdateMeas_);
+    this->testUpdate_.eval(y,linState,this->testUpdateMeas_);
 
     // Update
     Py = H*cov*H.transpose() + Hn*this->testUpdate_.updnoiP_*Hn.transpose();

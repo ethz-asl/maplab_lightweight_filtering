@@ -206,7 +206,8 @@ TYPED_TEST(FilterBaseTest, propertyHandler) {
     initP(i,i) = 0.5*i*i+3.1*i+3.2;
   }
   typename TestFixture::mtState initState;
-  initState.setRandom(1);
+  unsigned int s = 1;
+  initState.setRandom(s);
   this->testFilter_.mPrediction_.prenoiP_ = prenoiP;
   std::get<0>(this->testFilter_.mUpdates_).updnoiP_ = updnoiP;
   std::get<1>(this->testFilter_.mUpdates_).updnoiP_ = updnoiP2;

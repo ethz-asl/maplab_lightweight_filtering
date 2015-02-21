@@ -95,11 +95,9 @@ class UpdateExample: public LWF::Update<Innovation,State,UpdateMeas,UpdateNoise,
   typedef Innovation mtInnovation;
   UpdateExample(){};
   ~UpdateExample(){};
-  mtInnovation eval(const mtState& state, const mtMeas& meas, const mtNoise noise, double dt = 0.0) const{
-    mtInnovation inn;
+  void eval(mtInnovation& inn, const mtState& state, const mtMeas& meas, const mtNoise noise, double dt = 0.0) const{
     inn.get<Innovation::POS>() = state.get<State::ATT>().rotate(state.get<State::POS>())-meas.get<UpdateMeas::POS>()+noise.get<UpdateNoise::POS>();
     inn.get<Innovation::ATT>() = (state.get<State::ATT>()*meas.get<UpdateMeas::ATT>().inverted()).boxPlus(noise.get<UpdateNoise::ATT>());
-    return inn;
   }
   mtJacInput jacInput(const mtState& state, const mtMeas& meas, double dt = 0.0) const{
     mtJacInput J;
@@ -129,19 +127,17 @@ class PredictionExample: public LWF::Prediction<State,PredictionMeas,PredictionN
   typedef PredictionNoise mtNoise;
   PredictionExample(){};
   ~PredictionExample(){};
-  mtState eval(const mtState& state, const mtMeas& meas, const mtNoise noise, double dt) const{
-    mtState output;
+  void eval(mtState& output, const mtState& state, const mtMeas& meas, const mtNoise noise, double dt) const{
     Eigen::Vector3d g_(0,0,-9.81);
     Eigen::Vector3d dOmega = -dt*(meas.get<PredictionMeas::GYR>()-state.get<State::GYB>()+noise.get<PredictionNoise::ATT>()/sqrt(dt));
     rot::RotationQuaternionPD dQ = dQ.exponentialMap(dOmega);
-    output.get<State::ATT>() = state.get<State::ATT>()*dQ;
-    output.get<State::ATT>().fix();
     output.get<State::POS>() = (Eigen::Matrix3d::Identity()+kindr::linear_algebra::getSkewMatrixFromVector(dOmega))*state.get<State::POS>()-dt*state.get<State::VEL>()+noise.get<PredictionNoise::POS>()*sqrt(dt);
     output.get<State::VEL>() = (Eigen::Matrix3d::Identity()+kindr::linear_algebra::getSkewMatrixFromVector(dOmega))*state.get<State::VEL>()
         -dt*(meas.get<PredictionMeas::ACC>()-state.get<State::ACB>()+state.get<State::ATT>().inverseRotate(g_)+noise.get<PredictionNoise::VEL>()/sqrt(dt));
     output.get<State::ACB>() = state.get<State::ACB>()+noise.get<PredictionNoise::ACB>()*sqrt(dt);
     output.get<State::GYB>() = state.get<State::GYB>()+noise.get<PredictionNoise::GYB>()*sqrt(dt);
-    return output;
+    output.get<State::ATT>() = state.get<State::ATT>()*dQ;
+    output.get<State::ATT>().fix();
   }
   mtJacInput jacInput(const mtState& state, const mtMeas& meas, double dt) const{
     mtJacInput J;
@@ -188,11 +184,9 @@ class PredictAndUpdateExample: public LWF::Update<Innovation,State,UpdateMeas,Up
   typedef Innovation mtInnovation;
   PredictAndUpdateExample(){};
   ~PredictAndUpdateExample(){};
-  mtInnovation eval(const mtState& state, const mtMeas& meas, const mtNoise noise, double dt = 0.0) const{
-    mtInnovation inn;
+  void eval(mtInnovation& inn, const mtState& state, const mtMeas& meas, const mtNoise noise, double dt = 0.0) const{
     inn.get<Innovation::POS>() = state.get<State::ATT>().rotate(state.get<State::POS>())-meas.get<UpdateMeas::POS>()+noise.get<UpdateNoise::POS>();
     inn.get<Innovation::ATT>() = (state.get<State::ATT>()*meas.get<UpdateMeas::ATT>().inverted()).boxPlus(noise.get<UpdateNoise::ATT>());
-    return inn;
   }
   mtJacInput jacInput(const mtState& state, const mtMeas& meas, double dt = 0.0) const{
     mtJacInput J;
@@ -284,11 +278,9 @@ class UpdateExample: public LWF::Update<Innovation,State,UpdateMeas,UpdateNoise,
   typedef Innovation mtInnovation;
   UpdateExample(){};
   ~UpdateExample(){};
-  mtInnovation eval(const mtState& state, const mtMeas& meas, const mtNoise noise, double dt = 0.0) const{
-    mtInnovation inn;
+  void eval(mtInnovation& inn, const mtState& state, const mtMeas& meas, const mtNoise noise, double dt = 0.0) const{
     inn.get<Innovation::POS>() = state.get<State::POS>()-meas.get<UpdateMeas::POS>()+noise.get<UpdateNoise::POS>();
     inn.get<Innovation::HEI>() = Eigen::Vector3d(0,0,1).dot(state.get<State::POS>())-meas.get<UpdateMeas::HEI>()+noise.get<UpdateNoise::HEI>();;
-    return inn;
   }
   mtJacInput jacInput(const mtState& state, const mtMeas& meas, double dt = 0.0) const{
     mtJacInput J;
@@ -317,11 +309,9 @@ class PredictionExample: public LWF::Prediction<State,PredictionMeas,PredictionN
   typedef PredictionNoise mtNoise;
   PredictionExample(){};
   ~PredictionExample(){};
-  mtState eval(const mtState& state, const mtMeas& meas, const mtNoise noise, double dt) const{
-    mtState output;
+  void eval(mtState& output, const mtState& state, const mtMeas& meas, const mtNoise noise, double dt) const{
     output.get<mtState::POS>() = state.get<mtState::POS>()+dt*state.get<mtState::VEL>();
     output.get<mtState::VEL>()  = state.get<mtState::VEL>()+dt*(meas.get<mtMeas::ACC>()+noise.get<PredictionNoise::VEL>()/sqrt(dt));
-    return output;
   }
   mtJacInput jacInput(const mtState& state, const mtMeas& meas, double dt) const{
     mtJacInput J;
@@ -349,11 +339,9 @@ class PredictAndUpdateExample: public LWF::Update<Innovation,State,UpdateMeas,Up
   typedef Innovation mtInnovation;
   PredictAndUpdateExample(){};
   ~PredictAndUpdateExample(){};
-  mtInnovation eval(const mtState& state, const mtMeas& meas, const mtNoise noise, double dt = 0.0) const{
-    mtInnovation inn;
+  void eval(mtInnovation& inn, const mtState& state, const mtMeas& meas, const mtNoise noise, double dt = 0.0) const{
     inn.get<Innovation::POS>() = state.get<State::POS>()-meas.get<UpdateMeas::POS>()+noise.get<UpdateNoise::POS>();
     inn.get<Innovation::HEI>() = Eigen::Vector3d(0,0,1).dot(state.get<State::POS>())-meas.get<UpdateMeas::HEI>()+noise.get<UpdateNoise::HEI>();;
-    return inn;
   }
   mtJacInput jacInput(const mtState& state, const mtMeas& meas, double dt = 0.0) const{
     mtJacInput J;

@@ -83,7 +83,9 @@ TYPED_TEST(PredictionModelTest, performPredictionEKF) {
   state = this->testState_;
   this->testPrediction_.performPredictionEKF(state,cov,this->testPredictionMeas_,this->dt_);
   typename TestFixture::mtPredictionExample::mtState::mtDifVec dif;
-  state.boxMinus(this->testPrediction_.eval(this->testState_,this->testPredictionMeas_,this->dt_),dif);
+  typename TestFixture::mtPredictionExample::mtState evalState;
+  this->testPrediction_.eval(evalState,this->testState_,this->testPredictionMeas_,this->dt_);
+  state.boxMinus(evalState,dif);
   switch(TestFixture::id_){
     case 0:
       ASSERT_NEAR(dif.norm(),0.0,1e-6);
@@ -151,7 +153,7 @@ TYPED_TEST(PredictionModelTest, predictMergedEKF) {
   typename TestFixture::mtPredictionExample::mtState state2;
   state2 = this->testState_;
   for(typename std::map<double,typename TestFixture::mtPredictionExample::mtMeas>::iterator it = this->measMap_.begin();it != this->measMap_.end();it++){
-    state2 = this->testPrediction_.eval(state2,it->second,it->first-t);
+    this->testPrediction_.eval(state2,state2,it->second,it->first-t);
     t = it->first;
   }
   typename TestFixture::mtPredictionExample::mtState::mtDifVec dif;
@@ -191,7 +193,7 @@ TYPED_TEST(PredictionModelTest, predictMergedUKF) {
 
   this->testPrediction_.stateSigmaPoints_.computeFromGaussian(this->testState_,cov);
   for(unsigned int i=0;i<this->testPrediction_.stateSigmaPoints_.L_;i++){
-    this->testPrediction_.stateSigmaPointsPre_(i) = this->testPrediction_.eval(this->testPrediction_.stateSigmaPoints_(i),meanMeas,this->testPrediction_.stateSigmaPointsNoi_(i),dt);
+    this->testPrediction_.eval(this->testPrediction_.stateSigmaPointsPre_(i),this->testPrediction_.stateSigmaPoints_(i),meanMeas,this->testPrediction_.stateSigmaPointsNoi_(i),dt);
   }
   typename TestFixture::mtPredictionExample::mtState state1 = this->testPrediction_.stateSigmaPointsPre_.getMean();
   typename TestFixture::mtPredictionExample::mtState::mtCovMat predictedCov = this->testPrediction_.stateSigmaPointsPre_.getCovarianceMatrix(state1);

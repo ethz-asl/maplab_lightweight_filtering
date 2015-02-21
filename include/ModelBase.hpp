@@ -26,14 +26,12 @@ class ModelBase{
   typedef Eigen::Matrix<double,mtNoise::D_,1> mtNoiseVector;
   ModelBase(){};
   virtual ~ModelBase(){};
-  virtual mtOutput eval(const mtInput& input, const mtMeas& meas, double dt = 0.0) const{
+  virtual void eval(mtOutput& output, const mtInput& input, const mtMeas& meas, double dt = 0.0) const{
     mtNoise noise;
     noise.setIdentity();
-    return eval(input,meas,noise,dt);
+    eval(output,input,meas,noise,dt);
   }
-  virtual mtOutput eval(const mtInput& input, const mtMeas& meas, const mtNoise noise, double dt = 0.0) const{
-    mtOutput output;
-    return output;
+  virtual void eval(mtOutput& output, const mtInput& input, const mtMeas& meas, const mtNoise noise, double dt = 0.0) const{
   }
   virtual mtJacInput jacInput(const mtInput& input, const mtMeas& meas, double dt = 0.0) const{
     mtJacInput J;
@@ -49,13 +47,16 @@ class ModelBase{
     mtJacInput F;
     F.setZero();
     mtInput inputDisturbed;
-    mtOutput outputReference = eval(input,meas,dt);
+    mtOutput outputReference;
+    mtOutput outputDisturbed;
+    eval(outputReference,input,meas,dt);
     typename mtInput::mtCovMat I;
     typename mtOutput::mtDifVec dif;
     I.setIdentity();
     for(unsigned int i=0;i<mtInput::D_;i++){
       input.boxPlus(d*I.col(i),inputDisturbed);
-      eval(inputDisturbed,meas,dt).boxMinus(outputReference,dif);
+      eval(outputDisturbed,inputDisturbed,meas,dt);
+      outputDisturbed.boxMinus(outputReference,dif);
       F.col(i) = dif/d;
     }
     return F;
@@ -66,13 +67,16 @@ class ModelBase{
     mtJacNoise H;
     H.setZero();
     mtNoise noiseDisturbed;
-    mtOutput outputReference = eval(input,meas,noise,dt);
+    mtOutput outputReference;
+    mtOutput outputDisturbed;
+    eval(outputReference,input,meas,noise,dt);
     typename mtNoise::mtCovMat I;
     typename mtOutput::mtDifVec dif;
     I.setIdentity();
     for(unsigned int i=0;i<mtNoise::D_;i++){
       noise.boxPlus(d*I.col(i),noiseDisturbed);
-      eval(input,meas,noiseDisturbed,dt).boxMinus(outputReference,dif);
+      eval(outputDisturbed,input,meas,noiseDisturbed,dt);
+      outputDisturbed.boxMinus(outputReference,dif);
       H.col(i) = dif/d;
     }
     return H;
