@@ -533,16 +533,16 @@ class State{
   void setIdentity_(){
     std::get<i>(mElements_).setIdentity();
   }
-  void setRandom(unsigned int s){
+  void setRandom(unsigned int& s){
     setRandom_(s);
   }
   template<unsigned int i=0,typename std::enable_if<(i<E_-1)>::type* = nullptr>
-  void setRandom_(unsigned int s){
+  void setRandom_(unsigned int& s){
     std::get<i>(mElements_).setRandom(s);
     setRandom_<i+1>(s);
   }
   template<unsigned int i=0,typename std::enable_if<(i==E_-1)>::type* = nullptr>
-  void setRandom_(unsigned int s){
+  void setRandom_(unsigned int& s){
     std::get<i>(mElements_).setRandom(s);
   }
   void fix(){
@@ -601,7 +601,7 @@ class State{
   const auto get(unsigned int j = 0) const -> decltype (std::get<i>(mElements_).get(j))& {
     return std::get<i>(mElements_).get(j);
   };
-  template<unsigned int i,unsigned int D=0,typename std::enable_if<(i==0)>::type* = nullptr>
+  template<unsigned int i,unsigned int D=0,typename std::enable_if<(i==0)>::type* = nullptr> // TODO: implement inverse
   static constexpr unsigned int getId(unsigned int j = 0){
     return D+j*std::tuple_element<i,decltype(mElements_)>::type::E_;
   };
@@ -709,16 +709,16 @@ class ComposedState{ // TODO: test completely
   void setIdentity_(){
     std::get<i>(mStates_).setIdentity();
   }
-  void setRandom(unsigned int s){
+  void setRandom(unsigned int& s){
     setRandom_(s);
   }
   template<unsigned int i=0,typename std::enable_if<(i<E_-1)>::type* = nullptr>
-  void setRandom_(unsigned int s){
+  void setRandom_(unsigned int& s){
     std::get<i>(mStates_).setRandom(s);
     setRandom_<i+1>(s);
   }
   template<unsigned int i=0,typename std::enable_if<(i==E_-1)>::type* = nullptr>
-  void setRandom_(unsigned int s){
+  void setRandom_(unsigned int& s){
     std::get<i>(mStates_).setRandom(s);
   }
   void fix(){

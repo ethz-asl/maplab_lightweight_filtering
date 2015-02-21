@@ -187,6 +187,26 @@ class FilterBase: public PropertyHandler{
       std::cout << "Performed safe Update with RegPre: " << logCountRegPre_ << ", MerPre: " << logCountMerPre_ << ", BadPre: " << logCountBadPre_ << ", RegUpd: " << logCountRegUpd_ << ", ComUpd: " << logCountComUpd_ << std::endl;
     }
   }
+  void updateSafe(const double& maxTime){ // TODO: cleanup (timing in general)
+    double nextSafeTime;
+    bool gotSafeTime = getSafeTime(nextSafeTime);
+    if(!gotSafeTime || maxTime < safe_.t_){
+      if(logCountDiagnostics_){
+        std::cout << "Performed safe Update with RegPre: 0, MerPre: 0, BadPre: 0, RegUpd: 0, ComUpd: 0" << std::endl;
+      }
+      return;
+    }
+    if(nextSafeTime > maxTime) nextSafeTime = maxTime;
+    if(front_.t_<=nextSafeTime && !gotFrontWarning_ && front_.t_>safe_.t_){
+      safe_ = front_;
+    }
+    update(safe_,nextSafeTime);
+    clean(nextSafeTime);
+    safeWarningTime_ = nextSafeTime;
+    if(logCountDiagnostics_){
+      std::cout << "Performed safe Update with RegPre: " << logCountRegPre_ << ", MerPre: " << logCountMerPre_ << ", BadPre: " << logCountBadPre_ << ", RegUpd: " << logCountRegUpd_ << ", ComUpd: " << logCountComUpd_ << std::endl;
+    }
+  }
   void updateFront(const double& tEnd){
     updateSafe();
     if(gotFrontWarning_ || front_.t_<=safe_.t_){
@@ -209,7 +229,7 @@ class FilterBase: public PropertyHandler{
       double tPrediction = tNext;
       int r = 0;
 
-      // Count mergeable prediction steps (always without update)
+      // Count mergeable prediction steps (always without update) TODO: adapt for decoupled prediction
       predictionTimeline_.itMeas_ = predictionTimeline_.measMap_.upper_bound(filterState.t_);
       unsigned int countMergeable = 0;
       while(predictionTimeline_.itMeas_ != predictionTimeline_.measMap_.end() && predictionTimeline_.itMeas_->first < tNext){

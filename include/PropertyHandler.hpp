@@ -103,7 +103,7 @@ class Register{
       *(it->first) = pt.get<TYPE>(it->second);
     }
     for(typename std::unordered_set<TYPE*>::iterator it=zeros_.begin(); it != zeros_.end(); ++it){
-      **it = 0;
+      **it = static_cast<TYPE>(0);
     }
   }
 };
@@ -116,11 +116,13 @@ class PropertyHandler{
   Register<bool> boolRegister_;
   Register<int> intRegister_;
   Register<double> doubleRegister_;
+  Register<std::string> stringRegister_;
   std::unordered_map<std::string,PropertyHandler*> subHandlers_;
   void buildPropertyTree(ptree& pt){
     boolRegister_.buildPropertyTree(pt);
     intRegister_.buildPropertyTree(pt);
     doubleRegister_.buildPropertyTree(pt);
+    stringRegister_.buildPropertyTree(pt);
     for(typename std::unordered_map<std::string,PropertyHandler*>::iterator it=subHandlers_.begin(); it != subHandlers_.end(); ++it){
       ptree ptsub;
       it->second->buildPropertyTree(ptsub);
@@ -131,6 +133,7 @@ class PropertyHandler{
     boolRegister_.readPropertyTree(pt);
     intRegister_.readPropertyTree(pt);
     doubleRegister_.readPropertyTree(pt);
+    stringRegister_.readPropertyTree(pt);
     for(typename std::unordered_map<std::string,PropertyHandler*>::iterator it=subHandlers_.begin(); it != subHandlers_.end(); ++it){
       ptree ptsub;
       ptsub = pt.get_child(it->first);
