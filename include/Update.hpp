@@ -352,11 +352,11 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     return 0;
   }
   template<bool IC = isCoupled, typename std::enable_if<(!IC)>::type* = nullptr>
-  int performUpdateLEKF(mtState& state, const mtState& linState, mtCovMat& cov, const mtMeas& meas, mtOutlierDetection* mpOutlierDetection = nullptr){
+  int performUpdateLEKF(mtState& state, mtCovMat& cov, const mtMeas& meas, mtOutlierDetection* mpOutlierDetection = nullptr){
     preProcess(state,cov,meas);
-    H_ = this->jacInput(linState,meas);
-    Hn_ = this->jacNoise(linState,meas);
-    this->eval(y_,linState,meas);
+    H_ = this->jacInput(state,meas);
+    Hn_ = this->jacNoise(state,meas);
+    this->eval(y_,state,meas);
 
     // Update
     Py_ = H_*cov*H_.transpose() + Hn_*updnoiP_*Hn_.transpose();
@@ -370,8 +370,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     // Kalman Update
     K_ = cov*H_.transpose()*Pyinv_;
     cov = cov - K_*Py_*K_.transpose();
-    linState.boxMinus(state,difVecLin_);
-    updateVec_ = -K_*(innVector_-H_*difVecLin_); // includes correction for offseted linearization point
+    updateVec_ = -K_*(innVector_-H_*state.difVecLin_); // includes correction for offseted linearization point
     state.boxPlus(updateVec_,state);
     postProcess(state,cov,meas,mpOutlierDetection);
     return 0;

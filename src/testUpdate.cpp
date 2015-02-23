@@ -404,7 +404,8 @@ TYPED_TEST(UpdateModelTest, performUpdateLEKF1) {
   typename TestFixture::mtUpdateExample::mtState::mtCovMat cov2 = cov1;
   typename TestFixture::mtUpdateExample::mtState state1 = this->testState_;
   typename TestFixture::mtUpdateExample::mtState state2 = this->testState_;
-  this->testUpdate_.performUpdateLEKF(state1,linState,cov1,this->testUpdateMeas_);
+  linState.boxMinus(state1,state1.difVecLin_);
+  this->testUpdate_.performUpdateLEKF(state1,cov1,this->testUpdateMeas_);
   this->testUpdate_.performUpdateEKF(state2,cov2,this->testUpdateMeas_);
   typename TestFixture::mtUpdateExample::mtState::mtDifVec dif;
   state1.boxMinus(state2,dif);
@@ -433,7 +434,8 @@ TYPED_TEST(UpdateModelTest, performUpdateLEKF2) {
   typename TestFixture::mtUpdateExample::mtState::mtCovMat cov2 = cov1;
   typename TestFixture::mtUpdateExample::mtState state1 = this->testState_;
   typename TestFixture::mtUpdateExample::mtState state2 = this->testState_;
-  this->testUpdate_.performUpdateLEKF(state1,linState,cov1,this->testUpdateMeas_);
+  linState.boxMinus(state1,state1.difVecLin_);
+  this->testUpdate_.performUpdateLEKF(state1,cov1,this->testUpdateMeas_);
   this->testUpdate_.performUpdateEKF(state2,cov2,this->testUpdateMeas_);
   typename TestFixture::mtUpdateExample::mtState::mtDifVec dif;
   state1.boxMinus(state2,dif);
@@ -488,7 +490,8 @@ TYPED_TEST(UpdateModelTest, performUpdateLEKF3) {
   updateVec = -K*(innVector-H*difVecLin);
   state.boxPlus(updateVec,stateUpdated);
 
-  this->testUpdate_.performUpdateLEKF(state,linState,cov,this->testUpdateMeas_);
+  linState.boxMinus(state,state.difVecLin_);
+  this->testUpdate_.performUpdateLEKF(state,cov,this->testUpdateMeas_);
   typename TestFixture::mtUpdateExample::mtState::mtDifVec dif;
   state.boxMinus(stateUpdated,dif);
   switch(TestFixture::id_){

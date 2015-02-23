@@ -96,19 +96,25 @@ class UpdateExample: public LWF::Update<Innovation,State,UpdateMeas,UpdateNoise,
   UpdateExample(){};
   ~UpdateExample(){};
   void eval(mtInnovation& inn, const mtState& state, const mtMeas& meas, const mtNoise noise, double dt = 0.0) const{
-    inn.get<Innovation::POS>() = state.get<State::ATT>().rotate(state.get<State::POS>())-meas.get<UpdateMeas::POS>()+noise.get<UpdateNoise::POS>();
-    inn.get<Innovation::ATT>() = (state.get<State::ATT>()*meas.get<UpdateMeas::ATT>().inverted()).boxPlus(noise.get<UpdateNoise::ATT>());
+    mtState linState = state;
+    state.boxPlus(state.difVecLin_,linState);
+    inn.get<Innovation::POS>() = linState.get<State::ATT>().rotate(linState.get<State::POS>())-meas.get<UpdateMeas::POS>()+noise.get<UpdateNoise::POS>();
+    inn.get<Innovation::ATT>() = (linState.get<State::ATT>()*meas.get<UpdateMeas::ATT>().inverted()).boxPlus(noise.get<UpdateNoise::ATT>());
   }
   mtJacInput jacInput(const mtState& state, const mtMeas& meas, double dt = 0.0) const{
+    mtState linState = state;
+    state.boxPlus(state.difVecLin_,linState);
     mtJacInput J;
     mtInnovation inn;
     J.setZero();
-    J.template block<3,3>(mtInnovation::getId<Innovation::POS>(),mtState::getId<State::POS>()) = rot::RotationMatrixPD(state.get<State::ATT>()).matrix();
-    J.template block<3,3>(mtInnovation::getId<Innovation::POS>(),mtState::getId<State::ATT>()) = kindr::linear_algebra::getSkewMatrixFromVector(state.get<State::ATT>().rotate(state.get<State::POS>()));
+    J.template block<3,3>(mtInnovation::getId<Innovation::POS>(),mtState::getId<State::POS>()) = rot::RotationMatrixPD(linState.get<State::ATT>()).matrix();
+    J.template block<3,3>(mtInnovation::getId<Innovation::POS>(),mtState::getId<State::ATT>()) = kindr::linear_algebra::getSkewMatrixFromVector(linState.get<State::ATT>().rotate(linState.get<State::POS>()));
     J.template block<3,3>(mtInnovation::getId<Innovation::ATT>(),mtState::getId<State::ATT>()) = Eigen::Matrix3d::Identity();
     return J;
   }
   mtJacNoise jacNoise(const mtState& state, const mtMeas& meas, double dt = 0.0) const{
+    mtState linState = state;
+    state.boxPlus(state.difVecLin_,linState);
     mtJacNoise J;
     mtInnovation inn;
     J.setZero();
@@ -279,8 +285,10 @@ class UpdateExample: public LWF::Update<Innovation,State,UpdateMeas,UpdateNoise,
   UpdateExample(){};
   ~UpdateExample(){};
   void eval(mtInnovation& inn, const mtState& state, const mtMeas& meas, const mtNoise noise, double dt = 0.0) const{
-    inn.get<Innovation::POS>() = state.get<State::POS>()-meas.get<UpdateMeas::POS>()+noise.get<UpdateNoise::POS>();
-    inn.get<Innovation::HEI>() = Eigen::Vector3d(0,0,1).dot(state.get<State::POS>())-meas.get<UpdateMeas::HEI>()+noise.get<UpdateNoise::HEI>();;
+    mtState linState = state;
+    state.boxPlus(state.difVecLin_,linState);
+    inn.get<Innovation::POS>() = linState.get<State::POS>()-meas.get<UpdateMeas::POS>()+noise.get<UpdateNoise::POS>();
+    inn.get<Innovation::HEI>() = Eigen::Vector3d(0,0,1).dot(linState.get<State::POS>())-meas.get<UpdateMeas::HEI>()+noise.get<UpdateNoise::HEI>();;
   }
   mtJacInput jacInput(const mtState& state, const mtMeas& meas, double dt = 0.0) const{
     mtJacInput J;
