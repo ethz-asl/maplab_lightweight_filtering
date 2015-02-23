@@ -207,6 +207,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
   typedef LWF::ComposedState<mtPredictionNoise,mtNoise> mtJointNoise;
   static const int noiseDim_ = (isCoupled)*mtPredictionNoise::D_+mtNoise::D_;
   static const bool coupledToPrediction_ = isCoupled;
+  bool useSpecialLinearizationPoint_;
   UpdateFilteringMode mode_;
   typename ModelBase<State,Innovation,Meas,Noise>::mtJacInput H_;
   typename ModelBase<State,Innovation,Meas,Noise>::mtJacNoise Hn_;
@@ -248,6 +249,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     noiP_.setZero();
     preupdnoiP_ = Eigen::Matrix<double,mtPredictionNoise::D_,mtNoise::D_>::Zero();
     jointNoiP_.setZero();
+    useSpecialLinearizationPoint_ = false;
     initUpdate();
     mtNoise n;
     n.registerCovarianceToPropertyHandler_(updnoiP_,this,"UpdateNoise.");
@@ -346,31 +348,11 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     // Kalman Update
     K_ = cov*H_.transpose()*Pyinv_;
     cov = cov - K_*Py_*K_.transpose();
-    updateVec_ = -K_*innVector_;
-    state.boxPlus(updateVec_,state);
-    postProcess(state,cov,meas,mpOutlierDetection);
-    return 0;
-  }
-  template<bool IC = isCoupled, typename std::enable_if<(!IC)>::type* = nullptr>
-  int performUpdateLEKF(mtState& state, mtCovMat& cov, const mtMeas& meas, mtOutlierDetection* mpOutlierDetection = nullptr){
-    preProcess(state,cov,meas);
-    H_ = this->jacInput(state,meas);
-    Hn_ = this->jacNoise(state,meas);
-    this->eval(y_,state,meas);
-
-    // Update
-    Py_ = H_*cov*H_.transpose() + Hn_*updnoiP_*Hn_.transpose();
-    y_.boxMinus(yIdentity_,innVector_);
-
-    // Outlier detection
-    if(mpOutlierDetection != nullptr) mpOutlierDetection->doOutlierDetection(innVector_,Py_,H_);
-    Pyinv_.setIdentity();
-    Py_.llt().solveInPlace(Pyinv_);
-
-    // Kalman Update
-    K_ = cov*H_.transpose()*Pyinv_;
-    cov = cov - K_*Py_*K_.transpose();
-    updateVec_ = -K_*(innVector_-H_*state.difVecLin_); // includes correction for offseted linearization point
+    if(!useSpecialLinearizationPoint_){
+      updateVec_ = -K_*innVector_;
+    } else {
+      updateVec_ = -K_*(innVector_-H_*state.difVecLin_); // includes correction for offseted linearization point
+    }
     state.boxPlus(updateVec_,state);
     postProcess(state,cov,meas,mpOutlierDetection);
     return 0;
