@@ -469,10 +469,11 @@ class State{
     difVecLin_.setZero();
   }
   State(const State<Elements...>& other): mElements_(other.mElements_){
-    difVecLin_.setZero();
+    difVecLin_ = other.difVecLin_;
   }
   void boxPlus(const mtDifVec& vecIn, State<Elements...>& stateOut) const{
     boxPlus_(vecIn,stateOut);
+    stateOut.difVecLin_ = difVecLin_;
   }
   template<unsigned int i=0,unsigned int j=0,typename std::enable_if<(i<E_-1)>::type* = nullptr>
   void boxPlus_(const mtDifVec& vecIn, State<Elements...>& stateOut) const{
