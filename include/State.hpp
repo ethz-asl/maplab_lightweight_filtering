@@ -272,7 +272,7 @@ class NormalVectorElement: public ElementBase<NormalVectorElement,NormalVectorEl
     const double angle = std::acos(c);
     if(crossNorm<1e-6){
       if(c>0){
-        return -kindr::linear_algebra::getSkewMatrixFromVector(a);
+        return kindr::linear_algebra::getSkewMatrixFromVector(b);
       } else {
         return Eigen::Matrix3d::Zero();
       }
@@ -473,7 +473,7 @@ class State{
   }
   void boxPlus(const mtDifVec& vecIn, State<Elements...>& stateOut) const{
     boxPlus_(vecIn,stateOut);
-    stateOut.difVecLin_ = difVecLin_;
+    stateOut.difVecLin_ = difVecLin_; // TODO: -vecIn
   }
   template<unsigned int i=0,unsigned int j=0,typename std::enable_if<(i<E_-1)>::type* = nullptr>
   void boxPlus_(const mtDifVec& vecIn, State<Elements...>& stateOut) const{
