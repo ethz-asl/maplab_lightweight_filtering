@@ -81,19 +81,19 @@ class ModelBase{
     }
     return H;
   }
-  void testJacInput(double d = 1e-6,double th = 1e-6,int s = 0,double dt = 0.1){
+  void testJacInput(double d = 1e-6,double th = 1e-6,unsigned int s = 0,double dt = 0.1){
     mtInput input;
     mtMeas meas;
     input.setRandom(s);
     meas.setRandom(s);
-    testJacInput(input,meas,d,th,s,dt);
+    testJacInput(input,meas,d,th,dt);
   }
-  void testJacNoise(double d = 1e-6,double th = 1e-6,int s = 0,double dt = 0.1){
+  void testJacNoise(double d = 1e-6,double th = 1e-6,unsigned int s = 0,double dt = 0.1){
     mtInput input;
     mtMeas meas;
     input.setRandom(s);
     meas.setRandom(s);
-    testJacNoise(input,meas,d,th,s,dt);
+    testJacNoise(input,meas,d,th,dt);
   }
   void testJacInput(const mtInput& input, const mtMeas& meas, double d = 1e-6,double th = 1e-6,double dt = 0.1){
     typename mtJacInput::Index maxRow, maxCol = 0;
@@ -115,7 +115,7 @@ class ModelBase{
       std::cout << "==== Test successful (" << r << ") ====" << std::endl;
     }
   }
-  void testJacs(double d = 1e-6,double th = 1e-6,int s = 0,double dt = 0.1){
+  void testJacs(double d = 1e-6,double th = 1e-6,unsigned int s = 0,double dt = 0.1){
     testJacInput(d,th,s,dt);
     testJacNoise(d,th,s,dt);
   }
