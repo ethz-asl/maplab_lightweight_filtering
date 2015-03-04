@@ -90,17 +90,19 @@ class ModelBase{
     testJacNoise(input,meas,d,th,s,dt);
   }
   void testJacInput(const mtInput& input, const mtMeas& meas, double d = 1e-6,double th = 1e-6,double s = 0,double dt = 0.1){
-    double r = (jacInput(input,meas,dt)-jacInputFD(input,meas,dt,d)).array().abs().maxCoeff();
+    typename mtJacInput::Index maxRow, maxCol;
+    double r = (jacInput(input,meas,dt)-jacInputFD(input,meas,dt,d)).array().abs().maxCoeff(&maxRow, &maxCol);
     if(r>th){
-      std::cout << "==== Model jacInput Test failed: " << r << " is larger than " << th << " ====" << std::endl;
+      std::cout << "==== Model jacInput Test failed: " << r << " is larger than " << th << " at (" << maxRow << "," << maxCol << ") ====" << std::endl;
     } else {
       std::cout << "==== Test successful (" << r << ") ====" << std::endl;
     }
   }
   void testJacNoise(const mtInput& input, const mtMeas& meas, double d = 1e-6,double th = 1e-6,double s = 0,double dt = 0.1){
-    double r = (jacNoise(input,meas,dt)-jacNoiseFD(input,meas,dt,d)).array().abs().maxCoeff();
+    typename mtJacInput::Index maxRow, maxCol;
+    double r = (jacNoise(input,meas,dt)-jacNoiseFD(input,meas,dt,d)).array().abs().maxCoeff(&maxRow, &maxCol);
     if(r>th){
-      std::cout << "==== Model jacNoise Test failed: " << r << " is larger than " << th << " ====" << std::endl;
+      std::cout << "==== Model jacNoise Test failed: " << r << " is larger than " << th << " at (" << maxRow << "," << maxCol << ") ====" << std::endl;
     } else {
       std::cout << "==== Test successful (" << r << ") ====" << std::endl;
     }

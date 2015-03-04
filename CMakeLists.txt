@@ -3,22 +3,30 @@ project(lightweight_filtering)
 add_definitions(-std=c++11)
 
 ##################### Set some variables #####################
+if(DEFINED CATKIN_DEVEL_PREFIX)
+else()
 SET(CMAKE_BUILD_TYPE "Debug")
+endif()
 
 ##################### Find, include, and compile library #####################
 if(DEFINED CATKIN_DEVEL_PREFIX)
-	find_package(catkin REQUIRED)
+	find_package(catkin REQUIRED COMPONENTS kindr)
 	message(STATUS "Building lightweight_filtering as catkin package")
+else() 
+    find_package(kindr REQUIRED)
+    include_directories(${kindr_INCLUDE_DIRS})
 endif()
 find_package(Eigen3 REQUIRED)
-#find_package(Kindr REQUIRED)
+
 include_directories(${EIGEN3_INCLUDE_DIR})
-include_directories(./include)
-include_directories(${Kindr_INCLUDE_DIRS})
+include_directories(include)
+
 
 if(DEFINED CATKIN_DEVEL_PREFIX)
 	catkin_package(
-	   INCLUDE_DIRS include)
+	   INCLUDE_DIRS include
+	   CATKIN_DEPENDS kindr
+	)
 endif()
 
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/gtest/" AND (NOT DEFINED CATKIN_DEVEL_PREFIX))

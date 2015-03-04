@@ -105,12 +105,19 @@ class FilterBase: public PropertyHandler{
   double safeWarningTime_;
   double frontWarningTime_;
   bool gotFrontWarning_;
+  unsigned int logCountMerPre_;
+  unsigned int logCountRegPre_;
+  unsigned int logCountBadPre_;
+  unsigned int logCountComUpd_;
+  unsigned int logCountRegUpd_;
+  bool logCountDiagnostics_;
   FilterBase(){
     init_.state_.registerElementsToPropertyHandler(this,"Init.State.");
     init_.state_.registerCovarianceToPropertyHandler_(init_.cov_,this,"Init.Covariance.");
     registerSubHandler("Prediction",mPrediction_);
     registerUpdates();
     reset();
+    logCountDiagnostics_ = false;
   };
   virtual ~FilterBase(){
   };
@@ -164,13 +171,21 @@ class FilterBase: public PropertyHandler{
   }
   void updateSafe(){
     double nextSafeTime;
-    if(!getSafeTime(nextSafeTime)) return;
+    if(!getSafeTime(nextSafeTime)){
+      if(logCountDiagnostics_){
+        std::cout << "Performed safe Update with RegPre: 0, MerPre: 0, BadPre: 0, RegUpd: 0, ComUpd: 0" << std::endl;
+      }
+      return;
+    }
     if(front_.t_<=nextSafeTime && !gotFrontWarning_ && front_.t_>safe_.t_){
       safe_ = front_;
     }
     update(safe_,nextSafeTime);
     clean(nextSafeTime);
     safeWarningTime_ = nextSafeTime;
+    if(logCountDiagnostics_){
+      std::cout << "Performed safe Update with RegPre: " << logCountRegPre_ << ", MerPre: " << logCountMerPre_ << ", BadPre: " << logCountBadPre_ << ", RegUpd: " << logCountRegUpd_ << ", ComUpd: " << logCountComUpd_ << std::endl;
+    }
   }
   void updateFront(const double& tEnd){
     updateSafe();
@@ -183,6 +198,11 @@ class FilterBase: public PropertyHandler{
   }
   void update(mtFilterState& filterState,const double& tEnd){
     double tNext = filterState.t_;
+    logCountMerPre_ = 0;
+    logCountRegPre_ = 0;
+    logCountBadPre_ = 0;
+    logCountComUpd_ = 0;
+    logCountRegUpd_ = 0;
     while(filterState.t_<tEnd){
       tNext = tEnd;
       getNextUpdate(filterState.t_,tNext);
@@ -202,11 +222,13 @@ class FilterBase: public PropertyHandler{
           r = mPrediction_.predictMerged(filterState.state_,filterState.cov_,filterState.t_,predictionTimeline_.itMeas_,countMergeable);
           if(r!=0) std::cout << "Error during predictMerged: " << r << std::endl;
           filterState.t_ = next(predictionTimeline_.itMeas_,countMergeable-1)->first;
+          logCountMerPre_++;
         } else {
           for(unsigned int i=0;i<countMergeable;i++){
             r = mPrediction_.performPrediction(filterState.state_,filterState.cov_,predictionTimeline_.itMeas_->second,predictionTimeline_.itMeas_->first-filterState.t_);
             if(r!=0) std::cout << "Error during performPrediction: " << r << std::endl;
             filterState.t_ = predictionTimeline_.itMeas_->first;
+            logCountRegPre_++;
             predictionTimeline_.itMeas_++;
           }
         }
@@ -220,9 +242,11 @@ class FilterBase: public PropertyHandler{
         if(predictionTimeline_.itMeas_ != predictionTimeline_.measMap_.end()){
           r = mPrediction_.performPrediction(filterState.state_,filterState.cov_,predictionTimeline_.itMeas_->second,tNext-filterState.t_);
           if(r!=0) std::cout << "Error during performPrediction: " << r << std::endl;
+          logCountRegPre_++;
         } else {
           r = mPrediction_.performPrediction(filterState.state_,filterState.cov_,tNext-filterState.t_);
           if(r!=0) std::cout << "Error during performPrediction: " << r << std::endl;
+          logCountBadPre_++;
         }
       }
       filterState.t_ = tNext;
@@ -249,6 +273,7 @@ class FilterBase: public PropertyHandler{
         if(predictionTimeline_.itMeas_ != predictionTimeline_.measMap_.end()){
           int r = std::get<i>(mUpdates_).performPredictionAndUpdate(filterState.state_,filterState.cov_,std::get<i>(updateTimelineTuple_).measMap_[tNext],mPrediction_,predictionTimeline_.itMeas_->second,tNext-filterState.t_,&std::get<i>(filterState.outlierDetectionTuple_));
           if(r!=0) std::cout << "Error during performPredictionAndUpdate: " << r << std::endl;
+          logCountComUpd_++;
           alreadyDone = true;
         } else {
           std::cout << "No prediction available for coupled update, ignoring update" << std::endl;
@@ -267,6 +292,7 @@ class FilterBase: public PropertyHandler{
         if(predictionTimeline_.itMeas_ != predictionTimeline_.measMap_.end()){
           int r = std::get<i>(mUpdates_).performPredictionAndUpdate(filterState.state_,filterState.cov_,std::get<i>(updateTimelineTuple_).measMap_[tNext],mPrediction_,predictionTimeline_.itMeas_->second,tNext-filterState.t_,&std::get<i>(filterState.outlierDetectionTuple_));
           if(r!=0) std::cout << "Error during performPredictionAndUpdate: " << r << std::endl;
+          logCountComUpd_++;
           alreadyDone = true;
         } else {
           std::cout << "No prediction available for coupled update, ignoring update" << std::endl;
@@ -288,6 +314,7 @@ class FilterBase: public PropertyHandler{
     if(std::get<i>(updateTimelineTuple_).hasMeasurementAt(tNext)){
           int r = std::get<i>(mUpdates_).performUpdate(filterState.state_,filterState.cov_,std::get<i>(updateTimelineTuple_).measMap_[tNext],&std::get<i>(filterState.outlierDetectionTuple_));
           if(r!=0) std::cout << "Error during update: " << r << std::endl;
+          logCountRegUpd_++;
     }
     doAvailableUpdates<i+1>(filterState,tNext);
   }
@@ -296,6 +323,7 @@ class FilterBase: public PropertyHandler{
     if(std::get<i>(updateTimelineTuple_).hasMeasurementAt(tNext)){
           int r = std::get<i>(mUpdates_).performUpdate(filterState.state_,filterState.cov_,std::get<i>(updateTimelineTuple_).measMap_[tNext],&std::get<i>(filterState.outlierDetectionTuple_));
           if(r!=0) std::cout << "Error during update: " << r << std::endl;
+          logCountRegUpd_++;
     }
   }
   template<unsigned int i=0, typename std::enable_if<(i<nUpdates_-1 & std::tuple_element<i,decltype(mUpdates_)>::type::coupledToPrediction_)>::type* = nullptr>
