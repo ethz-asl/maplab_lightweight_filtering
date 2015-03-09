@@ -801,6 +801,55 @@ static Eigen::Matrix3d Lmat (Eigen::Vector3d a) {
   return Eigen::Matrix3d::Identity()-factor1*ak+factor2*ak2;
 }
 
+enum FilteringMode{
+  ModeEKF,
+  ModeUKF
+};
+
+template<typename STATE,bool useUpdateLinearizationPoint> class UpdateLinearizationPoint{
+};
+
+template<typename STATE>
+class UpdateLinearizationPoint<STATE,true>{
+ public:
+  typename STATE::mtDifVec difVecLin_;
+  UpdateLinearizationPoint(){
+    difVecLin_.setZero();
+  }
+};
+
+template<typename STATE,bool useDynamicCovMatrix> class FilterCovMat{
+};
+
+template<typename STATE>
+class FilterCovMat<STATE,false>{
+ public:
+  typedef typename STATE::mtCovMat mtFilterCovMat;
+  mtFilterCovMat cov_;
+};
+
+template<typename STATE>
+class FilterCovMat<STATE,true>{
+ public:
+  typedef Eigen::MatrixXd mtFilterCovMat;
+  mtFilterCovMat cov_;
+};
+
+template<typename STATE,FilteringMode mode,bool isCoupled,bool usePredictionMerge,bool useUpdateLinearizationPoint,bool useDynamicCovMatrix>
+class FilterStateNew: public STATE,
+                      public UpdateLinearizationPoint<STATE,useUpdateLinearizationPoint>,
+                      public FilterCovMat<STATE,useDynamicCovMatrix>{
+ public:
+  typedef STATE mtState;
+  static constexpr FilteringMode mode_ = mode;
+  static constexpr bool isCoupled_ = isCoupled;
+  static constexpr bool usePredictionMerge_ = usePredictionMerge;
+  static constexpr bool useUpdateLinearizationPoint_ = useUpdateLinearizationPoint;
+  static constexpr bool useDynamicCovMatrix_ = useDynamicCovMatrix;
+  double t_;
+
+};
+
 template<unsigned int S, unsigned int V, unsigned int Q>
 class StateSVQ: public State<ArrayElement<ScalarElement,S>,ArrayElement<VectorElement<3>,V>,ArrayElement<QuaternionElement,Q>>{
  public:
