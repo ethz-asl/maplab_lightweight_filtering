@@ -86,7 +86,7 @@ TEST_F(VectorElementTest, plusAndMinus) {
   ASSERT_NEAR((testElement2_.v_-testElement3.v_).norm(),0.0,1e-6);
 }
 
-// Test getValue, getId
+// Test getValue
 TEST_F(VectorElementTest, accessors) {
   ASSERT_TRUE(testElement1_.get() == testElement1_.v_);
 }
@@ -133,7 +133,7 @@ TEST_F(QuaternionElementTest, plusAndMinus) {
   ASSERT_TRUE(testElement2_.q_.isNear(testElement3.q_,1e-6));
 }
 
-// Test getValue, getId
+// Test getValue
 TEST_F(QuaternionElementTest, accessors) {
   ASSERT_TRUE(testElement1_.get().isNear(testElement1_.q_,1e-6));
 }
@@ -223,7 +223,7 @@ TEST_F(NormalVectorElementTest, plusAndMinus) {
   ASSERT_NEAR((testElement2_.getVec()-testElement3.getVec()).norm(),0.0,1e-6);
 }
 
-// Test getValue, getId
+// Test getValue
 TEST_F(NormalVectorElementTest, accessors) {
   ASSERT_TRUE(testElement1_.get().getVec() == testElement1_.getVec());
 }
@@ -347,7 +347,7 @@ TEST_F(ArrayElementTest, plusAndMinus) {
   }
 }
 
-// Test getValue, getId
+// Test getValue
 TEST_F(ArrayElementTest, accessors) {
   for(unsigned int i=0;i<N_;i++){
     ASSERT_TRUE(testElement1_.get(i).isNear(testElement1_.array_[i].q_,1e-6));
@@ -498,7 +498,7 @@ TEST_F(StateTesting, plusAndMinus) {
   ASSERT_EQ(testState2_.get<_aux>().x_,testState1_.get<_aux>().x_);
 }
 
-// Test getValue, getId
+// Test getValue, getId, getElementId
 TEST_F(StateTesting, accessors) {
   ASSERT_NEAR(testState1_.get<_sca>(),testScalar1_,1e-10);
   ASSERT_NEAR((testState1_.get<_vec0>()-testVector1_[0]).norm(),0,1e-10);
@@ -521,6 +521,17 @@ TEST_F(StateTesting, accessors) {
   ASSERT_TRUE(testState1_.getId<_qua1>(0) == 19);
   ASSERT_TRUE(testState1_.getId<_qua1>(1) == 22);
   ASSERT_TRUE(testState1_.getId<_aux>() == 25);
+
+  ASSERT_TRUE(testState1_.getElementId(0) == _sca);
+  ASSERT_TRUE(testState1_.getElementId(1) == _vec0);
+  ASSERT_TRUE(testState1_.getElementId(4) == _vec1);
+  ASSERT_TRUE(testState1_.getElementId(7) == _vec2);
+  ASSERT_TRUE(testState1_.getElementId(10) == _vec3);
+  ASSERT_TRUE(testState1_.getElementId(13) == _qua0);
+  ASSERT_TRUE(testState1_.getElementId(16) == _qua0);
+  ASSERT_TRUE(testState1_.getElementId(19) == _qua1);
+  ASSERT_TRUE(testState1_.getElementId(22) == _qua1);
+  ASSERT_TRUE(testState1_.getElementId(25) == _aux+1); // Exceeds state size
 }
 
 // Test operator=
