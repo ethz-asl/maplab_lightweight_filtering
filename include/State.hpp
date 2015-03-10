@@ -804,7 +804,16 @@ class UpdateLinearizationPoint<STATE,true>{
   }
 };
 
-template<typename STATE,bool useDynamicCovMatrix> class FilterCovMat{
+template<typename STATE,bool isCoupled> class CoupledQuantities{
+};
+
+template<typename STATE>
+class CoupledQuantities<STATE,true>{
+ public:
+  CoupledQuantities(){}
+};
+
+template<typename STATE,bool useDynamicMatrix> class FilterCovMat{
 };
 
 template<typename STATE>
@@ -821,19 +830,19 @@ class FilterCovMat<STATE,true>{
   mtFilterCovMat cov_;
 };
 
-template<typename STATE,FilteringMode mode,bool isCoupled,bool usePredictionMerge,bool useUpdateLinearizationPoint,bool useDynamicCovMatrix>
-class FilterStateNew: public STATE,
-                      public UpdateLinearizationPoint<STATE,useUpdateLinearizationPoint>,
-                      public FilterCovMat<STATE,useDynamicCovMatrix>{
+template<typename STATE,FilteringMode mode,bool isCoupled,bool usePredictionMerge,bool useUpdateLinearizationPoint,bool useDynamicMatrix>
+class FilterStateNew: public UpdateLinearizationPoint<STATE,useUpdateLinearizationPoint>,
+                      public CoupledQuantities<STATE,isCoupled>,
+                      public FilterCovMat<STATE,useDynamicMatrix>{ // TODO: rename
  public:
   typedef STATE mtState;
+  mtState state_;
   static constexpr FilteringMode mode_ = mode;
   static constexpr bool isCoupled_ = isCoupled;
   static constexpr bool usePredictionMerge_ = usePredictionMerge;
   static constexpr bool useUpdateLinearizationPoint_ = useUpdateLinearizationPoint;
-  static constexpr bool useDynamicCovMatrix_ = useDynamicCovMatrix;
+  static constexpr bool useDynamicMatrix_ = useDynamicMatrix;
   double t_;
-
 };
 
 template<unsigned int S, unsigned int V, unsigned int Q>

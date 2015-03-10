@@ -24,15 +24,17 @@ enum PredictionFilteringMode{
   PredictionUKF
 };
 
-template<typename State, typename Meas, typename Noise>
-class Prediction: public ModelBase<State,State,Meas,Noise>, public PropertyHandler{
+template<typename FilterState, typename Meas, typename Noise>
+class Prediction: public ModelBase<typename FilterState::mtState,typename FilterState::mtState,Meas,Noise>, public PropertyHandler{
  public:
-  typedef State mtState;
-  typedef typename mtState::mtCovMat mtCovMat;
+  typedef FilterState mtFilterState;
+  typedef typename mtFilterState::mtState mtState;
+  typedef typename mtFilterState::mtFilterCovMat mtFilterCovMat;
   typedef Meas mtMeas;
   typedef Noise mtNoise;
-  typename ModelBase<State,State,Meas,Noise>::mtJacInput F_;
-  typename ModelBase<State,State,Meas,Noise>::mtJacNoise Fn_;
+  typedef ModelBase<mtState,mtState,mtMeas,mtNoise> mtModelBase;
+  typename mtModelBase::mtJacInput F_;
+  typename mtModelBase::mtJacNoise Fn_;
   typename mtNoise::mtCovMat prenoiP_;
   typename mtNoise::mtCovMat noiP_; // automatic change tracking
   SigmaPoints<mtState,2*mtState::D_+1,2*(mtState::D_+mtNoise::D_)+1,0> stateSigmaPoints_;
@@ -74,9 +76,9 @@ class Prediction: public ModelBase<State,State,Meas,Noise>, public PropertyHandl
     refreshUKFParameter();
   }
   virtual void refreshPropertiesCustom(){}
-  virtual void noMeasCase(mtState& state, mtCovMat& cov, mtMeas& meas, double dt){};
-  virtual void preProcess(mtState& state, mtCovMat& cov, const mtMeas& meas, double dt){};
-  virtual void postProcess(mtState& state, mtCovMat& cov, const mtMeas& meas, double dt){};
+  virtual void noMeasCase(mtFilterState& filterState, mtMeas& meas, double dt){};
+  virtual void preProcess(mtFilterState& filterState, const mtMeas& meas, double dt){};
+  virtual void postProcess(mtFilterState& filterState, const mtMeas& meas, double dt){};
   void resetPrediction(){
     refreshNoiseSigmaPoints();
     refreshUKFParameter();
@@ -85,67 +87,67 @@ class Prediction: public ModelBase<State,State,Meas,Noise>, public PropertyHandl
   void setMode(PredictionFilteringMode mode){
     mode_ = mode;
   }
-  int performPrediction(mtState& state, mtCovMat& cov, const mtMeas& meas, double dt){
+  int performPrediction(mtFilterState& filterState, const mtMeas& meas, double dt){
     switch(mode_){
       case PredictionEKF:
-        return performPredictionEKF(state,cov,meas,dt);
+        return performPredictionEKF(filterState,meas,dt);
       case PredictionUKF:
-        return performPredictionUKF(state,cov,meas,dt);
+        return performPredictionUKF(filterState,meas,dt);
       default:
-        return performPredictionEKF(state,cov,meas,dt);
+        return performPredictionEKF(filterState,meas,dt);
     }
   }
-  int performPrediction(mtState& state, mtCovMat& cov, double dt){
+  int performPrediction(mtFilterState& filterState, double dt){
     mtMeas meas;
     meas.setIdentity();
-    noMeasCase(state,cov,meas,dt);
+    noMeasCase(filterState,meas,dt);
     switch(mode_){
       case PredictionEKF:
-        return performPredictionEKF(state,cov,meas,dt);
+        return performPredictionEKF(filterState,meas,dt);
       case PredictionUKF:
-        return performPredictionUKF(state,cov,meas,dt);
+        return performPredictionUKF(filterState,meas,dt);
       default:
-        return performPredictionEKF(state,cov,meas,dt);
+        return performPredictionEKF(filterState,meas,dt);
     }
   }
-  int performPredictionEKF(mtState& state, mtCovMat& cov, const mtMeas& meas, double dt){
-    preProcess(state,cov,meas,dt);
-    F_ = this->jacInput(state,meas,dt);
-    Fn_ = this->jacNoise(state,meas,dt);
-    this->eval(state,state,meas,dt);
-    cov = F_*cov*F_.transpose() + Fn_*prenoiP_*Fn_.transpose();
-    postProcess(state,cov,meas,dt);
-    state.fix();
-    cov = 0.5*(cov+cov.transpose()); // Enforce symmetry
+  int performPredictionEKF(mtFilterState& filterState, const mtMeas& meas, double dt){
+    preProcess(filterState,meas,dt);
+    this->jacInput(F_,filterState.state_,meas,dt);
+    this->jacNoise(Fn_,filterState.state_,meas,dt);
+    this->eval(filterState.state_,filterState.state_,meas,dt);
+    filterState.cov_ = F_*filterState.cov_*F_.transpose() + Fn_*prenoiP_*Fn_.transpose();
+    postProcess(filterState,meas,dt);
+    filterState.state_.fix();
+    filterState.cov_ = 0.5*(filterState.cov_+filterState.cov_.transpose()); // Enforce symmetry
     return 0;
   }
-  int performPredictionUKF(mtState& state, mtCovMat& cov, const mtMeas& meas, double dt){
+  int performPredictionUKF(mtFilterState& filterState, const mtMeas& meas, double dt){
     refreshNoiseSigmaPoints();
-    preProcess(state,cov,meas,dt);
-    stateSigmaPoints_.computeFromGaussian(state,cov);
+    preProcess(filterState,meas,dt);
+    stateSigmaPoints_.computeFromGaussian(filterState.state_,filterState.cov_);
 
     // Prediction
     for(unsigned int i=0;i<stateSigmaPoints_.L_;i++){
       this->eval(stateSigmaPointsPre_(i),stateSigmaPoints_(i),meas,stateSigmaPointsNoi_(i),dt);
     }
     // Calculate mean and variance
-    state = stateSigmaPointsPre_.getMean();
-    cov = stateSigmaPointsPre_.getCovarianceMatrix(state);
-    postProcess(state,cov,meas,dt);
-    state.fix();
+    filterState.state_ = stateSigmaPointsPre_.getMean();
+    filterState.cov_ = stateSigmaPointsPre_.getCovarianceMatrix(filterState.state_);
+    postProcess(filterState,meas,dt);
+    filterState.state_.fix();
     return 0;
   }
-  int predictMerged(mtState& state, mtCovMat& cov, double tStart, const typename std::map<double,mtMeas>::iterator itMeasStart, unsigned int N){
+  int predictMerged(mtFilterState& filterState, double tStart, const typename std::map<double,mtMeas>::iterator itMeasStart, unsigned int N){
     switch(mode_){
       case PredictionEKF:
-        return predictMergedEKF(state,cov,tStart,itMeasStart,N);
+        return predictMergedEKF(filterState,tStart,itMeasStart,N);
       case PredictionUKF:
-        return predictMergedUKF(state,cov,tStart,itMeasStart,N);
+        return predictMergedUKF(filterState,tStart,itMeasStart,N);
       default:
-        return predictMergedEKF(state,cov,tStart,itMeasStart,N);
+        return predictMergedEKF(filterState,tStart,itMeasStart,N);
     }
   }
-  virtual int predictMergedEKF(mtState& state, mtCovMat& cov, double tStart, const typename std::map<double,mtMeas>::iterator itMeasStart, unsigned int N){
+  virtual int predictMergedEKF(mtFilterState& filterState, double tStart, const typename std::map<double,mtMeas>::iterator itMeasStart, unsigned int N){
     const typename std::map<double,mtMeas>::iterator itMeasEnd = next(itMeasStart,N);
     typename std::map<double,mtMeas>::iterator itMeas = itMeasStart;
     double dT = next(itMeasStart,N-1)->first-tStart;
@@ -162,21 +164,21 @@ class Prediction: public ModelBase<State,State,Meas,Noise>, public PropertyHandl
     vec = vec/N;
     itMeasStart->second.boxPlus(vec,meanMeas);
 
-    preProcess(state,cov,meanMeas,dT);
-    F_ = this->jacInput(state,meanMeas,dT);
-    Fn_ = this->jacNoise(state,meanMeas,dT); // Works for time continuous parametrization of noise
+    preProcess(filterState,meanMeas,dT);
+    this->jacInput(F_,filterState.state_,meanMeas,dT);
+    this->jacNoise(Fn_,filterState.state_,meanMeas,dT); // Works for time continuous parametrization of noise
     double t = tStart;
     for(itMeas=itMeasStart;itMeas!=itMeasEnd;itMeas++){
-      this->eval(state,state,itMeas->second,itMeas->first-t);
+      this->eval(filterState.state_,filterState.state_,itMeas->second,itMeas->first-t);
       t = itMeas->first;
     }
-    cov = F_*cov*F_.transpose() + Fn_*prenoiP_*Fn_.transpose();
-    postProcess(state,cov,meanMeas,dT);
-    state.fix();
-    cov = 0.5*(cov+cov.transpose()); // Enforce symmetry
+    filterState.cov_ = F_*filterState.cov_*F_.transpose() + Fn_*prenoiP_*Fn_.transpose();
+    postProcess(filterState,meanMeas,dT);
+    filterState.state_.fix();
+    filterState.cov_ = 0.5*(filterState.cov_+filterState.cov_.transpose()); // Enforce symmetry
     return 0;
   }
-  virtual int predictMergedUKF(mtState& state, mtCovMat& cov, double tStart, const typename std::map<double,mtMeas>::iterator itMeasStart, unsigned int N){
+  virtual int predictMergedUKF(mtFilterState& filterState, double tStart, const typename std::map<double,mtMeas>::iterator itMeasStart, unsigned int N){
     refreshNoiseSigmaPoints();
     const typename std::map<double,mtMeas>::iterator itMeasEnd = next(itMeasStart,N);
     typename std::map<double,mtMeas>::iterator itMeas = itMeasStart;
@@ -194,35 +196,31 @@ class Prediction: public ModelBase<State,State,Meas,Noise>, public PropertyHandl
     vec = vec/N;
     itMeasStart->second.boxPlus(vec,meanMeas);
 
-    preProcess(state,cov,meanMeas,dT);
-    stateSigmaPoints_.computeFromGaussian(state,cov);
+    preProcess(filterState,meanMeas,dT);
+    stateSigmaPoints_.computeFromGaussian(filterState.state_,filterState.cov_);
 
     // Prediction
     for(unsigned int i=0;i<stateSigmaPoints_.L_;i++){
       this->eval(stateSigmaPointsPre_(i),stateSigmaPoints_(i),meanMeas,stateSigmaPointsNoi_(i),dT);
     }
-    state = stateSigmaPointsPre_.getMean();
-    cov = stateSigmaPointsPre_.getCovarianceMatrix(state);
-    postProcess(state,cov,meanMeas,dT);
-    state.fix();
+    filterState.state_ = stateSigmaPointsPre_.getMean();
+    filterState.cov_ = stateSigmaPointsPre_.getCovarianceMatrix(filterState.state_);
+    postProcess(filterState,meanMeas,dT);
+    filterState.state_.fix();
     return 0;
   }
 };
 
-class DummyPrediction: public Prediction<ScalarElement,ScalarElement,ScalarElement>{
+class DummyPrediction: public Prediction<LWF::FilterStateNew<ScalarElement,LWF::ModeEKF,false,false,false,false>,ScalarElement,ScalarElement>{
  public:
   void eval(ScalarElement& output, const ScalarElement& state, const ScalarElement& meas, const ScalarElement noise, double dt) const{
     output.s_ = state.s_ + meas.s_ + noise.s_;
   }
-  Eigen::Matrix<double,1,1> jacInput(const ScalarElement& state, const ScalarElement& meas, double dt) const{
-    Eigen::Matrix<double,1,1> J;
+  void jacInput(Eigen::Matrix<double,1,1>& J, const ScalarElement& state, const ScalarElement& meas, double dt) const{
     J.setIdentity();
-    return J;
   }
-  Eigen::Matrix<double,1,1> jacNoise(const ScalarElement& state, const ScalarElement& meas, double dt) const{
-    Eigen::Matrix<double,1,1> J;
+  void jacNoise(Eigen::Matrix<double,1,1>& J,const ScalarElement& state, const ScalarElement& meas, double dt) const{
     J.setIdentity();
-    return J;
   }
 };
 

@@ -128,7 +128,7 @@ template<typename TestClass>
 class FilterBaseTest : public ::testing::Test, public TestClass {
  protected:
   FilterBaseTest() {
-    this->init(this->testState_,this->testUpdateMeas_,this->testPredictionMeas_);
+    this->init(this->testFilterState_.state_,this->testUpdateMeas_,this->testPredictionMeas_);
     this->testFilter_.predictionTimeline_.maxWaitTime_ = 1.0;
     this->testFilter2_.predictionTimeline_.maxWaitTime_ = 1.0;
     std::get<0>(this->testFilter_.updateTimelineTuple_).maxWaitTime_ = 1.0;
@@ -138,17 +138,23 @@ class FilterBaseTest : public ::testing::Test, public TestClass {
     switch(id_){
       case 0:
         this->testFilter_.readFromInfo("test_nonlinear.info");
+        this->testFilter2_.readFromInfo("test_nonlinear.info");
         break;
       case 1:
         this->testFilter_.readFromInfo("test_linear.info");
+        this->testFilter2_.readFromInfo("test_linear.info");
         break;
       default:
         this->testFilter_.readFromInfo("test_nonlinear.info");
+        this->testFilter2_.readFromInfo("test_nonlinear.info");
     };
+    this->testFilter_.reset();
+    this->testFilter2_.reset();
   }
   virtual ~FilterBaseTest() {
   }
   using typename TestClass::mtState;
+  using typename TestClass::mtFilterState;
   using typename TestClass::mtUpdateMeas;
   using typename TestClass::mtUpdateNoise;
   using typename TestClass::mtInnovation;
@@ -160,7 +166,7 @@ class FilterBaseTest : public ::testing::Test, public TestClass {
   using TestClass::id_;
   LWF::FilterBase<mtPredictionExample,mtUpdateExample,mtPredictAndUpdateExample> testFilter_;
   LWF::FilterBase<mtPredictionExample,mtUpdateExample,mtPredictAndUpdateExample> testFilter2_;
-  mtState testState_;
+  mtFilterState testFilterState_;
   typename TestClass::mtState::mtCovMat testCov_;
   typename TestClass::mtState::mtDifVec difVec_;
   mtUpdateMeas testUpdateMeas_;
@@ -359,8 +365,8 @@ TYPED_TEST(FilterBaseTest, highlevel) {
 TYPED_TEST(FilterBaseTest, highlevel2) {
   std::get<1>(this->testFilter_.mUpdates_).preupdnoiP_.block(0,0,3,3) = Eigen::Matrix3d::Identity()*0.00009;
   std::get<1>(this->testFilter2_.mUpdates_).preupdnoiP_.block(0,0,3,3) = Eigen::Matrix3d::Identity()*0.00009;
-  this->testState_ = this->testFilter_.safe_.state_;
-  this->testCov_ = this->testFilter_.safe_.cov_;
+  this->testFilterState_.state_ = this->testFilter_.safe_.state_;
+  this->testFilterState_.cov_ = this->testFilter_.safe_.cov_;
   std::get<1>(this->testFilter_.updateTimelineTuple_).maxWaitTime_ = 1.0;
   std::get<1>(this->testFilter2_.updateTimelineTuple_).maxWaitTime_ = 1.0;
   std::get<0>(this->testFilter_.updateTimelineTuple_).maxWaitTime_ = 0.0;
@@ -374,16 +380,16 @@ TYPED_TEST(FilterBaseTest, highlevel2) {
   this->testFilter2_.template addUpdateMeas<1>(this->testUpdateMeas_,0.1);
   this->testFilter2_.updateSafe();
   // Direct
-  std::get<1>(this->testFilter_.mUpdates_).performPredictionAndUpdateEKF(this->testState_,this->testCov_,this->testUpdateMeas_,this->testFilter_.mPrediction_,this->testPredictionMeas_,0.1);
+  std::get<1>(this->testFilter_.mUpdates_).performPredictionAndUpdateEKF(this->testFilterState_,this->testUpdateMeas_,this->testFilter_.mPrediction_,this->testPredictionMeas_,0.1);
 
   // Compare
   this->testFilter2_.safe_.state_.boxMinus(this->testFilter_.safe_.state_,this->difVec_);
   ASSERT_EQ(this->testFilter_.safe_.t_,this->testFilter2_.safe_.t_);
   ASSERT_NEAR(this->difVec_.norm(),0.0,1e-6);
   ASSERT_NEAR((this->testFilter2_.safe_.cov_-this->testFilter_.safe_.cov_).norm(),0.0,1e-6);
-  this->testFilter_.safe_.state_.boxMinus(this->testState_,this->difVec_);
+  this->testFilter_.safe_.state_.boxMinus(this->testFilterState_.state_,this->difVec_);
   ASSERT_NEAR(this->difVec_.norm(),0.0,1e-6);
-  ASSERT_NEAR((this->testFilter_.safe_.cov_-this->testCov_).norm(),0.0,1e-6);
+  ASSERT_NEAR((this->testFilter_.safe_.cov_-this->testFilterState_.cov_).norm(),0.0,1e-6);
 
   // TestFilter
   this->testFilter_.template addUpdateMeas<1>(this->testUpdateMeas_,0.2);
@@ -400,23 +406,23 @@ TYPED_TEST(FilterBaseTest, highlevel2) {
   this->testFilter2_.template addUpdateMeas<1>(this->testUpdateMeas_,0.3);
   this->testFilter2_.updateSafe();
   // Direct
-  std::get<1>(this->testFilter_.mUpdates_).performPredictionAndUpdateEKF(this->testState_,this->testCov_,this->testUpdateMeas_,this->testFilter_.mPrediction_,this->testPredictionMeas_,0.1);
-  std::get<1>(this->testFilter_.mUpdates_).performPredictionAndUpdateEKF(this->testState_,this->testCov_,this->testUpdateMeas_,this->testFilter_.mPrediction_,this->testPredictionMeas_,0.1);
+  std::get<1>(this->testFilter_.mUpdates_).performPredictionAndUpdateEKF(this->testFilterState_,this->testUpdateMeas_,this->testFilter_.mPrediction_,this->testPredictionMeas_,0.1);
+  std::get<1>(this->testFilter_.mUpdates_).performPredictionAndUpdateEKF(this->testFilterState_,this->testUpdateMeas_,this->testFilter_.mPrediction_,this->testPredictionMeas_,0.1);
 
   // Compare
   this->testFilter2_.safe_.state_.boxMinus(this->testFilter_.safe_.state_,this->difVec_);
   ASSERT_EQ(this->testFilter_.safe_.t_,this->testFilter2_.safe_.t_);
   ASSERT_NEAR(this->difVec_.norm(),0.0,1e-6);
   ASSERT_NEAR((this->testFilter2_.safe_.cov_-this->testFilter_.safe_.cov_).norm(),0.0,1e-6);
-  this->testFilter_.safe_.state_.boxMinus(this->testState_,this->difVec_);
+  this->testFilter_.safe_.state_.boxMinus(this->testFilterState_.state_,this->difVec_);
   ASSERT_NEAR(this->difVec_.norm(),0.0,1e-6);
-  ASSERT_NEAR((this->testFilter_.safe_.cov_-this->testCov_).norm(),0.0,1e-6);
+  ASSERT_NEAR((this->testFilter_.safe_.cov_-this->testFilterState_.cov_).norm(),0.0,1e-6);
 }
 
 // Test high level logic 3: merged
 TYPED_TEST(FilterBaseTest, highlevel3) {
-  this->testState_ = this->testFilter_.safe_.state_;
-  this->testCov_ = this->testFilter_.safe_.cov_;
+  this->testFilterState_.state_ = this->testFilter_.safe_.state_;
+  this->testFilterState_.cov_ = this->testFilter_.safe_.cov_;
   // TestFilter and direct method
   this->testFilter_.mPrediction_.mbMergePredictions_ = true;
   this->testFilter2_.mPrediction_.mbMergePredictions_ = true;
@@ -427,11 +433,11 @@ TYPED_TEST(FilterBaseTest, highlevel3) {
   this->testFilter_.addPredictionMeas(this->testPredictionMeas_,0.4);
   this->testFilter_.addPredictionMeas(this->testPredictionMeas_,0.5);
   this->testFilter_.template addUpdateMeas<0>(this->testUpdateMeas_,0.5);
-    this->testFilter_.mPrediction_.performPredictionEKF(this->testState_,this->testCov_,this->testPredictionMeas_,0.1);
-    std::get<0>(this->testFilter_.mUpdates_).performUpdateEKF(this->testState_,this->testCov_,this->testUpdateMeas_);
-    this->testFilter_.mPrediction_.predictMergedEKF(this->testState_,this->testCov_,0.1,next(this->testFilter_.predictionTimeline_.measMap_.begin(),1),3);
-    this->testFilter_.mPrediction_.performPredictionEKF(this->testState_,this->testCov_,this->testPredictionMeas_,0.1);
-    std::get<0>(this->testFilter_.mUpdates_).performUpdateEKF(this->testState_,this->testCov_,this->testUpdateMeas_);
+    this->testFilter_.mPrediction_.performPredictionEKF(this->testFilterState_,this->testPredictionMeas_,0.1);
+    std::get<0>(this->testFilter_.mUpdates_).performUpdateEKF(this->testFilterState_,this->testUpdateMeas_);
+    this->testFilter_.mPrediction_.predictMergedEKF(this->testFilterState_,0.1,next(this->testFilter_.predictionTimeline_.measMap_.begin(),1),3);
+    this->testFilter_.mPrediction_.performPredictionEKF(this->testFilterState_,this->testPredictionMeas_,0.1);
+    std::get<0>(this->testFilter_.mUpdates_).performUpdateEKF(this->testFilterState_,this->testUpdateMeas_);
   this->testFilter_.updateSafe();
   // TestFilter2
   this->testFilter2_.addPredictionMeas(this->testPredictionMeas_,0.1);
@@ -453,9 +459,9 @@ TYPED_TEST(FilterBaseTest, highlevel3) {
   ASSERT_EQ(this->testFilter_.safe_.t_,this->testFilter2_.safe_.t_);
   ASSERT_NEAR(this->difVec_.norm(),0.0,1e-6);
   ASSERT_NEAR((this->testFilter2_.safe_.cov_-this->testFilter_.safe_.cov_).norm(),0.0,1e-6);
-  this->testFilter_.safe_.state_.boxMinus(this->testState_,this->difVec_);
+  this->testFilter_.safe_.state_.boxMinus(this->testFilterState_.state_,this->difVec_);
   ASSERT_NEAR(this->difVec_.norm(),0.0,1e-6);
-  ASSERT_NEAR((this->testFilter_.safe_.cov_-this->testCov_).norm(),0.0,1e-6);
+  ASSERT_NEAR((this->testFilter_.safe_.cov_-this->testFilterState_.cov_).norm(),0.0,1e-6);
 }
 
 int main(int argc, char **argv) {

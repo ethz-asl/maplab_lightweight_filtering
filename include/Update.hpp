@@ -192,11 +192,12 @@ class OutlierDetection<ODEntry<S,D,1>>: public OutlierDetectionConcat<S,D,Outlie
 template<unsigned int S, unsigned int D>
 class OutlierDetection<ODEntry<S,D,0>>: public OutlierDetectionDefault{};
 
-template<typename Innovation, typename State, typename Meas, typename Noise, typename OutlierDetection = OutlierDetectionDefault, typename Prediction = DummyPrediction, bool isCoupled = false>
-class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHandler{
+template<typename Innovation, typename FilterState, typename Meas, typename Noise, typename OutlierDetection = OutlierDetectionDefault, typename Prediction = DummyPrediction, bool isCoupled = false>
+class Update: public ModelBase<typename FilterState::mtState,Innovation,Meas,Noise>, public PropertyHandler{
  public:
-  typedef State mtState;
-  typedef typename mtState::mtCovMat mtCovMat;
+  typedef FilterState mtFilterState;
+  typedef typename mtFilterState::mtState mtState;
+  typedef typename mtFilterState::mtFilterCovMat mtFilterCovMat;
   typedef Innovation mtInnovation;
   typedef Meas mtMeas;
   typedef Noise mtNoise;
@@ -209,8 +210,9 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
   static const bool coupledToPrediction_ = isCoupled;
   bool useSpecialLinearizationPoint_;
   UpdateFilteringMode mode_;
-  typename ModelBase<State,Innovation,Meas,Noise>::mtJacInput H_;
-  typename ModelBase<State,Innovation,Meas,Noise>::mtJacNoise Hn_;
+  typedef ModelBase<mtState,mtInnovation,mtMeas,mtNoise> mtModelBase;
+  typename mtModelBase::mtJacInput H_;
+  typename mtModelBase::mtJacNoise Hn_;
   typename mtNoise::mtCovMat updnoiP_;
   Eigen::Matrix<double,mtPredictionNoise::D_,mtNoise::D_> preupdnoiP_;
   Eigen::Matrix<double,mtNoise::D_,mtNoise::D_> noiP_;
@@ -238,6 +240,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
   double kappa_;
   double updateVecNormTermination_;
   int maxNumIteration_;
+  mtOutlierDetection outlierDetection_;
   Update(){
     alpha_ = 1e-3;
     beta_ = 2.0;
@@ -259,6 +262,7 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     doubleRegister_.registerScalar("kappa",kappa_);
     doubleRegister_.registerScalar("updateVecNormTermination",updateVecNormTermination_);
     intRegister_.registerScalar("maxNumIteration",maxNumIteration_);
+    outlierDetection_.setEnabledAll(false);
   };
   void refreshNoiseSigmaPoints(){
     if(noiP_ != updnoiP_){
@@ -292,10 +296,10 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     refreshUKFParameter();
   }
   virtual void refreshPropertiesCustom(){}
-  virtual void preProcess(mtState& state, mtCovMat& cov, const mtMeas& meas){};
-  virtual void postProcess(mtState& state, mtCovMat& cov, const mtMeas& meas, mtOutlierDetection* mpOutlierDetection){};
-  virtual void preProcess(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt){};
-  virtual void postProcess(mtState& state, mtCovMat& cov, const mtMeas& meas, mtOutlierDetection* mpOutlierDetection, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt){};
+  virtual void preProcess(mtFilterState& filterState, const mtMeas& meas){};
+  virtual void postProcess(mtFilterState& filterState, const mtMeas& meas, mtOutlierDetection outlierDetection){};
+  virtual void preProcess(mtFilterState& filterState, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt){};
+  virtual void postProcess(mtFilterState& filterState, const mtMeas& meas, mtOutlierDetection outlierDetection, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt){};
   void initUpdate(){
     yIdentity_.setIdentity();
     updateVec_.setIdentity();
@@ -308,91 +312,91 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     mode_ = mode;
   }
   template<bool IC = isCoupled, typename std::enable_if<(!IC)>::type* = nullptr>
-  int performUpdate(mtState& state, mtCovMat& cov, const mtMeas& meas, mtOutlierDetection* mpOutlierDetection = nullptr){
+  int performUpdate(mtFilterState& filterState, const mtMeas& meas){
     switch(mode_){
       case UpdateEKF:
-        return performUpdateEKF(state,cov,meas,mpOutlierDetection);
+        return performUpdateEKF(filterState,meas);
       case UpdateUKF:
-        return performUpdateUKF(state,cov,meas,mpOutlierDetection);
+        return performUpdateUKF(filterState,meas);
       default:
-        return performUpdateEKF(state,cov,meas,mpOutlierDetection);
+        return performUpdateEKF(filterState,meas);
     }
   }
   template<bool IC = isCoupled, typename std::enable_if<(IC)>::type* = nullptr>
-  int performPredictionAndUpdate(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt, mtOutlierDetection* mpOutlierDetection = nullptr){
+  int performPredictionAndUpdate(mtFilterState& filterState, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt){
     switch(mode_){
       case UpdateEKF:
-        return performPredictionAndUpdateEKF(state,cov,meas,prediction,predictionMeas,dt,mpOutlierDetection);
+        return performPredictionAndUpdateEKF(filterState,meas,prediction,predictionMeas,dt);
       case UpdateUKF:
-        return performPredictionAndUpdateUKF(state,cov,meas,prediction,predictionMeas,dt,mpOutlierDetection);
+        return performPredictionAndUpdateUKF(filterState,meas,prediction,predictionMeas,dt);
       default:
-        return performPredictionAndUpdateEKF(state,cov,meas,prediction,predictionMeas,dt,mpOutlierDetection);
+        return performPredictionAndUpdateEKF(filterState,meas,prediction,predictionMeas,dt);
     }
   }
   template<bool IC = isCoupled, typename std::enable_if<(!IC)>::type* = nullptr>
-  int performUpdateEKF(mtState& state, mtCovMat& cov, const mtMeas& meas, mtOutlierDetection* mpOutlierDetection = nullptr){
-    preProcess(state,cov,meas);
-    H_ = this->jacInput(state,meas);
-    Hn_ = this->jacNoise(state,meas);
-    this->eval(y_,state,meas);
+  int performUpdateEKF(mtFilterState& filterState, const mtMeas& meas){
+    preProcess(filterState,meas);
+    this->jacInput(H_,filterState.state_,meas);
+    this->jacNoise(Hn_,filterState.state_,meas);
+    this->eval(y_,filterState.state_,meas);
 
     // Update
-    Py_ = H_*cov*H_.transpose() + Hn_*updnoiP_*Hn_.transpose();
+    Py_ = H_*filterState.cov_*H_.transpose() + Hn_*updnoiP_*Hn_.transpose();
     y_.boxMinus(yIdentity_,innVector_);
 
     // Outlier detection
-    if(mpOutlierDetection != nullptr) mpOutlierDetection->doOutlierDetection(innVector_,Py_,H_);
+    outlierDetection_.doOutlierDetection(innVector_,Py_,H_);
     Pyinv_.setIdentity();
     Py_.llt().solveInPlace(Pyinv_);
 
     // Kalman Update
-    K_ = cov*H_.transpose()*Pyinv_;
-    cov = cov - K_*Py_*K_.transpose();
+    K_ = filterState.cov_*H_.transpose()*Pyinv_;
+    filterState.cov_ = filterState.cov_ - K_*Py_*K_.transpose();
     if(!useSpecialLinearizationPoint_){
       updateVec_ = -K_*innVector_;
     } else {
-      updateVec_ = -K_*(innVector_-H_*state.difVecLin_); // includes correction for offseted linearization point
+      updateVec_ = -K_*(innVector_-H_*filterState.state_.difVecLin_); // includes correction for offseted linearization point
     }
-    state.boxPlus(updateVec_,state);
-    postProcess(state,cov,meas,mpOutlierDetection);
+    filterState.state_.boxPlus(updateVec_,filterState.state_);
+    postProcess(filterState,meas,outlierDetection_);
     return 0;
   }
   template<bool IC = isCoupled, typename std::enable_if<(!IC)>::type* = nullptr>
-  int performUpdateIEKF(mtState& state, mtCovMat& cov, const mtMeas& meas, mtOutlierDetection* mpOutlierDetection = nullptr){
-    preProcess(state,cov,meas);
-    mtState linState = state;
+  int performUpdateIEKF(mtFilterState& filterState, const mtMeas& meas){
+    preProcess(filterState,meas);
+    mtState linState = filterState.state_;
     updateVecNorm_ = updateVecNormTermination_;
     for(unsigned int i=0;i<maxNumIteration_ & updateVecNorm_>=updateVecNormTermination_;i++){
-      H_ = this->jacInput(linState,meas);
-      Hn_ = this->jacNoise(linState,meas);
+      this->jacInput(H_,linState,meas);
+      this->jacNoise(Hn_,linState,meas);
       this->eval(y_,linState,meas);
 
       // Update
-      Py_ = H_*cov*H_.transpose() + Hn_*updnoiP_*Hn_.transpose();
+      Py_ = H_*filterState.cov_*H_.transpose() + Hn_*updnoiP_*Hn_.transpose();
       y_.boxMinus(yIdentity_,innVector_);
 
       // Outlier detection
-      if(mpOutlierDetection != nullptr) mpOutlierDetection->doOutlierDetection(innVector_,Py_,H_);
+      outlierDetection_.doOutlierDetection(innVector_,Py_,H_);
       Pyinv_.setIdentity();
       Py_.llt().solveInPlace(Pyinv_);
 
       // Kalman Update
-      K_ = cov*H_.transpose()*Pyinv_;
-      linState.boxMinus(state,difVecLin_);
+      K_ = filterState.cov_*H_.transpose()*Pyinv_;
+      linState.boxMinus(filterState.state_,difVecLin_);
       updateVec_ = -K_*(innVector_-H_*difVecLin_); // includes correction for offseted linearization point
-      state.boxPlus(updateVec_,linState);
+      filterState.state_.boxPlus(updateVec_,linState);
       updateVecNorm_ = updateVec_.norm();
     }
-    state = linState;
-    cov = cov - K_*Py_*K_.transpose();
-    postProcess(state,cov,meas,mpOutlierDetection);
+    filterState.state_ = linState;
+    filterState.cov_ = filterState.cov_ - K_*Py_*K_.transpose();
+    postProcess(filterState,meas,outlierDetection_);
     return 0;
   }
   template<bool IC = isCoupled, typename std::enable_if<(!IC)>::type* = nullptr>
-  int performUpdateUKF(mtState& state, mtCovMat& cov, const mtMeas& meas, mtOutlierDetection* mpOutlierDetection = nullptr){
+  int performUpdateUKF(mtFilterState& filterState, const mtMeas& meas){
     refreshNoiseSigmaPoints();
-    preProcess(state,cov,meas);
-    stateSigmaPoints_.computeFromGaussian(state,cov);
+    preProcess(filterState,meas);
+    stateSigmaPoints_.computeFromGaussian(filterState.state_,filterState.cov_);
 
     // Update
     for(unsigned int i=0;i<stateSigmaPoints_.L_;i++){
@@ -403,62 +407,62 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     Pyx_ = (innSigmaPoints_.getCovarianceMatrix(stateSigmaPoints_));
     y_.boxMinus(yIdentity_,innVector_);
 
-    if(mpOutlierDetection != nullptr) mpOutlierDetection->doOutlierDetection(innVector_,Py_,Pyx_);
+    outlierDetection_.doOutlierDetection(innVector_,Py_,Pyx_);
     Pyinv_.setIdentity();
     Py_.llt().solveInPlace(Pyinv_);
 
     // Kalman Update
     K_ = Pyx_.transpose()*Pyinv_;
-    cov = cov - K_*Py_*K_.transpose();
+    filterState.cov_ = filterState.cov_ - K_*Py_*K_.transpose();
     updateVec_ = -K_*innVector_;
 
     // Adapt for proper linearization point
-    updateVecSP_.computeFromZeroMeanGaussian(cov);
+    updateVecSP_.computeFromZeroMeanGaussian(filterState.cov_);
     for(unsigned int i=0;i<2*mtState::D_+1;i++){
-      state.boxPlus(updateVec_+updateVecSP_(i).v_,posterior_(i));
+      filterState.state_.boxPlus(updateVec_+updateVecSP_(i).v_,posterior_(i));
     }
-    state = posterior_.getMean();
-    cov = posterior_.getCovarianceMatrix(state);
-    postProcess(state,cov,meas,mpOutlierDetection);
+    filterState.state_ = posterior_.getMean();
+    filterState.cov_ = posterior_.getCovarianceMatrix(filterState.state_);
+    postProcess(filterState,meas,outlierDetection_);
     return 0;
   }
   template<bool IC = isCoupled, typename std::enable_if<(IC)>::type* = nullptr>
-  int performPredictionAndUpdateEKF(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt, mtOutlierDetection* mpOutlierDetection = nullptr){
-    preProcess(state,cov,meas,prediction,predictionMeas,dt);
+  int performPredictionAndUpdateEKF(mtFilterState& filterState, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt){
+    preProcess(filterState,meas,prediction,predictionMeas,dt);
     // Predict
-    prediction.F_ = prediction.jacInput(state,predictionMeas,dt);
-    prediction.Fn_ = prediction.jacNoise(state,predictionMeas,dt);
-    prediction.eval(state,state,predictionMeas,dt);
-    cov = prediction.F_*cov*prediction.F_.transpose() + prediction.Fn_*prediction.prenoiP_*prediction.Fn_.transpose();
-    cov = 0.5*(cov+cov.transpose()); // Enforce symmetry
+    prediction.jacInput(prediction.F_,filterState.state_,predictionMeas,dt);
+    prediction.jacNoise(prediction.Fn_,filterState.state_,predictionMeas,dt);
+    prediction.eval(filterState.state_,filterState.state_,predictionMeas,dt);
+    filterState.cov_ = prediction.F_*filterState.cov_*prediction.F_.transpose() + prediction.Fn_*prediction.prenoiP_*prediction.Fn_.transpose();
+    filterState.cov_ = 0.5*(filterState.cov_+filterState.cov_.transpose()); // Enforce symmetry
 
     // Update
-    H_ = this->jacInput(state,meas);
-    Hn_ = this->jacNoise(state,meas);
+    this->jacInput(H_,filterState.state_,meas);
+    this->jacNoise(Hn_,filterState.state_,meas);
     C_ = prediction.Fn_*preupdnoiP_*Hn_.transpose();
-    this->eval(y_,state,meas);
-    Py_ = H_*cov*H_.transpose() + Hn_*updnoiP_*Hn_.transpose() + H_*C_ + C_.transpose()*H_.transpose();
+    this->eval(y_,filterState.state_,meas);
+    Py_ = H_*filterState.cov_*H_.transpose() + Hn_*updnoiP_*Hn_.transpose() + H_*C_ + C_.transpose()*H_.transpose();
     y_.boxMinus(yIdentity_,innVector_);
 
     // Outlier detection
-    if(mpOutlierDetection != nullptr) mpOutlierDetection->doOutlierDetection(innVector_,Py_,H_);
+    outlierDetection_.doOutlierDetection(innVector_,Py_,H_);
     Pyinv_.setIdentity();
     Py_.llt().solveInPlace(Pyinv_);
 
     // Kalman Update
-    K_ = (cov*H_.transpose()+C_)*Pyinv_;
-    cov = cov - K_*Py_*K_.transpose();
+    K_ = (filterState.cov_*H_.transpose()+C_)*Pyinv_;
+    filterState.cov_ = filterState.cov_ - K_*Py_*K_.transpose();
     updateVec_ = -K_*innVector_;
-    state.boxPlus(updateVec_,state);
-    postProcess(state,cov,meas,mpOutlierDetection,prediction,predictionMeas,dt);
+    filterState.state_.boxPlus(updateVec_,filterState.state_);
+    postProcess(filterState,meas,outlierDetection_,prediction,predictionMeas,dt);
     return 0;
   }
   template<bool IC = isCoupled, typename std::enable_if<(IC)>::type* = nullptr>
-  int performPredictionAndUpdateUKF(mtState& state, mtCovMat& cov, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt, mtOutlierDetection* mpOutlierDetection = nullptr){
+  int performPredictionAndUpdateUKF(mtFilterState& filterState, const mtMeas& meas, Prediction& prediction, const mtPredictionMeas& predictionMeas, double dt){
     refreshJointNoiseSigmaPoints(prediction.prenoiP_);
-    preProcess(state,cov,meas,prediction,predictionMeas,dt);
+    preProcess(filterState,meas,prediction,predictionMeas,dt);
     // Predict
-    stateSigmaPoints_.computeFromGaussian(state,cov);
+    stateSigmaPoints_.computeFromGaussian(filterState.state_,filterState.cov_);
 
     // Prediction
     for(unsigned int i=0;i<coupledStateSigmaPointsPre_.L_;i++){
@@ -466,8 +470,8 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     }
 
     // Calculate mean and variance
-    state = coupledStateSigmaPointsPre_.getMean();
-    cov = coupledStateSigmaPointsPre_.getCovarianceMatrix(state);
+    filterState.state_ = coupledStateSigmaPointsPre_.getMean();
+    filterState.cov_ = coupledStateSigmaPointsPre_.getCovarianceMatrix(filterState.state_);
 
     // Update
     for(unsigned int i=0;i<innSigmaPoints_.L_;i++){
@@ -478,23 +482,23 @@ class Update: public ModelBase<State,Innovation,Meas,Noise>, public PropertyHand
     Pyx_ = (innSigmaPoints_.getCovarianceMatrix(coupledStateSigmaPointsPre_));
     y_.boxMinus(yIdentity_,innVector_);
 
-    if(mpOutlierDetection != nullptr) mpOutlierDetection->doOutlierDetection(innVector_,Py_,Pyx_);
+    outlierDetection_.doOutlierDetection(innVector_,Py_,Pyx_);
     Pyinv_.setIdentity();
     Py_.llt().solveInPlace(Pyinv_);
 
     // Kalman Update
     K_ = Pyx_.transpose()*Pyinv_;
-    cov = cov - K_*Py_*K_.transpose();
+    filterState.cov_ = filterState.cov_ - K_*Py_*K_.transpose();
     updateVec_ = -K_*innVector_;
 
     // Adapt for proper linearization point
-    updateVecSP_.computeFromZeroMeanGaussian(cov);
+    updateVecSP_.computeFromZeroMeanGaussian(filterState.cov_);
     for(unsigned int i=0;i<2*mtState::D_+1;i++){
-      state.boxPlus(updateVec_+updateVecSP_(i).v_,posterior_(i));
+      filterState.state_.boxPlus(updateVec_+updateVecSP_(i).v_,posterior_(i));
     }
-    state = posterior_.getMean();
-    cov = posterior_.getCovarianceMatrix(state);
-    postProcess(state,cov,meas,mpOutlierDetection,prediction,predictionMeas,dt);
+    filterState.state_ = posterior_.getMean();
+    filterState.cov_ = posterior_.getCovarianceMatrix(filterState.state_);
+    postProcess(filterState,meas,outlierDetection_,prediction,predictionMeas,dt);
     return 0;
   }
 };

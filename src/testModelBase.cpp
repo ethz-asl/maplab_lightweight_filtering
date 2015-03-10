@@ -44,9 +44,8 @@ class ModelExample: public LWF::ModelBase<Input,Output,Meas,Noise>{
     rot::RotationQuaternionPD dQ = dQ.exponentialMap(noise.get<Noise::v1>());
     output.get<Output::q0>() = meas.get<Meas::q0>().inverted()*dQ*input.get<Input::q1>().inverted()*input.get<Input::q0>();
   }
-  mtJacInput jacInput(const Input& input, const Meas& meas, double dt) const{
+  void jacInput(mtJacInput& J, const Input& input, const Meas& meas, double dt) const{
     Output output;
-    mtJacInput J;
     J.setZero();
     J.block<3,3>(output.getId<Output::v0>(),input.getId<Input::v0>()) = -Eigen::Matrix3d::Identity();
     J.block<3,3>(output.getId<Output::v0>(),input.getId<Input::v1>()) = rot::RotationMatrixPD(input.get<Input::q0>().inverted()*input.get<Input::q1>()).matrix();
@@ -54,15 +53,12 @@ class ModelExample: public LWF::ModelBase<Input,Output,Meas,Noise>{
     J.block<3,3>(output.getId<Output::v0>(),input.getId<Input::q1>()) = kindr::linear_algebra::getSkewMatrixFromVector((input.get<Input::q0>().inverted()*input.get<Input::q1>()).rotate(input.get<Input::v1>()))*rot::RotationMatrixPD(input.get<Input::q0>().inverted()).matrix();
     J.block<3,3>(output.getId<Output::q0>(),input.getId<Input::q0>()) = rot::RotationMatrixPD(meas.get<Meas::q0>().inverted()*input.get<Input::q1>().inverted()).matrix();
     J.block<3,3>(output.getId<Output::q0>(),input.getId<Input::q1>()) = -rot::RotationMatrixPD(meas.get<Meas::q0>().inverted()*input.get<Input::q1>().inverted()).matrix();
-    return J;
   }
-  mtJacNoise jacNoise(const Input& input, const Meas& meas, double dt) const{
+  void jacNoise(mtJacNoise& J, const Input& input, const Meas& meas, double dt) const{
     Output output;
-    mtJacNoise J;
     J.setZero();
     J.block<3,3>(output.getId<Output::v0>(),0) = Eigen::Matrix3d::Identity();
     J.block<3,3>(output.getId<Output::q0>(),3) = rot::RotationMatrixPD(meas.get<Meas::q0>().inverted()).matrix();
-    return J;
   }
 };
 
@@ -85,12 +81,14 @@ class ModelBaseTest : public ::testing::Test {
 
 // Test finite difference Jacobians
 TEST_F(ModelBaseTest, FDjacobians) {
-  ModelExample::mtJacInput F;
-  F = model_.jacInputFD(testInput_,testMeas_,0.1,0.0000001);
-  ASSERT_NEAR((F-model_.jacInput(testInput_,testMeas_,0.1)).norm(),0.0,1e-5);
-  ModelExample::mtJacNoise Fn;
-  Fn = model_.jacNoiseFD(testInput_,testMeas_,0.1,0.0000001);
-  ASSERT_NEAR((Fn-model_.jacNoise(testInput_,testMeas_,0.1)).norm(),0.0,1e-5);
+  ModelExample::mtJacInput F,F_FD;
+  model_.jacInput(F,testInput_,testMeas_,0.1);
+  model_.jacInputFD(F_FD,testInput_,testMeas_,0.1,0.0000001);
+  ASSERT_NEAR((F-F_FD).norm(),0.0,1e-5);
+  ModelExample::mtJacNoise H,H_FD;
+  model_.jacNoise(H,testInput_,testMeas_,0.1);
+  model_.jacNoiseFD(H_FD,testInput_,testMeas_,0.1,0.0000001);
+  ASSERT_NEAR((H-H_FD).norm(),0.0,1e-5);
 }
 
 int main(int argc, char **argv) {
