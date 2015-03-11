@@ -371,7 +371,6 @@ class AuxillaryElement: public LWF::AuxiliaryBase<AuxillaryElement>{
   double x_;
 };
 
-// The fixture for testing class StateSVQ
 class StateTesting : public virtual ::testing::Test {
  protected:
   static const unsigned int _sca = 0;

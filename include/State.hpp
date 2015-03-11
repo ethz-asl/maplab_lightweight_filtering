@@ -845,35 +845,6 @@ class FilterStateNew: public UpdateLinearizationPoint<STATE,useUpdateLinearizati
   double t_;
 };
 
-template<unsigned int S, unsigned int V, unsigned int Q>
-class StateSVQ: public State<ArrayElement<ScalarElement,S>,ArrayElement<VectorElement<3>,V>,ArrayElement<QuaternionElement,Q>>{
- public:
-  static const unsigned int S_ = S;
-  static const unsigned int V_ = V;
-  static const unsigned int Q_ = Q;
-  typedef State<ArrayElement<ScalarElement,S>,ArrayElement<VectorElement<3>,V>,ArrayElement<QuaternionElement,Q>> Base;
-  StateSVQ(){}
-  StateSVQ(const StateSVQ& other): Base(other){}
-  const double& s(unsigned int i) const{
-    return this->template get<0>(i);
-  };
-  double& s(unsigned int i) {
-    return this->template get<0>(i);
-  };
-  const Eigen::Matrix<double,3,1>& v(unsigned int i) const{
-    return this->template get<1>(i);
-  };
-  Eigen::Matrix<double,3,1>& v(unsigned int i) {
-    return this->template get<1>(i);
-  };
-  const rot::RotationQuaternionPD& q(unsigned int i) const{
-    return this->template get<2>(i);
-  };
-  rot::RotationQuaternionPD& q(unsigned int i) {
-    return this->template get<2>(i);
-  };
-};
-
 }
 
 #endif /* STATE_HPP_ */

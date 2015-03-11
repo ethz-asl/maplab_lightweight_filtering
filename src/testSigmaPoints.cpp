@@ -9,17 +9,17 @@ class SigmaPointTest : public ::testing::Test {
   SigmaPointTest() {
     sigmaPoints_.computeParameter(1e-3,2.0,0.0);
     sigmaPointsVector_.computeParameter(1e-3,2.0,0.0);
-    mean_.s(0) = 4.5;
+    mean_.template get<0>(0) = 4.5;
     for(int i=1;i<S_;i++){
-      mean_.s(i) = mean_.s(i-1) + i*i*46.2;
+      mean_.template get<0>(i) = mean_.template get<0>(i-1) + i*i*46.2;
     }
-    mean_.v(0) << 2.1, -0.2, -1.9;
+    mean_.template get<1>(0) << 2.1, -0.2, -1.9;
     for(int i=1;i<V_;i++){
-      mean_.v(i) = mean_.v(i-1) + Eigen::Vector3d(0.3,10.9,2.3);
+      mean_.template get<1>(i) = mean_.template get<1>(i-1) + Eigen::Vector3d(0.3,10.9,2.3);
     }
-    mean_.q(0) = rot::RotationQuaternionPD(4.0/sqrt(30.0),3.0/sqrt(30.0),1.0/sqrt(30.0),2.0/sqrt(30.0));
+    mean_.template get<2>(0) = rot::RotationQuaternionPD(4.0/sqrt(30.0),3.0/sqrt(30.0),1.0/sqrt(30.0),2.0/sqrt(30.0));
     for(int i=1;i<Q_;i++){
-      mean_.q(i) = mean_.q(i-1).boxPlus(mean_.v(i-1));
+      mean_.template get<2>(i) = mean_.template get<2>(i-1).boxPlus(mean_.template get<1>(i-1));
     }
     // Easy way to obtain a pseudo random positive definite matrix
     P_ = mtState::D_*mtCovMat::Identity();
@@ -50,7 +50,7 @@ class SigmaPointTest : public ::testing::Test {
   static const unsigned int N_ = 2*(S_+3*(V_+Q_))+1;
   static const unsigned int O_ = 2;
   static const unsigned int L_ = N_+O_+2;
-  typedef LWF::StateSVQ<S_,V_,Q_> mtState;
+  typedef LWF::State<LWF::ArrayElement<LWF::ScalarElement,S_>,LWF::ArrayElement<LWF::VectorElement<3>,V_>,LWF::ArrayElement<LWF::QuaternionElement,Q_>> mtState;
   typedef LWF::VectorElement<3> mtElementVector;
   typedef mtState::mtDifVec mtDifVec;
   typedef mtState::mtCovMat mtCovMat;
@@ -149,7 +149,7 @@ TEST_F(SigmaPointTest, getCovariance2) {
 
   // Apply simple linear transformation
   for(int i=0;i<L_;i++){
-    sigmaPointsVector_(i).v_ = sigmaPoints_(i).v(0)*2.45+Eigen::Vector3d::Ones()*sigmaPoints_(i).s(0)*0.51;
+    sigmaPointsVector_(i).v_ = sigmaPoints_(i).template get<1>(0)*2.45+Eigen::Vector3d::Ones()*sigmaPoints_(i).template get<0>(0)*0.51;
   }
 
   Eigen::Matrix<double,mtElementVector::D_,mtState::D_> M = sigmaPointsVector_.getCovarianceMatrix(sigmaPoints_);
