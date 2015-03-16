@@ -24,7 +24,7 @@ enum FilteringMode{
   ModeUKF
 };
 
-template<typename State, typename PredictionMeas, typename PredictionNoise, unsigned int noiseExtension = 0>
+template<typename State, typename PredictionMeas, typename PredictionNoise, unsigned int noiseExtensionDim = 0>
 class FilterStateNew{
  public:
   typedef State mtState;
@@ -37,14 +37,15 @@ class FilterStateNew{
   bool usePredictionMerge_;
   bool useUpdateLinearizationPoint_;
   bool useDynamicMatrix_;
+  static constexpr unsigned int noiseExtensionDim_ = noiseExtensionDim;
   double t_;
   mtState state_;
   mtFilterCovMat cov_;
   mtJacStaPrediction F_;
   mtJacNoiPrediction G_;
-  SigmaPoints<mtState,2*mtState::D_+1,2*(mtState::D_+mtPredictionNoise::D_+noiseExtension)+1,0> stateSigmaPoints_;
-  SigmaPoints<mtPredictionNoise,2*mtPredictionNoise::D_+1,2*(mtState::D_+mtPredictionNoise::D_+noiseExtension)+1,2*mtState::D_> stateSigmaPointsNoi_;
-  SigmaPoints<mtState,2*(mtState::D_+mtPredictionNoise::D_)+1,2*(mtState::D_+mtPredictionNoise::D_+noiseExtension)+1,0> stateSigmaPointsPre_;
+  SigmaPoints<mtState,2*mtState::D_+1,2*(mtState::D_+mtPredictionNoise::D_+noiseExtensionDim)+1,0> stateSigmaPoints_;
+  SigmaPoints<mtPredictionNoise,2*mtPredictionNoise::D_+1,2*(mtState::D_+mtPredictionNoise::D_+noiseExtensionDim)+1,2*mtState::D_> stateSigmaPointsNoi_;
+  SigmaPoints<mtState,2*(mtState::D_+mtPredictionNoise::D_)+1,2*(mtState::D_+mtPredictionNoise::D_+noiseExtensionDim)+1,0> stateSigmaPointsPre_;
   typename mtPredictionNoise::mtCovMat prenoiP_; // automatic change tracking
   double alpha_;
   double beta_;

@@ -190,6 +190,7 @@ class OutlierDetection<ODEntry<S,D,0>>: public OutlierDetectionDefault{};
 template<typename Innovation, typename FilterState, typename Meas, typename Noise, typename OutlierDetection = OutlierDetectionDefault, bool isCoupled = false>
 class Update: public ModelBase<typename FilterState::mtState,Innovation,Meas,Noise>, public PropertyHandler{
  public: // TODO: remove unnecessary
+  static_assert(!isCoupled || Noise::D_ == FilterState::noiseExtensionDim_,"Noise Size for coupled Update must match noise extension of prediction!");
   typedef FilterState mtFilterState;
   typedef typename mtFilterState::mtState mtState;
   typedef typename mtFilterState::mtFilterCovMat mtFilterCovMat;
