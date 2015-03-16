@@ -10,12 +10,10 @@
 
 #include <Eigen/Dense>
 #include <iostream>
-#include <unordered_map>
 #include "kindr/rotations/RotationEigen.hpp"
 #include "PropertyHandler.hpp"
 #include <type_traits>
 #include <tuple>
-#include "SigmaPoints.hpp"
 
 namespace rot = kindr::rotations::eigen_impl;
 
@@ -623,147 +621,6 @@ template <typename Arg, unsigned int N>
 class TH_convert<TH_multiple_elements<Arg,N>>: public TH_multiple_elements<Arg,N>{
 };
 
-
-
-template<typename... States>
-class ComposedState{ // TODO: test completely
- public:
-  static const unsigned int D_ = TH_getDimension<decltype(std::tuple_cat(typename TH_convert<States>::t()...))>::D_;
-  typedef Eigen::Matrix<double,D_,1> mtDifVec;
-  typedef Eigen::Matrix<double,D_,D_> mtCovMat;
-  std::tuple<States...> mStates_;
-  static const unsigned int E_ = std::tuple_size<decltype(mStates_)>::value;
-  ComposedState(){}
-  ComposedState(const ComposedState<States...>& other): mStates_(other.mStates_){}
-  void boxPlus(const mtDifVec& vecIn, ComposedState<States...>& stateOut) const{
-    boxPlus_(vecIn,stateOut);
-  }
-  template<unsigned int i=0,unsigned int j=0,typename std::enable_if<(i<E_-1)>::type* = nullptr>
-  void boxPlus_(const mtDifVec& vecIn, ComposedState<States...>& stateOut) const{
-    if(std::tuple_element<i,decltype(mStates_)>::type::D_>0){
-      std::get<i>(mStates_).boxPlus(vecIn.template block<std::tuple_element<i,decltype(mStates_)>::type::D_,1>(j,0),std::get<i>(stateOut.mStates_));
-    } else { // Required for auxiliary states
-      Eigen::Matrix<double,std::tuple_element<i,decltype(mStates_)>::type::D_,1> dummyVec;
-      std::get<i>(mStates_).boxPlus(dummyVec,std::get<i>(stateOut.mStates_));
-    }
-    boxPlus_<i+1,j+std::tuple_element<i,decltype(mStates_)>::type::D_>(vecIn,stateOut);
-  }
-  template<unsigned int i=0,unsigned int j=0,typename std::enable_if<(i==E_-1)>::type* = nullptr>
-  void boxPlus_(const mtDifVec& vecIn, ComposedState<States...>& stateOut) const{
-    if(std::tuple_element<i,decltype(mStates_)>::type::D_>0){
-      std::get<i>(mStates_).boxPlus(vecIn.template block<std::tuple_element<i,decltype(mStates_)>::type::D_,1>(j,0),std::get<i>(stateOut.mStates_));
-    } else { // Required for auxiliary states
-      Eigen::Matrix<double,std::tuple_element<i,decltype(mStates_)>::type::D_,1> dummyVec;
-      std::get<i>(mStates_).boxPlus(dummyVec,std::get<i>(stateOut.mStates_));
-    }
-  }
-  void boxMinus(const ComposedState<States...>& stateIn, mtDifVec& vecOut) const{
-    boxMinus_(stateIn,vecOut);
-  }
-  template<unsigned int i=0,unsigned int j=0,typename std::enable_if<(i<E_-1)>::type* = nullptr>
-  void boxMinus_(const ComposedState<States...>& stateIn, mtDifVec& vecOut) const{
-    if(std::tuple_element<i,decltype(mStates_)>::type::D_>0){
-      typename std::tuple_element<i,decltype(mStates_)>::type::mtDifVec difVec;
-      std::get<i>(mStates_).boxMinus(std::get<i>(stateIn.mStates_),difVec);
-      vecOut.template block<std::tuple_element<i,decltype(mStates_)>::type::D_,1>(j,0) = difVec;
-    }
-    boxMinus_<i+1,j+std::tuple_element<i,decltype(mStates_)>::type::D_>(stateIn,vecOut);
-  }
-  template<unsigned int i=0,unsigned int j=0,typename std::enable_if<(i==E_-1)>::type* = nullptr>
-  void boxMinus_(const ComposedState<States...>& stateIn, mtDifVec& vecOut) const{
-    if(std::tuple_element<i,decltype(mStates_)>::type::D_>0){
-      typename std::tuple_element<i,decltype(mStates_)>::type::mtDifVec difVec;
-      std::get<i>(mStates_).boxMinus(std::get<i>(stateIn.mStates_),difVec);
-      vecOut.template block<std::tuple_element<i,decltype(mStates_)>::type::D_,1>(j,0) = difVec;
-    }
-  }
-  void print() const{
-    print_();
-  }
-  template<unsigned int i=0,typename std::enable_if<(i<E_-1)>::type* = nullptr>
-  void print_() const{
-    std::get<i>(mStates_).print();
-    print_<i+1>();
-  }
-  template<unsigned int i=0,typename std::enable_if<(i==E_-1)>::type* = nullptr>
-  void print_() const{
-    std::get<i>(mStates_).print();
-  }
-  void setIdentity(){
-    setIdentity_();
-  }
-  template<unsigned int i=0,typename std::enable_if<(i<E_-1)>::type* = nullptr>
-  void setIdentity_(){
-    std::get<i>(mStates_).setIdentity();
-    setIdentity_<i+1>();
-  }
-  template<unsigned int i=0,typename std::enable_if<(i==E_-1)>::type* = nullptr>
-  void setIdentity_(){
-    std::get<i>(mStates_).setIdentity();
-  }
-  void setRandom(unsigned int& s){
-    setRandom_(s);
-  }
-  template<unsigned int i=0,typename std::enable_if<(i<E_-1)>::type* = nullptr>
-  void setRandom_(unsigned int& s){
-    std::get<i>(mStates_).setRandom(s);
-    setRandom_<i+1>(s);
-  }
-  template<unsigned int i=0,typename std::enable_if<(i==E_-1)>::type* = nullptr>
-  void setRandom_(unsigned int& s){
-    std::get<i>(mStates_).setRandom(s);
-  }
-  void fix(){
-    fix_();
-  }
-  template<unsigned int i=0,typename std::enable_if<(i<E_-1)>::type* = nullptr>
-  void fix_(){
-    std::get<i>(mStates_).fix();
-    fix_<i+1>();
-  }
-  template<unsigned int i=0,typename std::enable_if<(i==E_-1)>::type* = nullptr>
-  void fix_(){
-    std::get<i>(mStates_).fix();
-  }
-  void registerElementsToPropertyHandler(PropertyHandler* mtPropertyHandler, const std::string& str){
-    registerElementsToPropertyHandler_(mtPropertyHandler,str);
-  }
-  template<unsigned int i=0,typename std::enable_if<(i<E_-1)>::type* = nullptr>
-  void registerElementsToPropertyHandler_(PropertyHandler* mtPropertyHandler, const std::string& str){
-    std::get<i>(mStates_).registerElementToPropertyHandler(mtPropertyHandler,str);
-    registerElementsToPropertyHandler_<i+1>(mtPropertyHandler,str);
-  }
-  template<unsigned int i=0,typename std::enable_if<(i==E_-1)>::type* = nullptr>
-  void registerElementsToPropertyHandler_(PropertyHandler* mtPropertyHandler, const std::string& str){
-    std::get<i>(mStates_).registerElementToPropertyHandler(mtPropertyHandler,str);
-  }
-  void registerCovarianceToPropertyHandler(Eigen::Matrix<double,D_,D_>& cov, PropertyHandler* mpPropertyHandler, const std::string& str){
-    registerCovarianceToPropertyHandler_(cov,mpPropertyHandler,str);
-  }
-  template<unsigned int i=0,unsigned int j=0,typename std::enable_if<(i<E_-1)>::type* = nullptr>
-  void registerCovarianceToPropertyHandler_(Eigen::Matrix<double,D_,D_>& cov, PropertyHandler* mpPropertyHandler, const std::string& str){
-    std::get<i>(mStates_).template registerCovarianceToPropertyHandler<D_,j>(cov,mpPropertyHandler,str);
-    registerCovarianceToPropertyHandler_<i+1,j+std::tuple_element<i,decltype(mStates_)>::type::D_>(cov,mpPropertyHandler,str);
-  }
-  template<unsigned int i=0,unsigned int j=0,typename std::enable_if<(i==E_-1)>::type* = nullptr>
-  void registerCovarianceToPropertyHandler_(Eigen::Matrix<double,D_,D_>& cov, PropertyHandler* mpPropertyHandler, const std::string& str){
-    std::get<i>(mStates_).template registerCovarianceToPropertyHandler<D_,j>(cov,mpPropertyHandler,str);
-  }
-  template<unsigned int i>
-  auto getState(unsigned int j = 0) -> decltype (std::get<i>(mStates_))& {
-    return std::get<i>(mStates_);
-  };
-  template<unsigned int i>
-  const auto getState(unsigned int j = 0) const -> decltype (std::get<i>(mStates_))& {
-    return std::get<i>(mStates_);
-  };
-  static ComposedState Identity(){
-    ComposedState identity;
-    identity.setIdentity();
-    return identity;
-  }
-};
-
 static Eigen::Matrix3d Lmat (Eigen::Vector3d a) {
   double aNorm = a.norm();
   double factor1 = 0;
@@ -787,76 +644,6 @@ static Eigen::Matrix3d Lmat (Eigen::Vector3d a) {
 
   return Eigen::Matrix3d::Identity()-factor1*ak+factor2*ak2;
 }
-
-//enum FilteringMode{
-//  ModeEKF,
-//  ModeUKF
-//};
-//
-//template<typename STATE,bool useUpdateLinearizationPoint> class UpdateLinearizationPoint{
-//};
-//
-//template<typename STATE>
-//class UpdateLinearizationPoint<STATE,true>{
-// public:
-//  typename STATE::mtDifVec difVecLin_;
-//  UpdateLinearizationPoint(){
-//    difVecLin_.setZero();
-//  }
-//};
-//
-//template<typename STATE,bool isCoupled,bool useDynamicMatrix, unsigned int dimPreNoise> class CoupledQuantities{
-//};
-//
-//template<typename STATE, unsigned int dimPreNoise>
-//class CoupledQuantities<STATE,true,true,dimPreNoise>{
-// public:
-//  typedef Eigen::MatrixXd mtJacNoiPrediction;
-//  mtJacNoiPrediction G_;
-//  CoupledQuantities(){}
-//};
-//
-//template<typename STATE, unsigned int dimPreNoise>
-//class CoupledQuantities<STATE,true,false,dimPreNoise>{
-// public:
-//  typedef Eigen::Matrix<double,STATE::D_,dimPreNoise> mtJacNoiPrediction;
-//  mtJacNoiPrediction G_;
-//  CoupledQuantities(){}
-//};
-//
-//template<typename STATE,bool useDynamicMatrix> class FilterCovMat{
-//};
-//
-//template<typename STATE>
-//class FilterCovMat<STATE,false>{
-// public:
-//  typedef typename STATE::mtCovMat mtFilterCovMat;
-//  mtFilterCovMat cov_;
-//};
-//
-//template<typename STATE>
-//class FilterCovMat<STATE,true>{
-// public:
-//  typedef Eigen::MatrixXd mtFilterCovMat;
-//  mtFilterCovMat cov_;
-//};
-//
-//template<typename STATE,FilteringMode mode,bool isCoupled,bool usePredictionMerge,bool useUpdateLinearizationPoint,bool useDynamicMatrix, unsigned int dimPreNoise>
-//class FilterStateNew: public UpdateLinearizationPoint<STATE,useUpdateLinearizationPoint>,
-//                      public CoupledQuantities<STATE,isCoupled,useDynamicMatrix,dimPreNoise>,
-//                      public FilterCovMat<STATE,useDynamicMatrix>{ // TODO: rename
-// public:
-//  typedef STATE mtState;
-//  mtState state_;
-//  static constexpr FilteringMode mode_ = mode;
-//  static constexpr bool isCoupled_ = isCoupled;
-//  static constexpr bool usePredictionMerge_ = usePredictionMerge;
-//  static constexpr bool useUpdateLinearizationPoint_ = useUpdateLinearizationPoint;
-//  static constexpr bool useDynamicMatrix_ = useDynamicMatrix;
-//  static constexpr unsigned int dimPreNoise_ = dimPreNoise;
-//  SigmaPoints<mtState,2*(mtState::D_+dimPreNoise)+1,2*(mtState::D_+dimPreNoise)+1,0> stateSigmaPointsPre_;
-//  double t_;
-//};
 
 }
 

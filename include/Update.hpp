@@ -14,6 +14,8 @@
 #include "ModelBase.hpp"
 #include "State.hpp"
 #include "PropertyHandler.hpp"
+#include "SigmaPoints.hpp"
+#include "Prediction.hpp"
 #include <type_traits>
 
 namespace LWF{
@@ -36,12 +38,6 @@ namespace LWF{
 template<unsigned int S, unsigned int D, unsigned int N = 1> struct ODEntry{
   static const unsigned int S_ = S;
   static const unsigned int D_ = D;
-};
-
-
-enum UpdateFilteringMode{
-  UpdateEKF,
-  UpdateUKF
 };
 
 template<unsigned int S, unsigned int D>
@@ -203,18 +199,14 @@ class Update: public ModelBase<typename FilterState::mtState,Innovation,Meas,Noi
   typedef Meas mtMeas;
   typedef Noise mtNoise;
   typedef OutlierDetection mtOutlierDetection;
-  typedef LWF::ComposedState<mtPredictionNoise,mtNoise> mtJointNoise;
-  static const int noiseDim_ = (isCoupled)*mtPredictionNoise::D_+mtNoise::D_; // TODO: delete
   static const bool coupledToPrediction_ = isCoupled;
   bool useSpecialLinearizationPoint_;
-  UpdateFilteringMode mode_;
   typedef ModelBase<mtState,mtInnovation,mtMeas,mtNoise> mtModelBase;
   typename mtModelBase::mtJacInput H_;
   typename mtModelBase::mtJacNoise Hn_;
   typename mtNoise::mtCovMat updnoiP_;
   Eigen::Matrix<double,mtPredictionNoise::D_,mtNoise::D_> preupdnoiP_;
   Eigen::Matrix<double,mtNoise::D_,mtNoise::D_> noiP_;
-  Eigen::Matrix<double,mtJointNoise::D_,mtJointNoise::D_> jointNoiP_;
   Eigen::Matrix<double,mtState::D_,mtInnovation::D_> C_;
   mtInnovation y_;
   typename mtInnovation::mtCovMat Py_;
@@ -246,11 +238,9 @@ class Update: public ModelBase<typename FilterState::mtState,Innovation,Meas,Noi
     kappa_ = 0.0;
     updateVecNormTermination_ = 1e-6;
     maxNumIteration_  = 10;
-    mode_ = UpdateEKF;
     updnoiP_ = mtNoise::mtCovMat::Identity()*0.0001;
     noiP_.setZero();
     preupdnoiP_ = Eigen::Matrix<double,mtPredictionNoise::D_,mtNoise::D_>::Zero();
-    jointNoiP_.setZero();
     useSpecialLinearizationPoint_ = false;
     initUpdate();
     mtNoise n;
@@ -293,14 +283,11 @@ class Update: public ModelBase<typename FilterState::mtState,Innovation,Meas,Noi
     refreshUKFParameter();
   }
   virtual ~Update(){};
-  void setMode(UpdateFilteringMode mode){
-    mode_ = mode;
-  }
   int performUpdate(mtFilterState& filterState, const mtMeas& meas){
-    switch(mode_){
-      case UpdateEKF:
+    switch(filterState.mode_){
+      case ModeEKF:
         return performUpdateEKF(filterState,meas);
-      case UpdateUKF:
+      case ModeUKF:
         return performUpdateUKF(filterState,meas);
       default:
         return performUpdateEKF(filterState,meas);
