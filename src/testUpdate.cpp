@@ -237,16 +237,18 @@ TYPED_TEST(UpdateModelTest, compareUpdate) {
 }
 
 // Test performPredictionAndUpdateEKF
-TYPED_TEST(UpdateModelTest, performPredictionAndUpdateEKF) {
+TYPED_TEST(UpdateModelTest, performPredictionAndUpdateEKF) { // Only tested without cross-correlation
   typename TestFixture::mtUpdateExample::mtFilterState filterState1;
   typename TestFixture::mtUpdateExample::mtFilterState filterState2;
+//  filterState2.isCoupled_ = true; // TODO: change update
   filterState1.cov_ = TestFixture::mtUpdateExample::mtState::mtCovMat::Identity()*0.000001;
   filterState2.cov_ = filterState1.cov_;
   filterState1.state_ = this->testState_;
   filterState2.state_ = this->testState_;
   this->testPrediction_.performPredictionEKF(filterState1,this->testPredictionMeas_,this->dt_);
   this->testUpdate_.performUpdateEKF(filterState1,this->testUpdateMeas_);
-  this->testPredictAndUpdate_.performPredictionAndUpdateEKF(filterState2,this->testUpdateMeas_,this->testPrediction_,this->testPredictionMeas_,this->dt_);
+  this->testPrediction_.performPredictionEKF(filterState2,this->testPredictionMeas_,this->dt_);
+  this->testPredictAndUpdate_.performUpdateEKF(filterState2,this->testUpdateMeas_);
   typename TestFixture::mtUpdateExample::mtState::mtDifVec dif;
   filterState1.state_.boxMinus(filterState2.state_,dif);
   switch(TestFixture::id_){
@@ -268,11 +270,12 @@ TYPED_TEST(UpdateModelTest, performPredictionAndUpdateEKF) {
   filterState2.cov_ = filterState1.cov_;
   filterState1.state_ = this->testState_;
   filterState2.state_ = this->testState_;
-  this->testPrediction_.performPredictionEKF(filterState1,this->testPredictionMeas_,this->dt_);
   this->testUpdate_.outlierDetection_.setEnabledAll(true);
-  this->testUpdate_.performUpdateEKF(filterState1,this->testUpdateMeas_);
   this->testPredictAndUpdate_.outlierDetection_.setEnabledAll(true);
-  this->testPredictAndUpdate_.performPredictionAndUpdateEKF(filterState2,this->testUpdateMeas_,this->testPrediction_,this->testPredictionMeas_,this->dt_);
+  this->testPrediction_.performPredictionEKF(filterState1,this->testPredictionMeas_,this->dt_);
+  this->testUpdate_.performUpdateEKF(filterState1,this->testUpdateMeas_);
+  this->testPrediction_.performPredictionEKF(filterState2,this->testPredictionMeas_,this->dt_);
+  this->testPredictAndUpdate_.performUpdateEKF(filterState2,this->testUpdateMeas_);
   filterState1.state_.boxMinus(filterState2.state_,dif);
   switch(TestFixture::id_){
     case 0:
@@ -299,7 +302,8 @@ TYPED_TEST(UpdateModelTest, performPredictionAndUpdateUKF) {
   filterState2.state_ = this->testState_;
   this->testPrediction_.performPredictionUKF(filterState1,this->testPredictionMeas_,this->dt_);
   this->testUpdate_.performUpdateUKF(filterState1,this->testUpdateMeas_);
-  this->testPredictAndUpdate_.performPredictionAndUpdateUKF(filterState2,this->testUpdateMeas_,this->testPrediction_,this->testPredictionMeas_,this->dt_);
+  this->testPrediction_.performPredictionUKF(filterState2,this->testPredictionMeas_,this->dt_);
+  this->testPredictAndUpdate_.performUpdateUKF(filterState2,this->testUpdateMeas_);
   typename TestFixture::mtUpdateExample::mtState::mtDifVec dif;
   filterState1.state_.boxMinus(filterState2.state_,dif);
   switch(TestFixture::id_){
@@ -321,11 +325,12 @@ TYPED_TEST(UpdateModelTest, performPredictionAndUpdateUKF) {
   filterState2.cov_ = filterState1.cov_;
   filterState1.state_ = this->testState_;
   filterState2.state_ = this->testState_;
-  this->testPrediction_.performPredictionUKF(filterState1,this->testPredictionMeas_,this->dt_);
   this->testUpdate_.outlierDetection_.setEnabledAll(true);
-  this->testUpdate_.performUpdateUKF(filterState1,this->testUpdateMeas_);
   this->testPredictAndUpdate_.outlierDetection_.setEnabledAll(true);
-  this->testPredictAndUpdate_.performPredictionAndUpdateUKF(filterState2,this->testUpdateMeas_,this->testPrediction_,this->testPredictionMeas_,this->dt_);
+  this->testPrediction_.performPredictionUKF(filterState1,this->testPredictionMeas_,this->dt_);
+  this->testUpdate_.performUpdateUKF(filterState1,this->testUpdateMeas_);
+  this->testPrediction_.performPredictionUKF(filterState2,this->testPredictionMeas_,this->dt_);
+  this->testPredictAndUpdate_.performUpdateUKF(filterState2,this->testUpdateMeas_);
   filterState1.state_.boxMinus(filterState2.state_,dif);
   switch(TestFixture::id_){
     case 0:
@@ -350,8 +355,10 @@ TYPED_TEST(UpdateModelTest, comparePredictAndUpdate) {
   filterState2.cov_ = filterState1.cov_;
   filterState1.state_ = this->testState_;
   filterState2.state_ = this->testState_;
-  this->testPredictAndUpdate_.performPredictionAndUpdateEKF(filterState1,this->testUpdateMeas_,this->testPrediction_,this->testPredictionMeas_,this->dt_);
-  this->testPredictAndUpdate_.performPredictionAndUpdateUKF(filterState2,this->testUpdateMeas_,this->testPrediction_,this->testPredictionMeas_,this->dt_);
+  this->testPrediction_.performPredictionEKF(filterState1,this->testPredictionMeas_,this->dt_);
+  this->testPredictAndUpdate_.performUpdateEKF(filterState1,this->testUpdateMeas_);
+  this->testPrediction_.performPredictionUKF(filterState2,this->testPredictionMeas_,this->dt_);
+  this->testPredictAndUpdate_.performUpdateUKF(filterState2,this->testUpdateMeas_);
   typename TestFixture::mtUpdateExample::mtState::mtDifVec dif;
   filterState1.state_.boxMinus(filterState2.state_,dif);
   switch(TestFixture::id_){
@@ -373,9 +380,11 @@ TYPED_TEST(UpdateModelTest, comparePredictAndUpdate) {
   filterState2.cov_ = filterState1.cov_;
   filterState1.state_ = this->testState_;
   filterState2.state_ = this->testState_;
-  this->testPredictAndUpdate_.performPredictionAndUpdateEKF(filterState1,this->testUpdateMeas_,this->testPrediction_,this->testPredictionMeas_,this->dt_);
+  this->testPrediction_.performPredictionEKF(filterState1,this->testPredictionMeas_,this->dt_);
+  this->testPredictAndUpdate_.performUpdateEKF(filterState1,this->testUpdateMeas_);
   this->testPredictAndUpdate_.preupdnoiP_.block(0,0,3,3) = Eigen::Matrix3d::Identity()*0.00009;
-  this->testPredictAndUpdate_.performPredictionAndUpdateUKF(filterState2,this->testUpdateMeas_,this->testPrediction_,this->testPredictionMeas_,this->dt_);
+  this->testPrediction_.performPredictionUKF(filterState2,this->testPredictionMeas_,this->dt_);
+  this->testPredictAndUpdate_.performUpdateUKF(filterState2,this->testUpdateMeas_);
   filterState1.state_.boxMinus(filterState2.state_,dif);
   switch(TestFixture::id_){
     case 0:
@@ -395,13 +404,15 @@ TYPED_TEST(UpdateModelTest, comparePredictAndUpdate) {
   filterState2.cov_ = filterState1.cov_;
   filterState1.state_ = this->testState_;
   filterState2.state_ = this->testState_;
-  this->testPredictAndUpdate_.performPredictionAndUpdateEKF(filterState1,this->testUpdateMeas_,this->testPrediction_,this->testPredictionMeas_,this->dt_);
-  this->testPredictAndUpdate_.performPredictionAndUpdateUKF(filterState2,this->testUpdateMeas_,this->testPrediction_,this->testPredictionMeas_,this->dt_);
+  this->testPrediction_.performPredictionEKF(filterState1,this->testPredictionMeas_,this->dt_);
+  this->testPredictAndUpdate_.performUpdateEKF(filterState1,this->testUpdateMeas_);
+  this->testPrediction_.performPredictionUKF(filterState2,this->testPredictionMeas_,this->dt_);
+  this->testPredictAndUpdate_.performUpdateUKF(filterState2,this->testUpdateMeas_);
   filterState1.state_.boxMinus(filterState2.state_,dif);
   switch(TestFixture::id_){
     case 0:
       ASSERT_NEAR(dif.norm(),0.0,2e-2);
-      ASSERT_NEAR((filterState1.cov_-filterState2.cov_).norm(),0.0,7e-5);
+      ASSERT_NEAR((filterState1.cov_-filterState2.cov_).norm(),0.0,8e-5);
       break;
     case 1:
       ASSERT_NEAR(dif.norm(),0.0,1e-9);
@@ -409,7 +420,7 @@ TYPED_TEST(UpdateModelTest, comparePredictAndUpdate) {
       break;
     default:
       ASSERT_NEAR(dif.norm(),0.0,2e-2);
-      ASSERT_NEAR((filterState1.cov_-filterState2.cov_).norm(),0.0,7e-5);
+      ASSERT_NEAR((filterState1.cov_-filterState2.cov_).norm(),0.0,8e-5);
   }
 }
 

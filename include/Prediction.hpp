@@ -19,79 +19,86 @@
 
 namespace LWF{
 
-enum PredictionFilteringMode{
-  PredictionEKF,
-  PredictionUKF
+enum FilteringMode{
+  ModeEKF,
+  ModeUKF
 };
 
-template<typename FilterState, typename Meas, typename Noise>
-class Prediction: public ModelBase<typename FilterState::mtState,typename FilterState::mtState,Meas,Noise>, public PropertyHandler{
+template<typename State, typename PredictionMeas, typename PredictionNoise, unsigned int noiseExtension = 0>
+class FilterStateNew{
  public:
-  typedef FilterState mtFilterState;
-  typedef typename mtFilterState::mtState mtState;
-  typedef typename mtFilterState::mtFilterCovMat mtFilterCovMat;
-  typedef Meas mtMeas;
-  typedef Noise mtNoise;
-  typedef ModelBase<mtState,mtState,mtMeas,mtNoise> mtModelBase;
-  typename mtModelBase::mtJacInput F_;
-  typename mtModelBase::mtJacNoise Fn_;
-  typename mtNoise::mtCovMat prenoiP_;
-  typename mtNoise::mtCovMat noiP_; // automatic change tracking
-  SigmaPoints<mtState,2*mtState::D_+1,2*(mtState::D_+mtNoise::D_)+1,0> stateSigmaPoints_;
-  SigmaPoints<mtNoise,2*mtNoise::D_+1,2*(mtState::D_+mtNoise::D_)+1,2*mtState::D_> stateSigmaPointsNoi_;
-  SigmaPoints<mtState,2*(mtState::D_+mtNoise::D_)+1,2*(mtState::D_+mtNoise::D_)+1,0> stateSigmaPointsPre_;
-  bool mbMergePredictions_;
-  PredictionFilteringMode mode_;
+  typedef State mtState;
+  typedef PredictionMeas mtPredictionMeas;
+  typedef PredictionNoise mtPredictionNoise;
+  typedef typename State::mtCovMat mtFilterCovMat;
+  typedef Eigen::Matrix<double,State::D_,State::D_> mtJacStaPrediction;
+  typedef Eigen::Matrix<double,State::D_,PredictionNoise::D_> mtJacNoiPrediction;
+  FilteringMode mode_;
+  bool usePredictionMerge_;
+  bool useUpdateLinearizationPoint_;
+  bool useDynamicMatrix_;
+  double t_;
+  mtState state_;
+  mtFilterCovMat cov_;
+  mtJacStaPrediction F_;
+  mtJacNoiPrediction G_;
+  SigmaPoints<mtState,2*mtState::D_+1,2*(mtState::D_+mtPredictionNoise::D_+noiseExtension)+1,0> stateSigmaPoints_;
+  SigmaPoints<mtPredictionNoise,2*mtPredictionNoise::D_+1,2*(mtState::D_+mtPredictionNoise::D_+noiseExtension)+1,2*mtState::D_> stateSigmaPointsNoi_;
+  SigmaPoints<mtState,2*(mtState::D_+mtPredictionNoise::D_)+1,2*(mtState::D_+mtPredictionNoise::D_+noiseExtension)+1,0> stateSigmaPointsPre_;
+  typename mtPredictionNoise::mtCovMat prenoiP_; // automatic change tracking
   double alpha_;
   double beta_;
   double kappa_;
-  Prediction(bool mbMergePredictions = false): mbMergePredictions_(mbMergePredictions){
+  FilterStateNew(){
     alpha_ = 1e-3;
     beta_ = 2.0;
     kappa_ = 0.0;
-    mode_ = PredictionEKF;
-    prenoiP_ = mtNoise::mtCovMat::Identity()*0.0001;
-    noiP_.setZero();
-    resetPrediction();
-    mtNoise n;
-    n.registerCovarianceToPropertyHandler_(prenoiP_,this,"PredictionNoise.");
-    doubleRegister_.registerScalar("alpha",alpha_);
-    doubleRegister_.registerScalar("beta",beta_);
-    doubleRegister_.registerScalar("kappa",kappa_);
-  };
-  void refreshNoiseSigmaPoints(){
-    if(noiP_ != prenoiP_){
-      noiP_ = prenoiP_;
-      stateSigmaPointsNoi_.computeFromZeroMeanGaussian(noiP_);
-    }
+    mode_ = ModeEKF;
+    usePredictionMerge_ = false;
+    useUpdateLinearizationPoint_ = false;
+    useDynamicMatrix_ = false;
+    t_ = 0.0;
+    prenoiP_ = mtPredictionNoise::mtCovMat::Identity()*0.0001;
+    refreshUKFParameter();
   }
   void refreshUKFParameter(){
     stateSigmaPoints_.computeParameter(alpha_,beta_,kappa_);
     stateSigmaPointsNoi_.computeParameter(alpha_,beta_,kappa_);
     stateSigmaPointsPre_.computeParameter(alpha_,beta_,kappa_);
-    stateSigmaPointsNoi_.computeFromZeroMeanGaussian(noiP_);
+    stateSigmaPointsNoi_.computeFromZeroMeanGaussian(prenoiP_);
   }
-  void refreshProperties(){
-    refreshPropertiesCustom();
-    refreshUKFParameter();
+  void refreshNoiseSigmaPoints(const typename mtPredictionNoise::mtCovMat& prenoiP){
+    if(prenoiP_ != prenoiP){
+      prenoiP_ = prenoiP;
+      stateSigmaPointsNoi_.computeFromZeroMeanGaussian(prenoiP_);
+    }
   }
-  virtual void refreshPropertiesCustom(){}
+};
+
+template<typename FilterState>
+class Prediction: public ModelBase<typename FilterState::mtState,typename FilterState::mtState,typename FilterState::mtPredictionMeas,typename FilterState::mtPredictionNoise>, public PropertyHandler{
+ public:
+  typedef FilterState mtFilterState;
+  typedef typename mtFilterState::mtState mtState;
+  typedef typename mtFilterState::mtFilterCovMat mtFilterCovMat;
+  typedef typename mtFilterState::mtPredictionMeas mtMeas;
+  typedef typename mtFilterState::mtPredictionNoise mtNoise;
+  typedef ModelBase<mtState,mtState,mtMeas,mtNoise> mtModelBase;
+  typename mtNoise::mtCovMat prenoiP_;
+  Prediction(){
+    prenoiP_ = mtNoise::mtCovMat::Identity()*0.0001;
+    mtNoise n;
+    n.registerCovarianceToPropertyHandler_(prenoiP_,this,"PredictionNoise.");
+  };
   virtual void noMeasCase(mtFilterState& filterState, mtMeas& meas, double dt){};
   virtual void preProcess(mtFilterState& filterState, const mtMeas& meas, double dt){};
   virtual void postProcess(mtFilterState& filterState, const mtMeas& meas, double dt){};
-  void resetPrediction(){
-    refreshNoiseSigmaPoints();
-    refreshUKFParameter();
-  }
   virtual ~Prediction(){};
-  void setMode(PredictionFilteringMode mode){
-    mode_ = mode;
-  }
   int performPrediction(mtFilterState& filterState, const mtMeas& meas, double dt){
-    switch(mode_){
-      case PredictionEKF:
+    switch(filterState.mode_){
+      case ModeEKF:
         return performPredictionEKF(filterState,meas,dt);
-      case PredictionUKF:
+      case ModeUKF:
         return performPredictionUKF(filterState,meas,dt);
       default:
         return performPredictionEKF(filterState,meas,dt);
@@ -101,10 +108,10 @@ class Prediction: public ModelBase<typename FilterState::mtState,typename Filter
     mtMeas meas;
     meas.setIdentity();
     noMeasCase(filterState,meas,dt);
-    switch(mode_){
-      case PredictionEKF:
+    switch(filterState.mode_){
+      case ModeEKF:
         return performPredictionEKF(filterState,meas,dt);
-      case PredictionUKF:
+      case ModeUKF:
         return performPredictionUKF(filterState,meas,dt);
       default:
         return performPredictionEKF(filterState,meas,dt);
@@ -112,115 +119,113 @@ class Prediction: public ModelBase<typename FilterState::mtState,typename Filter
   }
   int performPredictionEKF(mtFilterState& filterState, const mtMeas& meas, double dt){
     preProcess(filterState,meas,dt);
-    this->jacInput(F_,filterState.state_,meas,dt);
-    this->jacNoise(Fn_,filterState.state_,meas,dt);
+    this->jacInput(filterState.F_,filterState.state_,meas,dt);
+    this->jacNoise(filterState.G_,filterState.state_,meas,dt);
     this->eval(filterState.state_,filterState.state_,meas,dt);
-    filterState.cov_ = F_*filterState.cov_*F_.transpose() + Fn_*prenoiP_*Fn_.transpose();
+    filterState.cov_ = filterState.F_*filterState.cov_*filterState.F_.transpose() + filterState.G_*prenoiP_*filterState.G_.transpose();
     postProcess(filterState,meas,dt);
     filterState.state_.fix();
     filterState.cov_ = 0.5*(filterState.cov_+filterState.cov_.transpose()); // Enforce symmetry
+    filterState.t_ += dt;
     return 0;
   }
   int performPredictionUKF(mtFilterState& filterState, const mtMeas& meas, double dt){
-    refreshNoiseSigmaPoints();
+    filterState.refreshNoiseSigmaPoints(prenoiP_);
     preProcess(filterState,meas,dt);
-    stateSigmaPoints_.computeFromGaussian(filterState.state_,filterState.cov_);
+    filterState.stateSigmaPoints_.computeFromGaussian(filterState.state_,filterState.cov_);
 
     // Prediction
-    for(unsigned int i=0;i<stateSigmaPoints_.L_;i++){
-      this->eval(stateSigmaPointsPre_(i),stateSigmaPoints_(i),meas,stateSigmaPointsNoi_(i),dt);
+    for(unsigned int i=0;i<filterState.stateSigmaPoints_.L_;i++){
+      this->eval(filterState.stateSigmaPointsPre_(i),filterState.stateSigmaPoints_(i),meas,filterState.stateSigmaPointsNoi_(i),dt);
     }
     // Calculate mean and variance
-    filterState.state_ = stateSigmaPointsPre_.getMean();
-    filterState.cov_ = stateSigmaPointsPre_.getCovarianceMatrix(filterState.state_);
+    filterState.state_ = filterState.stateSigmaPointsPre_.getMean();
+    filterState.cov_ = filterState.stateSigmaPointsPre_.getCovarianceMatrix(filterState.state_);
     postProcess(filterState,meas,dt);
     filterState.state_.fix();
+    filterState.t_ += dt;
     return 0;
   }
-  int predictMerged(mtFilterState& filterState, double tStart, const typename std::map<double,mtMeas>::iterator itMeasStart, unsigned int N){
-    switch(mode_){
-      case PredictionEKF:
-        return predictMergedEKF(filterState,tStart,itMeasStart,N);
-      case PredictionUKF:
-        return predictMergedUKF(filterState,tStart,itMeasStart,N);
+  int predictMerged(mtFilterState& filterState, double tTarget, const std::map<double,mtMeas>& measMap){
+    switch(filterState.mode_){
+      case ModeEKF:
+        return predictMergedEKF(filterState,tTarget,measMap);
+      case ModeUKF:
+        return predictMergedUKF(filterState,tTarget,measMap);
       default:
-        return predictMergedEKF(filterState,tStart,itMeasStart,N);
+        return predictMergedEKF(filterState,tTarget,measMap);
     }
   }
-  virtual int predictMergedEKF(mtFilterState& filterState, double tStart, const typename std::map<double,mtMeas>::iterator itMeasStart, unsigned int N){
-    const typename std::map<double,mtMeas>::iterator itMeasEnd = next(itMeasStart,N);
-    typename std::map<double,mtMeas>::iterator itMeas = itMeasStart;
-    double dT = next(itMeasStart,N-1)->first-tStart;
+  virtual int predictMergedEKF(mtFilterState& filterState, double tTarget, const std::map<double,mtMeas>& measMap){
+    const typename std::map<double,mtMeas>::const_iterator itMeasStart = measMap.upper_bound(filterState.t_);
+    if(itMeasStart == measMap.end()) return 0;
+    const typename std::map<double,mtMeas>::const_iterator itMeasEnd = measMap.upper_bound(tTarget);
+    if(itMeasEnd == measMap.begin()) return 0;
+    double dT = std::prev(itMeasEnd)->first-filterState.t_;
 
     // Compute mean Measurement
     mtMeas meanMeas;
     typename mtMeas::mtDifVec vec;
     typename mtMeas::mtDifVec difVec;
     vec.setZero();
-    for(itMeas=next(itMeasStart);itMeas!=itMeasEnd;itMeas++){
+    double t = itMeasStart->first;
+    for(typename std::map<double,mtMeas>::const_iterator itMeas=next(itMeasStart);itMeas!=itMeasEnd;itMeas++){
       itMeasStart->second.boxMinus(itMeas->second,difVec);
-      vec = vec + difVec;
+      vec = vec + difVec*(itMeas->first-t);
+      t = itMeas->first;
     }
-    vec = vec/N;
+    vec = vec/dT;
     itMeasStart->second.boxPlus(vec,meanMeas);
 
     preProcess(filterState,meanMeas,dT);
-    this->jacInput(F_,filterState.state_,meanMeas,dT);
-    this->jacNoise(Fn_,filterState.state_,meanMeas,dT); // Works for time continuous parametrization of noise
-    double t = tStart;
-    for(itMeas=itMeasStart;itMeas!=itMeasEnd;itMeas++){
-      this->eval(filterState.state_,filterState.state_,itMeas->second,itMeas->first-t);
-      t = itMeas->first;
+    this->jacInput(filterState.F_,filterState.state_,meanMeas,dT);
+    this->jacNoise(filterState.G_,filterState.state_,meanMeas,dT); // Works for time continuous parametrization of noise
+    for(typename std::map<double,mtMeas>::const_iterator itMeas=itMeasStart;itMeas!=itMeasEnd;itMeas++){
+      this->eval(filterState.state_,filterState.state_,itMeas->second,itMeas->first-filterState.t_);
+      filterState.t_ = itMeas->first;
     }
-    filterState.cov_ = F_*filterState.cov_*F_.transpose() + Fn_*prenoiP_*Fn_.transpose();
+    filterState.cov_ = filterState.F_*filterState.cov_*filterState.F_.transpose() + filterState.G_*prenoiP_*filterState.G_.transpose();
     postProcess(filterState,meanMeas,dT);
     filterState.state_.fix();
     filterState.cov_ = 0.5*(filterState.cov_+filterState.cov_.transpose()); // Enforce symmetry
+    filterState.t_ = std::prev(itMeasEnd)->first;
     return 0;
   }
-  virtual int predictMergedUKF(mtFilterState& filterState, double tStart, const typename std::map<double,mtMeas>::iterator itMeasStart, unsigned int N){
-    refreshNoiseSigmaPoints();
-    const typename std::map<double,mtMeas>::iterator itMeasEnd = next(itMeasStart,N);
-    typename std::map<double,mtMeas>::iterator itMeas = itMeasStart;
-    double dT = next(itMeasStart,N-1)->first-tStart;
+  virtual int predictMergedUKF(mtFilterState& filterState, double tTarget, const std::map<double,mtMeas>& measMap){
+    filterState.refreshNoiseSigmaPoints(prenoiP_);
+    const typename std::map<double,mtMeas>::const_iterator itMeasStart = measMap.upper_bound(filterState.t_);
+    if(itMeasStart == measMap.end()) return 0;
+    const typename std::map<double,mtMeas>::const_iterator itMeasEnd = measMap.upper_bound(tTarget);
+    if(itMeasEnd == measMap.begin()) return 0;
+    double dT = std::prev(itMeasEnd)->first-filterState.t_;
 
     // Compute mean Measurement
     mtMeas meanMeas;
     typename mtMeas::mtDifVec vec;
     typename mtMeas::mtDifVec difVec;
     vec.setZero();
-    for(itMeas=next(itMeasStart);itMeas!=itMeasEnd;itMeas++){
+    double t = itMeasStart->first;
+    for(typename std::map<double,mtMeas>::const_iterator itMeas=next(itMeasStart);itMeas!=itMeasEnd;itMeas++){
       itMeasStart->second.boxMinus(itMeas->second,difVec);
-      vec = vec + difVec;
+      vec = vec + difVec*(itMeas->first-t);
+      t = itMeas->first;
     }
-    vec = vec/N;
+    vec = vec/dT;
     itMeasStart->second.boxPlus(vec,meanMeas);
 
     preProcess(filterState,meanMeas,dT);
-    stateSigmaPoints_.computeFromGaussian(filterState.state_,filterState.cov_);
+    filterState.stateSigmaPoints_.computeFromGaussian(filterState.state_,filterState.cov_);
 
     // Prediction
-    for(unsigned int i=0;i<stateSigmaPoints_.L_;i++){
-      this->eval(stateSigmaPointsPre_(i),stateSigmaPoints_(i),meanMeas,stateSigmaPointsNoi_(i),dT);
+    for(unsigned int i=0;i<filterState.stateSigmaPoints_.L_;i++){
+      this->eval(filterState.stateSigmaPointsPre_(i),filterState.stateSigmaPoints_(i),meanMeas,filterState.stateSigmaPointsNoi_(i),dT);
     }
-    filterState.state_ = stateSigmaPointsPre_.getMean();
-    filterState.cov_ = stateSigmaPointsPre_.getCovarianceMatrix(filterState.state_);
+    filterState.state_ = filterState.stateSigmaPointsPre_.getMean();
+    filterState.cov_ = filterState.stateSigmaPointsPre_.getCovarianceMatrix(filterState.state_);
     postProcess(filterState,meanMeas,dT);
     filterState.state_.fix();
+    filterState.t_ = std::prev(itMeasEnd)->first;
     return 0;
-  }
-};
-
-class DummyPrediction: public Prediction<LWF::FilterStateNew<ScalarElement,LWF::ModeEKF,false,false,false,false>,ScalarElement,ScalarElement>{
- public:
-  void eval(ScalarElement& output, const ScalarElement& state, const ScalarElement& meas, const ScalarElement noise, double dt) const{
-    output.s_ = state.s_ + meas.s_ + noise.s_;
-  }
-  void jacInput(Eigen::Matrix<double,1,1>& J, const ScalarElement& state, const ScalarElement& meas, double dt) const{
-    J.setIdentity();
-  }
-  void jacNoise(Eigen::Matrix<double,1,1>& J,const ScalarElement& state, const ScalarElement& meas, double dt) const{
-    J.setIdentity();
   }
 };
 

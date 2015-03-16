@@ -34,7 +34,6 @@ class State: public LWF::State<LWF::TH_multiple_elements<LWF::VectorElement<3>,4
   }
   ~State(){};
 };
-class FilterState: public LWF::FilterStateNew<State,LWF::ModeEKF,false,false,true,false>{};
 class UpdateMeas: public LWF::State<LWF::VectorElement<3>,LWF::QuaternionElement>{
  public:
   enum StateNames {
@@ -85,11 +84,12 @@ class PredictionMeas: public LWF::State<LWF::TH_multiple_elements<LWF::VectorEle
 };
 class OutlierDetectionExample: public LWF::OutlierDetection<LWF::ODEntry<0,3,1>>{
 };
+class FilterState: public LWF::FilterStateNew<State,PredictionMeas,PredictionNoise,UpdateNoise::D_>{};
 
-class UpdateExample: public LWF::Update<Innovation,FilterState,UpdateMeas,UpdateNoise,OutlierDetectionExample,LWF::DummyPrediction,false>{
+class UpdateExample: public LWF::Update<Innovation,FilterState,UpdateMeas,UpdateNoise,OutlierDetectionExample,false>{
  public:
-  using LWF::Update<Innovation,FilterState,UpdateMeas,UpdateNoise,OutlierDetectionExample,LWF::DummyPrediction,false>::eval;
-  using mtState = LWF::Update<Innovation,FilterState,UpdateMeas,UpdateNoise,OutlierDetectionExample,LWF::DummyPrediction,false>::mtState;
+  using LWF::Update<Innovation,FilterState,UpdateMeas,UpdateNoise,OutlierDetectionExample,false>::eval;
+  using mtState = LWF::Update<Innovation,FilterState,UpdateMeas,UpdateNoise,OutlierDetectionExample,false>::mtState;
   typedef UpdateMeas mtMeas;
   typedef UpdateNoise mtNoise;
   typedef Innovation mtInnovation;
@@ -120,10 +120,10 @@ class UpdateExample: public LWF::Update<Innovation,FilterState,UpdateMeas,Update
   }
 };
 
-class PredictionExample: public LWF::Prediction<FilterState,PredictionMeas,PredictionNoise>{
+class PredictionExample: public LWF::Prediction<FilterState>{
  public:
-  using LWF::Prediction<FilterState,PredictionMeas,PredictionNoise>::eval;
-  using mtState = LWF::Prediction<FilterState,PredictionMeas,PredictionNoise>::mtState;
+  using LWF::Prediction<FilterState>::eval;
+  using mtState = LWF::Prediction<FilterState>::mtState;
   typedef PredictionMeas mtMeas;
   typedef PredictionNoise mtNoise;
   PredictionExample(){};
@@ -171,10 +171,10 @@ class PredictionExample: public LWF::Prediction<FilterState,PredictionMeas,Predi
   }
 };
 
-class PredictAndUpdateExample: public LWF::Update<Innovation,FilterState,UpdateMeas,UpdateNoise,OutlierDetectionExample,PredictionExample,true>{
+class PredictAndUpdateExample: public LWF::Update<Innovation,FilterState,UpdateMeas,UpdateNoise,OutlierDetectionExample,true>{
  public:
-  using LWF::Update<Innovation,FilterState,UpdateMeas,UpdateNoise,OutlierDetectionExample,PredictionExample,true>::eval;
-  using mtState = LWF::Update<Innovation,FilterState,UpdateMeas,UpdateNoise,OutlierDetectionExample,PredictionExample,true>::mtState;
+  using LWF::Update<Innovation,FilterState,UpdateMeas,UpdateNoise,OutlierDetectionExample,true>::eval;
+  using mtState = LWF::Update<Innovation,FilterState,UpdateMeas,UpdateNoise,OutlierDetectionExample,true>::mtState;
   typedef UpdateMeas mtMeas;
   typedef UpdateNoise mtNoise;
   typedef Innovation mtInnovation;
@@ -214,7 +214,6 @@ class State: public LWF::State<LWF::TH_multiple_elements<LWF::VectorElement<3>,2
   };
   ~State(){};
 };
-class FilterState: public LWF::FilterStateNew<State,LWF::ModeEKF,false,false,true,false>{};
 class UpdateMeas: public LWF::State<LWF::ScalarElement,LWF::VectorElement<3>>{
  public:
   enum StateNames {
@@ -260,11 +259,12 @@ class PredictionMeas: public LWF::State<LWF::VectorElement<3>>{
 };
 class OutlierDetectionExample: public LWF::OutlierDetection<LWF::ODEntry<0,3,1>>{
 };
+class FilterState: public LWF::FilterStateNew<State,PredictionMeas,PredictionNoise,UpdateNoise::D_>{};
 
-class UpdateExample: public LWF::Update<Innovation,FilterState,UpdateMeas,UpdateNoise,OutlierDetectionExample,LWF::DummyPrediction,false>{
+class UpdateExample: public LWF::Update<Innovation,FilterState,UpdateMeas,UpdateNoise,OutlierDetectionExample,false>{
  public:
-  using LWF::Update<Innovation,FilterState,UpdateMeas,UpdateNoise,OutlierDetectionExample,LWF::DummyPrediction,false>::eval;
-  using mtState = LWF::Update<Innovation,FilterState,UpdateMeas,UpdateNoise,OutlierDetectionExample,LWF::DummyPrediction,false>::mtState;
+  using LWF::Update<Innovation,FilterState,UpdateMeas,UpdateNoise,OutlierDetectionExample,false>::eval;
+  using mtState = LWF::Update<Innovation,FilterState,UpdateMeas,UpdateNoise,OutlierDetectionExample,false>::mtState;
   typedef UpdateMeas mtMeas;
   typedef UpdateNoise mtNoise;
   typedef Innovation mtInnovation;
@@ -274,7 +274,7 @@ class UpdateExample: public LWF::Update<Innovation,FilterState,UpdateMeas,Update
     mtState linState = state;
     state.boxPlus(state.difVecLin_,linState);
     inn.get<Innovation::POS>() = linState.get<State::POS>()-meas.get<UpdateMeas::POS>()+noise.get<UpdateNoise::POS>();
-    inn.get<Innovation::HEI>() = Eigen::Vector3d(0,0,1).dot(linState.get<State::POS>())-meas.get<UpdateMeas::HEI>()+noise.get<UpdateNoise::HEI>();;
+    inn.get<Innovation::HEI>() = Eigen::Vector3d(0,0,1).dot(linState.get<State::POS>())-meas.get<UpdateMeas::HEI>()+noise.get<UpdateNoise::HEI>();
   }
   void jacInput(mtJacInput& J, const mtState& state, const mtMeas& meas, double dt = 0.0) const{
     mtInnovation inn;
@@ -290,10 +290,10 @@ class UpdateExample: public LWF::Update<Innovation,FilterState,UpdateMeas,Update
   }
 };
 
-class PredictionExample: public LWF::Prediction<FilterState,PredictionMeas,PredictionNoise>{
+class PredictionExample: public LWF::Prediction<FilterState>{
  public:
-  using LWF::Prediction<FilterState,PredictionMeas,PredictionNoise>::eval;
-  using mtState = LWF::Prediction<FilterState,PredictionMeas,PredictionNoise>::mtState;
+  using LWF::Prediction<FilterState>::eval;
+  using mtState = LWF::Prediction<FilterState>::mtState;
   typedef PredictionMeas mtMeas;
   typedef PredictionNoise mtNoise;
   PredictionExample(){};
@@ -314,18 +314,20 @@ class PredictionExample: public LWF::Prediction<FilterState,PredictionMeas,Predi
   }
 };
 
-class PredictAndUpdateExample: public LWF::Update<Innovation,FilterState,UpdateMeas,UpdateNoise,OutlierDetectionExample,PredictionExample,true>{
+class PredictAndUpdateExample: public LWF::Update<Innovation,FilterState,UpdateMeas,UpdateNoise,OutlierDetectionExample,true>{ // TODO: rename
  public:
-  using LWF::Update<Innovation,FilterState,UpdateMeas,UpdateNoise,OutlierDetectionExample,PredictionExample,true>::eval;
-  using mtState = LWF::Update<Innovation,FilterState,UpdateMeas,UpdateNoise,OutlierDetectionExample,PredictionExample,true>::mtState;
+  using LWF::Update<Innovation,FilterState,UpdateMeas,UpdateNoise,OutlierDetectionExample,true>::eval;
+  using mtState = LWF::Update<Innovation,FilterState,UpdateMeas,UpdateNoise,OutlierDetectionExample,true>::mtState;
   typedef UpdateMeas mtMeas;
   typedef UpdateNoise mtNoise;
   typedef Innovation mtInnovation;
   PredictAndUpdateExample(){};
   ~PredictAndUpdateExample(){};
   void eval(mtInnovation& inn, const mtState& state, const mtMeas& meas, const mtNoise noise, double dt = 0.0) const{
-    inn.get<Innovation::POS>() = state.get<State::POS>()-meas.get<UpdateMeas::POS>()+noise.get<UpdateNoise::POS>();
-    inn.get<Innovation::HEI>() = Eigen::Vector3d(0,0,1).dot(state.get<State::POS>())-meas.get<UpdateMeas::HEI>()+noise.get<UpdateNoise::HEI>();;
+    mtState linState = state;
+    state.boxPlus(state.difVecLin_,linState);
+    inn.get<Innovation::POS>() = linState.get<State::POS>()-meas.get<UpdateMeas::POS>()+noise.get<UpdateNoise::POS>();
+    inn.get<Innovation::HEI>() = Eigen::Vector3d(0,0,1).dot(linState.get<State::POS>())-meas.get<UpdateMeas::HEI>()+noise.get<UpdateNoise::HEI>();
   }
   void jacInput(mtJacInput& J, const mtState& state, const mtMeas& meas, double dt = 0.0) const{
     mtInnovation inn;

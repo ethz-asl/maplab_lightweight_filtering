@@ -15,6 +15,7 @@
 #include "PropertyHandler.hpp"
 #include <type_traits>
 #include <tuple>
+#include "SigmaPoints.hpp"
 
 namespace rot = kindr::rotations::eigen_impl;
 
@@ -787,63 +788,75 @@ static Eigen::Matrix3d Lmat (Eigen::Vector3d a) {
   return Eigen::Matrix3d::Identity()-factor1*ak+factor2*ak2;
 }
 
-enum FilteringMode{
-  ModeEKF,
-  ModeUKF
-};
-
-template<typename STATE,bool useUpdateLinearizationPoint> class UpdateLinearizationPoint{
-};
-
-template<typename STATE>
-class UpdateLinearizationPoint<STATE,true>{
- public:
-  typename STATE::mtDifVec difVecLin_;
-  UpdateLinearizationPoint(){
-    difVecLin_.setZero();
-  }
-};
-
-template<typename STATE,bool isCoupled> class CoupledQuantities{
-};
-
-template<typename STATE>
-class CoupledQuantities<STATE,true>{
- public:
-  CoupledQuantities(){}
-};
-
-template<typename STATE,bool useDynamicMatrix> class FilterCovMat{
-};
-
-template<typename STATE>
-class FilterCovMat<STATE,false>{
- public:
-  typedef typename STATE::mtCovMat mtFilterCovMat;
-  mtFilterCovMat cov_;
-};
-
-template<typename STATE>
-class FilterCovMat<STATE,true>{
- public:
-  typedef Eigen::MatrixXd mtFilterCovMat;
-  mtFilterCovMat cov_;
-};
-
-template<typename STATE,FilteringMode mode,bool isCoupled,bool usePredictionMerge,bool useUpdateLinearizationPoint,bool useDynamicMatrix>
-class FilterStateNew: public UpdateLinearizationPoint<STATE,useUpdateLinearizationPoint>,
-                      public CoupledQuantities<STATE,isCoupled>,
-                      public FilterCovMat<STATE,useDynamicMatrix>{ // TODO: rename
- public:
-  typedef STATE mtState;
-  mtState state_;
-  static constexpr FilteringMode mode_ = mode;
-  static constexpr bool isCoupled_ = isCoupled;
-  static constexpr bool usePredictionMerge_ = usePredictionMerge;
-  static constexpr bool useUpdateLinearizationPoint_ = useUpdateLinearizationPoint;
-  static constexpr bool useDynamicMatrix_ = useDynamicMatrix;
-  double t_;
-};
+//enum FilteringMode{
+//  ModeEKF,
+//  ModeUKF
+//};
+//
+//template<typename STATE,bool useUpdateLinearizationPoint> class UpdateLinearizationPoint{
+//};
+//
+//template<typename STATE>
+//class UpdateLinearizationPoint<STATE,true>{
+// public:
+//  typename STATE::mtDifVec difVecLin_;
+//  UpdateLinearizationPoint(){
+//    difVecLin_.setZero();
+//  }
+//};
+//
+//template<typename STATE,bool isCoupled,bool useDynamicMatrix, unsigned int dimPreNoise> class CoupledQuantities{
+//};
+//
+//template<typename STATE, unsigned int dimPreNoise>
+//class CoupledQuantities<STATE,true,true,dimPreNoise>{
+// public:
+//  typedef Eigen::MatrixXd mtJacNoiPrediction;
+//  mtJacNoiPrediction G_;
+//  CoupledQuantities(){}
+//};
+//
+//template<typename STATE, unsigned int dimPreNoise>
+//class CoupledQuantities<STATE,true,false,dimPreNoise>{
+// public:
+//  typedef Eigen::Matrix<double,STATE::D_,dimPreNoise> mtJacNoiPrediction;
+//  mtJacNoiPrediction G_;
+//  CoupledQuantities(){}
+//};
+//
+//template<typename STATE,bool useDynamicMatrix> class FilterCovMat{
+//};
+//
+//template<typename STATE>
+//class FilterCovMat<STATE,false>{
+// public:
+//  typedef typename STATE::mtCovMat mtFilterCovMat;
+//  mtFilterCovMat cov_;
+//};
+//
+//template<typename STATE>
+//class FilterCovMat<STATE,true>{
+// public:
+//  typedef Eigen::MatrixXd mtFilterCovMat;
+//  mtFilterCovMat cov_;
+//};
+//
+//template<typename STATE,FilteringMode mode,bool isCoupled,bool usePredictionMerge,bool useUpdateLinearizationPoint,bool useDynamicMatrix, unsigned int dimPreNoise>
+//class FilterStateNew: public UpdateLinearizationPoint<STATE,useUpdateLinearizationPoint>,
+//                      public CoupledQuantities<STATE,isCoupled,useDynamicMatrix,dimPreNoise>,
+//                      public FilterCovMat<STATE,useDynamicMatrix>{ // TODO: rename
+// public:
+//  typedef STATE mtState;
+//  mtState state_;
+//  static constexpr FilteringMode mode_ = mode;
+//  static constexpr bool isCoupled_ = isCoupled;
+//  static constexpr bool usePredictionMerge_ = usePredictionMerge;
+//  static constexpr bool useUpdateLinearizationPoint_ = useUpdateLinearizationPoint;
+//  static constexpr bool useDynamicMatrix_ = useDynamicMatrix;
+//  static constexpr unsigned int dimPreNoise_ = dimPreNoise;
+//  SigmaPoints<mtState,2*(mtState::D_+dimPreNoise)+1,2*(mtState::D_+dimPreNoise)+1,0> stateSigmaPointsPre_;
+//  double t_;
+//};
 
 }
 

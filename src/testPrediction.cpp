@@ -44,14 +44,7 @@ TYPED_TEST_CASE(PredictionModelTest, TestClasses);
 // Test constructors
 TYPED_TEST(PredictionModelTest, constructors) {
   typename TestFixture::mtPredictionExample testPrediction;
-  ASSERT_EQ(testPrediction.mode_,LWF::PredictionEKF);
   ASSERT_EQ((testPrediction.prenoiP_-TestFixture::mtPredictionExample::mtNoise::mtCovMat::Identity()*0.0001).norm(),0.0);
-  typename TestFixture::mtPredictionExample::mtNoise::mtDifVec dif;
-  typename TestFixture::mtPredictionExample::mtNoise noise;
-  noise.setIdentity();
-  testPrediction.stateSigmaPointsNoi_.getMean().boxMinus(noise,dif);
-  ASSERT_NEAR(dif.norm(),0.0,1e-6);
-  ASSERT_NEAR((testPrediction.prenoiP_-testPrediction.stateSigmaPointsNoi_.getCovarianceMatrix()).norm(),0.0,1e-8);
 }
 
 // Test finite difference Jacobians
@@ -160,7 +153,7 @@ TYPED_TEST(PredictionModelTest, predictMergedEKF) {
   this->testPrediction_.jacNoise(Fn,this->testState_,meanMeas,dt);
   typename TestFixture::mtPredictionExample::mtState::mtCovMat predictedCov = F*filterState1.cov_*F.transpose() + Fn*this->testPrediction_.prenoiP_*Fn.transpose();
   filterState1.state_ = this->testState_;
-  this->testPrediction_.predictMergedEKF(filterState1,0.0,this->measMap_.begin(),this->measMap_.size());
+  this->testPrediction_.predictMergedEKF(filterState1,this->measMap_.rbegin()->first,this->measMap_);
   filterState2.state_ = this->testState_;
   for(typename std::map<double,typename TestFixture::mtPredictionExample::mtMeas>::iterator it = this->measMap_.begin();it != this->measMap_.end();it++){
     this->testPrediction_.eval(filterState2.state_,filterState2.state_,it->second,it->first-t);
@@ -187,7 +180,10 @@ TYPED_TEST(PredictionModelTest, predictMergedEKF) {
 TYPED_TEST(PredictionModelTest, predictMergedUKF) {
   typename TestFixture::mtPredictionExample::mtFilterState filterState1;
   typename TestFixture::mtPredictionExample::mtFilterState filterState2;
+  filterState1.cov_.setIdentity();
   filterState2.cov_.setIdentity();
+  filterState1.state_ = this->testState_;
+  filterState2.state_ = this->testState_;
   double t = 0;
   double dt = this->measMap_.rbegin()->first-t;
 
@@ -202,28 +198,27 @@ TYPED_TEST(PredictionModelTest, predictMergedUKF) {
   vec = vec/this->measMap_.size();
   this->measMap_.begin()->second.boxPlus(vec,meanMeas);
 
-  this->testPrediction_.stateSigmaPoints_.computeFromGaussian(this->testState_,filterState2.cov_);
-  for(unsigned int i=0;i<this->testPrediction_.stateSigmaPoints_.L_;i++){
-    this->testPrediction_.eval(this->testPrediction_.stateSigmaPointsPre_(i),this->testPrediction_.stateSigmaPoints_(i),meanMeas,this->testPrediction_.stateSigmaPointsNoi_(i),dt);
+  filterState1.stateSigmaPoints_.computeFromGaussian(filterState1.state_,filterState1.cov_);
+  for(unsigned int i=0;i<filterState1.stateSigmaPoints_.L_;i++){
+    this->testPrediction_.eval(filterState1.stateSigmaPointsPre_(i),filterState1.stateSigmaPoints_(i),meanMeas,filterState1.stateSigmaPointsNoi_(i),dt);
   }
-  filterState1.state_ = this->testPrediction_.stateSigmaPointsPre_.getMean();
-  typename TestFixture::mtPredictionExample::mtState::mtCovMat predictedCov = this->testPrediction_.stateSigmaPointsPre_.getCovarianceMatrix(filterState1.state_);
-  filterState2.state_ = this->testState_;
-  this->testPrediction_.predictMergedUKF(filterState2,0.0,this->measMap_.begin(),this->measMap_.size());
+  filterState1.state_ = filterState1.stateSigmaPointsPre_.getMean();
+  filterState1.cov_ = filterState1.stateSigmaPointsPre_.getCovarianceMatrix(filterState1.state_);
+  this->testPrediction_.predictMergedUKF(filterState2,this->measMap_.rbegin()->first,this->measMap_);
   typename TestFixture::mtPredictionExample::mtState::mtDifVec dif;
   filterState1.state_.boxMinus(filterState2.state_,dif);
   switch(TestFixture::id_){
     case 0:
       ASSERT_NEAR(dif.norm(),0.0,1e-6);
-      ASSERT_NEAR((filterState2.cov_-predictedCov).norm(),0.0,1e-6);
+      ASSERT_NEAR((filterState2.cov_-filterState1.cov_).norm(),0.0,1e-6);
       break;
     case 1:
       ASSERT_NEAR(dif.norm(),0.0,1e-10);
-      ASSERT_NEAR((filterState2.cov_-predictedCov).norm(),0.0,1e-10);
+      ASSERT_NEAR((filterState2.cov_-filterState1.cov_).norm(),0.0,1e-10);
       break;
     default:
       ASSERT_NEAR(dif.norm(),0.0,1e-6);
-      ASSERT_NEAR((filterState2.cov_-predictedCov).norm(),0.0,1e-6);
+      ASSERT_NEAR((filterState2.cov_-filterState1.cov_).norm(),0.0,1e-6);
   };
 }
 

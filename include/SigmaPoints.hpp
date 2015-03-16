@@ -26,8 +26,10 @@ class SigmaPoints{
   double wc0_ = 1.0;
   double gamma_ = 1.0;
   mtState sigmaPoints_[N];
+  typename mtState::mtCovMat S_;
   SigmaPoints(){
     static_assert(N_+O_<=L_, "Bad dimensions for sigmapoints");
+    S_.setZero();
   };
   mtState getMean() const{
     typename mtState::mtDifVec vec;
@@ -77,6 +79,37 @@ class SigmaPoints{
     }
     return C;
   };
+  template<typename State2>
+  void extendZeroMeanGaussian(const SigmaPoints<State2,N_-2*mtState::D_,L_,O_>& sigmaPoints2, const typename mtState::mtCovMat& P, const Eigen::Matrix<double,State2::D_,mtState::D_>& Q){ // samples the last dimensions
+    Eigen::Matrix<double,mtState::D_,State2::D_> C = Q.transpose()*sigmaPoints2.S_.inverse();
+    Eigen::LDLT<typename mtState::mtCovMat> ldltOfP(P-Q.transpose()*sigmaPoints2.S_.transpose().inverse()*sigmaPoints2.S_.inverse()*Q);
+    typename mtState::mtCovMat ldltL = ldltOfP.matrixL();
+    typename mtState::mtCovMat ldltD = ldltOfP.vectorD().asDiagonal();
+    for(unsigned int i=0;i<mtState::D_;i++){
+      if(ldltD(i,i)>0){
+        ldltD(i,i) = std::sqrt(ldltD(i,i));
+      } else if(ldltD(i,i)==0) {
+        ldltD(i,i) = 0.0;
+        std::cout << "CAUTION: Covariance matrix is only positive SEMIdefinite" << std::endl;
+      } else {
+        ldltD(i,i) = 0.0;
+        std::cout << "ERROR: Covariance matrix is not positive semidefinite" << std::endl;
+      }
+    }
+    if(ldltOfP.info()==Eigen::NumericalIssue) std::cout << "Numerical issues while computing Cholesky Matrix" << std::endl;
+    S_ = ldltOfP.transpositionsP().transpose()*ldltL*ldltD;
+
+    sigmaPoints_[0].setIdentity();
+    int otherSize = (N_-2*mtState::D_-1)/2;
+    for(unsigned int i=0;i<otherSize;i++){
+      sigmaPoints_[0].boxPlus(C.col(i)*gamma_,sigmaPoints_[i+1]);
+      sigmaPoints_[0].boxPlus(-C.col(i)*gamma_,sigmaPoints_[i+1+otherSize]);
+    }
+    for(unsigned int i=0;i<mtState::D_;i++){
+      sigmaPoints_[0].boxPlus(S_.col(i)*gamma_,sigmaPoints_[2*otherSize+i+1]);
+      sigmaPoints_[0].boxPlus(-S_.col(i)*gamma_,sigmaPoints_[2*otherSize+i+1+mtState::D_]);
+    }
+  };
   void computeFromGaussian(const mtState mean, const typename mtState::mtCovMat &P){
     static_assert(N_==2*mtState::D_+1, "computeFromGaussian() requires matching sigmapoints size");
     Eigen::LDLT<typename mtState::mtCovMat> ldltOfP(P);
@@ -94,12 +127,12 @@ class SigmaPoints{
       }
     }
     if(ldltOfP.info()==Eigen::NumericalIssue) std::cout << "Numerical issues while computing Cholesky Matrix" << std::endl;
-    typename mtState::mtCovMat S = ldltOfP.transpositionsP().transpose()*ldltL*ldltD;
+    S_ = ldltOfP.transpositionsP().transpose()*ldltL*ldltD;
 
     sigmaPoints_[0] = mean;
     for(unsigned int i=0;i<mtState::D_;i++){
-      mean.boxPlus(S.col(i)*gamma_,sigmaPoints_[i+1]);
-      mean.boxPlus(-S.col(i)*gamma_,sigmaPoints_[i+1+mtState::D_]);
+      mean.boxPlus(S_.col(i)*gamma_,sigmaPoints_[i+1]);
+      mean.boxPlus(-S_.col(i)*gamma_,sigmaPoints_[i+1+mtState::D_]);
     }
   };
   void computeFromGaussian(const mtState mean, const typename mtState::mtCovMat &P, const typename mtState::mtCovMat &Q){
@@ -120,12 +153,12 @@ class SigmaPoints{
       }
     }
     if(ldltOfP.info()==Eigen::NumericalIssue) std::cout << "Numerical issues while computing Cholesky Matrix" << std::endl;
-    typename mtState::mtCovMat S = Q*ldltOfP.transpositionsP().transpose()*ldltL*ldltD;
+    S_ = Q*ldltOfP.transpositionsP().transpose()*ldltL*ldltD;
 
     sigmaPoints_[0] = mean;
     for(unsigned int i=0;i<mtState::D_;i++){
-      mean.boxPlus(S.col(i)*gamma_,sigmaPoints_[i+1]);
-      mean.boxPlus(-S.col(i)*gamma_,sigmaPoints_[i+1+mtState::D_]);
+      mean.boxPlus(S_.col(i)*gamma_,sigmaPoints_[i+1]);
+      mean.boxPlus(-S_.col(i)*gamma_,sigmaPoints_[i+1+mtState::D_]);
     }
   };
   void computeFromZeroMeanGaussian(const typename mtState::mtCovMat &P){
