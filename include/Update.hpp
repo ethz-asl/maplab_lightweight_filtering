@@ -200,7 +200,7 @@ class Update: public ModelBase<typename FilterState::mtState,Innovation,Meas,Noi
   typedef Noise mtNoise;
   typedef OutlierDetection mtOutlierDetection;
   static const bool coupledToPrediction_ = isCoupled;
-  bool useSpecialLinearizationPoint_;
+  bool useSpecialLinearizationPoint_; // TODO: clean (with state)
   typedef ModelBase<mtState,mtInnovation,mtMeas,mtNoise> mtModelBase;
   typename mtModelBase::mtJacInput H_;
   typename mtModelBase::mtJacNoise Hn_;
@@ -245,7 +245,6 @@ class Update: public ModelBase<typename FilterState::mtState,Innovation,Meas,Noi
     initUpdate();
     mtNoise n;
     n.registerCovarianceToPropertyHandler_(updnoiP_,this,"UpdateNoise.");
-//    if(isCoupled) doubleRegister_.registerMatrix("CorrelatedNoise",preupdnoiP_); // TODO: solve, for now has to be handled by user
     doubleRegister_.registerScalar("alpha",alpha_);
     doubleRegister_.registerScalar("beta",beta_);
     doubleRegister_.registerScalar("kappa",kappa_);

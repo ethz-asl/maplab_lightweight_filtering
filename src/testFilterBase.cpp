@@ -247,8 +247,9 @@ TYPED_TEST(FilterBaseTest, propertyHandler) {
 // Test updateSafe (Only for 1 update type (wait time set to zero for the other)), co-test getSafeTime() and setSafeWarningTime() and clean()
 TYPED_TEST(FilterBaseTest, updateSafe) {
   double safeTime = 0.0;
-  this->testFilter_.safeWarningTime_ = 0.1; // makes warning -> check
+  this->testFilter_.safeWarningTime_ = 0.1;
 
+  std::cout << "Should print warning (2):" << std::endl;
   this->testFilter_.addPredictionMeas(this->testPredictionMeas_,0.1);
   this->testFilter_.template addUpdateMeas<0>(this->testUpdateMeas_,0.1);
   ASSERT_TRUE(this->testFilter_.getSafeTime(safeTime));
@@ -258,7 +259,8 @@ TYPED_TEST(FilterBaseTest, updateSafe) {
   ASSERT_EQ(this->testFilter_.predictionTimeline_.measMap_.size(),0);
   ASSERT_EQ(std::get<0>(this->testFilter_.updateTimelineTuple_).measMap_.size(),0);
 
-  this->testFilter_.addPredictionMeas(this->testPredictionMeas_,0.1); // makes warning -> check
+  std::cout << "Should print warning (2):" << std::endl;
+  this->testFilter_.addPredictionMeas(this->testPredictionMeas_,0.1);
   this->testFilter_.template addUpdateMeas<0>(this->testUpdateMeas_,0.1);
   ASSERT_TRUE(!this->testFilter_.getSafeTime(safeTime));
   ASSERT_EQ(safeTime,0.1);
@@ -439,8 +441,7 @@ TYPED_TEST(FilterBaseTest, highlevel3) {
   this->testFilter_.template addUpdateMeas<0>(this->testUpdateMeas_,0.5);
     this->testFilter_.mPrediction_.performPredictionEKF(this->testFilterState_,this->testPredictionMeas_,0.1);
     std::get<0>(this->testFilter_.mUpdates_).performUpdateEKF(this->testFilterState_,this->testUpdateMeas_);
-    this->testFilter_.mPrediction_.predictMergedEKF(this->testFilterState_,0.4,this->testFilter_.predictionTimeline_.measMap_);
-    this->testFilter_.mPrediction_.performPredictionEKF(this->testFilterState_,this->testPredictionMeas_,0.1);
+    this->testFilter_.mPrediction_.predictMergedEKF(this->testFilterState_,0.5,this->testFilter_.predictionTimeline_.measMap_);
     std::get<0>(this->testFilter_.mUpdates_).performUpdateEKF(this->testFilterState_,this->testUpdateMeas_);
   this->testFilter_.updateSafe();
   // TestFilter2
@@ -461,8 +462,8 @@ TYPED_TEST(FilterBaseTest, highlevel3) {
   // Compare
   this->testFilter2_.safe_.state_.boxMinus(this->testFilter_.safe_.state_,this->difVec_);
   ASSERT_EQ(this->testFilter_.safe_.t_,this->testFilter2_.safe_.t_);
-//  ASSERT_NEAR(this->difVec_.norm(),0.0,1e-6);
-//  ASSERT_NEAR((this->testFilter2_.safe_.cov_-this->testFilter_.safe_.cov_).norm(),0.0,1e-6);
+  ASSERT_NEAR(this->difVec_.norm(),0.0,1e-6);
+  ASSERT_NEAR((this->testFilter2_.safe_.cov_-this->testFilter_.safe_.cov_).norm(),0.0,1e-6);
   this->testFilter_.safe_.state_.boxMinus(this->testFilterState_.state_,this->difVec_);
   ASSERT_NEAR(this->difVec_.norm(),0.0,1e-6);
   ASSERT_NEAR((this->testFilter_.safe_.cov_-this->testFilterState_.cov_).norm(),0.0,1e-6);

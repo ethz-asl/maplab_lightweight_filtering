@@ -96,9 +96,9 @@ class FilterBase: public PropertyHandler{
   FilterBase(){
     init_.state_.setIdentity();
     init_.cov_.setIdentity();
-    doubleRegister_.registerScalar("alpha",init_.alpha_);
-    doubleRegister_.registerScalar("beta",init_.beta_);
-    doubleRegister_.registerScalar("kappa",init_.kappa_);
+    mPrediction_.doubleRegister_.registerScalar("alpha",init_.alpha_);
+    mPrediction_.doubleRegister_.registerScalar("beta",init_.beta_);
+    mPrediction_.doubleRegister_.registerScalar("kappa",init_.kappa_);
     init_.state_.registerElementsToPropertyHandler(this,"Init.State.");
     init_.state_.registerCovarianceToPropertyHandler_(init_.cov_,this,"Init.Covariance.");
     registerSubHandler("Prediction",mPrediction_);
@@ -140,11 +140,17 @@ class FilterBase: public PropertyHandler{
   }
   bool getSafeTime(double& safeTime){
     double maxPredictionTime;
-    if(!predictionTimeline_.getLastTime(maxPredictionTime)) return false;
+    if(!predictionTimeline_.getLastTime(maxPredictionTime)){
+      safeTime = safe_.t_;
+      return false;
+    }
     safeTime = maxPredictionTime;
     // Check if we have to wait for update measurements
     checkUpdateWaitTime(maxPredictionTime,safeTime);
-    if(safeTime <= safe_.t_) return false;
+    if(safeTime <= safe_.t_){
+      safeTime = safe_.t_;
+      return false;
+    }
     return true;
   }
   template<unsigned int i=0, typename std::enable_if<(i<nUpdates_-1)>::type* = nullptr>
@@ -156,34 +162,16 @@ class FilterBase: public PropertyHandler{
   void checkUpdateWaitTime(double actualTime,double& time){
     std::get<i>(updateTimelineTuple_).waitTime(actualTime,time);
   }
-  void updateSafe(){
-    double nextSafeTime;
-    if(!getSafeTime(nextSafeTime)){
-      if(logCountDiagnostics_){
-        std::cout << "Performed safe Update with RegPre: 0, MerPre: 0, BadPre: 0, RegUpd: 0, ComUpd: 0" << std::endl;
-      }
-      return;
-    }
-    if(front_.t_<=nextSafeTime && !gotFrontWarning_ && front_.t_>safe_.t_){
-      safe_ = front_;
-    }
-    update(safe_,nextSafeTime);
-    clean(nextSafeTime);
-    safeWarningTime_ = nextSafeTime;
-    if(logCountDiagnostics_){
-      std::cout << "Performed safe Update with RegPre: " << logCountRegPre_ << ", MerPre: " << logCountMerPre_ << ", BadPre: " << logCountBadPre_ << ", RegUpd: " << logCountRegUpd_ << ", ComUpd: " << logCountComUpd_ << std::endl;
-    }
-  }
-  void updateSafe(const double& maxTime){ // TODO: cleanup (timing in general)
+  void updateSafe(const double* maxTime = nullptr){
     double nextSafeTime;
     bool gotSafeTime = getSafeTime(nextSafeTime);
-    if(!gotSafeTime || maxTime < safe_.t_){
+    if(!gotSafeTime || (maxTime != nullptr && *maxTime < safe_.t_)){
       if(logCountDiagnostics_){
         std::cout << "Performed safe Update with RegPre: 0, MerPre: 0, BadPre: 0, RegUpd: 0, ComUpd: 0" << std::endl;
       }
       return;
     }
-    if(nextSafeTime > maxTime) nextSafeTime = maxTime;
+    if(maxTime != nullptr && nextSafeTime > *maxTime) nextSafeTime = *maxTime;
     if(front_.t_<=nextSafeTime && !gotFrontWarning_ && front_.t_>safe_.t_){
       safe_ = front_;
     }
@@ -214,34 +202,18 @@ class FilterBase: public PropertyHandler{
       tNext = tEnd;
       getNextUpdate(filterState.t_,tNext);
       int r = 0;
-
-      predictionTimeline_.itMeas_ = predictionTimeline_.measMap_.lower_bound(tNext);
-      double tNextPreliminary;
-      if(predictionTimeline_.itMeas_ != predictionTimeline_.measMap_.begin() && !predictionTimeline_.measMap_.empty()){
-        tNextPreliminary = std::prev(predictionTimeline_.measMap_.lower_bound(tNext))->first;
-      } else {
-        tNextPreliminary = filterState.t_;
-      }
       if(filterState.usePredictionMerge_){
-        r = mPrediction_.predictMerged(filterState,tNextPreliminary,predictionTimeline_.measMap_);
+        r = mPrediction_.predictMerged(filterState,tNext,predictionTimeline_.measMap_);
         if(r!=0) std::cout << "Error during predictMerged: " << r << std::endl;
         logCountMerPre_++;
       } else {
-        while(filterState.t_ < tNextPreliminary){
-          predictionTimeline_.itMeas_ = predictionTimeline_.measMap_.upper_bound(filterState.t_);
-          r = mPrediction_.performPrediction(filterState,predictionTimeline_.itMeas_->second,predictionTimeline_.itMeas_->first-filterState.t_);
+        while(filterState.t_ < tNext && (predictionTimeline_.itMeas_ = predictionTimeline_.measMap_.upper_bound(filterState.t_)) != predictionTimeline_.measMap_.end()){
+          r = mPrediction_.performPrediction(filterState,predictionTimeline_.itMeas_->second,std::min(predictionTimeline_.itMeas_->first,tNext)-filterState.t_);
           if(r!=0) std::cout << "Error during performPrediction: " << r << std::endl;
           logCountRegPre_++;
         }
       }
-
-      // TODO: merge to top
-      predictionTimeline_.itMeas_ = predictionTimeline_.measMap_.upper_bound(filterState.t_); // Reset Iterator
-      if(predictionTimeline_.itMeas_ != predictionTimeline_.measMap_.end()){
-        r = mPrediction_.performPrediction(filterState,predictionTimeline_.itMeas_->second,tNext-filterState.t_);
-        if(r!=0) std::cout << "Error during performPrediction: " << r << std::endl;
-        logCountRegPre_++;
-      } else {
+      if(filterState.t_ < tNext){
         r = mPrediction_.performPrediction(filterState,tNext-filterState.t_);
         if(r!=0) std::cout << "Error during performPrediction: " << r << std::endl;
         logCountBadPre_++;
