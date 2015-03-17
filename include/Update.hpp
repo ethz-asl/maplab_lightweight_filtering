@@ -189,7 +189,7 @@ class OutlierDetection<ODEntry<S,D,0>>: public OutlierDetectionDefault{};
 
 template<typename Innovation, typename FilterState, typename Meas, typename Noise, typename OutlierDetection = OutlierDetectionDefault, bool isCoupled = false>
 class Update: public ModelBase<typename FilterState::mtState,Innovation,Meas,Noise>, public PropertyHandler{
- public: // TODO: remove unnecessary
+ public:
   static_assert(!isCoupled || Noise::D_ == FilterState::noiseExtensionDim_,"Noise Size for coupled Update must match noise extension of prediction!");
   typedef FilterState mtFilterState;
   typedef typename mtFilterState::mtState mtState;
@@ -201,7 +201,7 @@ class Update: public ModelBase<typename FilterState::mtState,Innovation,Meas,Noi
   typedef Noise mtNoise;
   typedef OutlierDetection mtOutlierDetection;
   static const bool coupledToPrediction_ = isCoupled;
-  bool useSpecialLinearizationPoint_; // TODO: clean (with state)
+  bool useSpecialLinearizationPoint_;
   typedef ModelBase<mtState,mtInnovation,mtMeas,mtNoise> mtModelBase;
   typename mtModelBase::mtJacInput H_;
   typename mtModelBase::mtJacNoise Hn_;
@@ -243,7 +243,10 @@ class Update: public ModelBase<typename FilterState::mtState,Innovation,Meas,Noi
     noiP_.setZero();
     preupdnoiP_ = Eigen::Matrix<double,mtPredictionNoise::D_,mtNoise::D_>::Zero();
     useSpecialLinearizationPoint_ = false;
-    initUpdate();
+    yIdentity_.setIdentity();
+    updateVec_.setIdentity();
+    refreshNoiseSigmaPoints();
+    refreshUKFParameter();
     mtNoise n;
     n.registerCovarianceToPropertyHandler_(updnoiP_,this,"UpdateNoise.");
     doubleRegister_.registerScalar("alpha",alpha_);
@@ -276,12 +279,6 @@ class Update: public ModelBase<typename FilterState::mtState,Innovation,Meas,Noi
   virtual void refreshPropertiesCustom(){}
   virtual void preProcess(mtFilterState& filterState, const mtMeas& meas){};
   virtual void postProcess(mtFilterState& filterState, const mtMeas& meas, mtOutlierDetection outlierDetection){};
-  void initUpdate(){
-    yIdentity_.setIdentity();
-    updateVec_.setIdentity();
-    refreshNoiseSigmaPoints();
-    refreshUKFParameter();
-  }
   virtual ~Update(){};
   int performUpdate(mtFilterState& filterState, const mtMeas& meas){
     switch(filterState.mode_){

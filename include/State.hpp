@@ -66,7 +66,7 @@ class AuxiliaryBase: public ElementBase<AuxiliaryBase<DERIVED>,DERIVED,0>{
   AuxiliaryBase(){}
   AuxiliaryBase(const AuxiliaryBase& other){}
   virtual ~AuxiliaryBase(){}
-  virtual void boxPlus(const mtDifVec& vecIn, AuxiliaryBase& stateOut) const{ // TODO: check boxplus on aux
+  virtual void boxPlus(const mtDifVec& vecIn, AuxiliaryBase& stateOut) const{
     static_cast<DERIVED&>(stateOut) = static_cast<const DERIVED&>(*this);
   }
   virtual void boxMinus(const AuxiliaryBase& stateIn, mtDifVec& vecOut) const{}
@@ -474,7 +474,7 @@ class State{
   inline void boxPlus_(const mtDifVec& vecIn, State<Elements...>& stateOut) const{
     if(std::tuple_element<i,decltype(mElements_)>::type::D_>0){
       std::get<i>(mElements_).boxPlus(vecIn.template block<std::tuple_element<i,decltype(mElements_)>::type::D_,1>(j,0),std::get<i>(stateOut.mElements_));
-    } else { // Required for auxiliary states // TODO: check boxplus on aux
+    } else { // Required for auxiliary states
       Eigen::Matrix<double,std::tuple_element<i,decltype(mElements_)>::type::D_,1> dummyVec;
       std::get<i>(mElements_).boxPlus(dummyVec,std::get<i>(stateOut.mElements_));
     }

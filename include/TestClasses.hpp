@@ -306,7 +306,7 @@ class PredictionExample: public LWF::Prediction<FilterState>{
   }
 };
 
-class PredictAndUpdateExample: public LWF::Update<Innovation,FilterState,UpdateMeas,UpdateNoise,OutlierDetectionExample,true>{ // TODO: rename
+class PredictAndUpdateExample: public LWF::Update<Innovation,FilterState,UpdateMeas,UpdateNoise,OutlierDetectionExample,true>{
  public:
   using LWF::Update<Innovation,FilterState,UpdateMeas,UpdateNoise,OutlierDetectionExample,true>::eval;
   using mtState = LWF::Update<Innovation,FilterState,UpdateMeas,UpdateNoise,OutlierDetectionExample,true>::mtState;
