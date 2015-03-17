@@ -238,7 +238,6 @@ TYPED_TEST(UpdateModelTest, compareUpdate) {
 TYPED_TEST(UpdateModelTest, performPredictionAndUpdateEKF) { // Only tested without cross-correlation
   typename TestFixture::mtUpdateExample::mtFilterState filterState1;
   typename TestFixture::mtUpdateExample::mtFilterState filterState2;
-//  filterState2.isCoupled_ = true; // TODO: change update
   filterState1.cov_ = TestFixture::mtUpdateExample::mtState::mtCovMat::Identity()*0.000001;
   filterState2.cov_ = filterState1.cov_;
   filterState1.state_ = this->testState_;

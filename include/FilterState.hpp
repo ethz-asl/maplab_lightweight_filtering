@@ -16,7 +16,8 @@ namespace LWF{
 
 enum FilteringMode{
   ModeEKF,
-  ModeUKF
+  ModeUKF,
+  ModeIEKF
 };
 
 template<typename State, typename PredictionMeas, typename PredictionNoise, unsigned int noiseExtensionDim = 0>
@@ -53,6 +54,10 @@ class FilterState{
     usePredictionMerge_ = false;
     useDynamicMatrix_ = false;
     t_ = 0.0;
+    state_.setIdentity();
+    cov_.setIdentity();
+    F_.setIdentity();
+    G_.setZero();
     prenoiP_ = mtPredictionNoise::mtCovMat::Identity()*0.0001;
     difVecLin_.setIdentity();
     refreshUKFParameter();

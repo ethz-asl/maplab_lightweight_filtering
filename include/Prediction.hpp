@@ -45,6 +45,8 @@ class Prediction: public ModelBase<typename FilterState::mtState,typename Filter
         return performPredictionEKF(filterState,meas,dt);
       case ModeUKF:
         return performPredictionUKF(filterState,meas,dt);
+      case ModeIEKF:
+        return performPredictionEKF(filterState,meas,dt);
       default:
         return performPredictionEKF(filterState,meas,dt);
     }
@@ -53,14 +55,7 @@ class Prediction: public ModelBase<typename FilterState::mtState,typename Filter
     mtMeas meas;
     meas.setIdentity();
     noMeasCase(filterState,meas,dt);
-    switch(filterState.mode_){
-      case ModeEKF:
-        return performPredictionEKF(filterState,meas,dt);
-      case ModeUKF:
-        return performPredictionUKF(filterState,meas,dt);
-      default:
-        return performPredictionEKF(filterState,meas,dt);
-    }
+    return performPrediction(filterState,meas,dt);
   }
   int performPredictionEKF(mtFilterState& filterState, const mtMeas& meas, double dt){
     preProcess(filterState,meas,dt);
@@ -97,6 +92,8 @@ class Prediction: public ModelBase<typename FilterState::mtState,typename Filter
         return predictMergedEKF(filterState,tTarget,measMap);
       case ModeUKF:
         return predictMergedUKF(filterState,tTarget,measMap);
+      case ModeIEKF:
+        return predictMergedEKF(filterState,tTarget,measMap);
       default:
         return predictMergedEKF(filterState,tTarget,measMap);
     }

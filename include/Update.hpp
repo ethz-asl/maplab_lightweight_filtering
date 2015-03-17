@@ -120,6 +120,8 @@ class Update: public ModelBase<typename FilterState::mtState,Innovation,Meas,Noi
         return performUpdateEKF(filterState,meas);
       case ModeUKF:
         return performUpdateUKF(filterState,meas);
+      case ModeIEKF:
+        return performUpdateIEKF(filterState,meas);
       default:
         return performUpdateEKF(filterState,meas);
     }
