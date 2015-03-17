@@ -84,7 +84,7 @@ class PredictionMeas: public LWF::State<LWF::TH_multiple_elements<LWF::VectorEle
 };
 class OutlierDetectionExample: public LWF::OutlierDetection<LWF::ODEntry<0,3,1>>{
 };
-class FilterState: public LWF::FilterStateNew<State,PredictionMeas,PredictionNoise,UpdateNoise::D_>{};
+class FilterState: public LWF::FilterState<State,PredictionMeas,PredictionNoise,UpdateNoise::D_>{};
 
 class UpdateExample: public LWF::Update<Innovation,FilterState,UpdateMeas,UpdateNoise,OutlierDetectionExample,false>{
  public:
@@ -253,7 +253,7 @@ class PredictionMeas: public LWF::State<LWF::VectorElement<3>>{
 };
 class OutlierDetectionExample: public LWF::OutlierDetection<LWF::ODEntry<0,3,1>>{
 };
-class FilterState: public LWF::FilterStateNew<State,PredictionMeas,PredictionNoise,UpdateNoise::D_>{};
+class FilterState: public LWF::FilterState<State,PredictionMeas,PredictionNoise,UpdateNoise::D_>{};
 
 class UpdateExample: public LWF::Update<Innovation,FilterState,UpdateMeas,UpdateNoise,OutlierDetectionExample,false>{
  public:
