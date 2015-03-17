@@ -35,7 +35,6 @@ class FilterStateNew{
   typedef Eigen::Matrix<double,State::D_,PredictionNoise::D_> mtJacNoiPrediction;
   FilteringMode mode_;
   bool usePredictionMerge_;
-  bool useUpdateLinearizationPoint_;
   bool useDynamicMatrix_;
   static constexpr unsigned int noiseExtensionDim_ = noiseExtensionDim;
   double t_;
@@ -47,6 +46,7 @@ class FilterStateNew{
   SigmaPoints<mtPredictionNoise,2*mtPredictionNoise::D_+1,2*(mtState::D_+mtPredictionNoise::D_+noiseExtensionDim)+1,2*mtState::D_> stateSigmaPointsNoi_;
   SigmaPoints<mtState,2*(mtState::D_+mtPredictionNoise::D_)+1,2*(mtState::D_+mtPredictionNoise::D_+noiseExtensionDim)+1,0> stateSigmaPointsPre_;
   typename mtPredictionNoise::mtCovMat prenoiP_; // automatic change tracking
+  typename mtState::mtDifVec difVecLin_;
   double alpha_;
   double beta_;
   double kappa_;
@@ -56,10 +56,10 @@ class FilterStateNew{
     kappa_ = 0.0;
     mode_ = ModeEKF;
     usePredictionMerge_ = false;
-    useUpdateLinearizationPoint_ = false;
     useDynamicMatrix_ = false;
     t_ = 0.0;
     prenoiP_ = mtPredictionNoise::mtCovMat::Identity()*0.0001;
+    difVecLin_.setIdentity();
     refreshUKFParameter();
   }
   void refreshUKFParameter(){
@@ -124,10 +124,10 @@ class Prediction: public ModelBase<typename FilterState::mtState,typename Filter
     this->jacNoise(filterState.G_,filterState.state_,meas,dt);
     this->eval(filterState.state_,filterState.state_,meas,dt);
     filterState.cov_ = filterState.F_*filterState.cov_*filterState.F_.transpose() + filterState.G_*prenoiP_*filterState.G_.transpose();
-    postProcess(filterState,meas,dt);
     filterState.state_.fix();
     filterState.cov_ = 0.5*(filterState.cov_+filterState.cov_.transpose()); // Enforce symmetry
     filterState.t_ += dt;
+    postProcess(filterState,meas,dt);
     return 0;
   }
   int performPredictionUKF(mtFilterState& filterState, const mtMeas& meas, double dt){
@@ -142,9 +142,9 @@ class Prediction: public ModelBase<typename FilterState::mtState,typename Filter
     // Calculate mean and variance
     filterState.state_ = filterState.stateSigmaPointsPre_.getMean();
     filterState.cov_ = filterState.stateSigmaPointsPre_.getCovarianceMatrix(filterState.state_);
-    postProcess(filterState,meas,dt);
     filterState.state_.fix();
     filterState.t_ += dt;
+    postProcess(filterState,meas,dt);
     return 0;
   }
   int predictMerged(mtFilterState& filterState, double tTarget, const std::map<double,mtMeas>& measMap){
@@ -186,10 +186,10 @@ class Prediction: public ModelBase<typename FilterState::mtState,typename Filter
       filterState.t_ = itMeas->first;
     }
     filterState.cov_ = filterState.F_*filterState.cov_*filterState.F_.transpose() + filterState.G_*prenoiP_*filterState.G_.transpose();
-    postProcess(filterState,meanMeas,dT);
     filterState.state_.fix();
     filterState.cov_ = 0.5*(filterState.cov_+filterState.cov_.transpose()); // Enforce symmetry
     filterState.t_ = std::prev(itMeasEnd)->first;
+    postProcess(filterState,meanMeas,dT);
     return 0;
   }
   virtual int predictMergedUKF(mtFilterState& filterState, double tTarget, const std::map<double,mtMeas>& measMap){
@@ -223,9 +223,9 @@ class Prediction: public ModelBase<typename FilterState::mtState,typename Filter
     }
     filterState.state_ = filterState.stateSigmaPointsPre_.getMean();
     filterState.cov_ = filterState.stateSigmaPointsPre_.getCovarianceMatrix(filterState.state_);
-    postProcess(filterState,meanMeas,dT);
     filterState.state_.fix();
     filterState.t_ = std::prev(itMeasEnd)->first;
+    postProcess(filterState,meanMeas,dT);
     return 0;
   }
 };

@@ -215,7 +215,7 @@ class Update: public ModelBase<typename FilterState::mtState,Innovation,Meas,Noi
   typename mtInnovation::mtDifVec innVector_;
   mtInnovation yIdentity_;
   typename mtState::mtDifVec updateVec_;
-  typename mtState::mtDifVec difVecLin_;
+  mtState linState_;
   double updateVecNorm_;
   Eigen::Matrix<double,mtState::D_,mtInnovation::D_> K_;
   Eigen::Matrix<double,mtInnovation::D_,mtState::D_> Pyx_;
@@ -295,9 +295,16 @@ class Update: public ModelBase<typename FilterState::mtState,Innovation,Meas,Noi
   }
   int performUpdateEKF(mtFilterState& filterState, const mtMeas& meas){
     preProcess(filterState,meas);
-    this->jacInput(H_,filterState.state_,meas);
-    this->jacNoise(Hn_,filterState.state_,meas);
-    this->eval(y_,filterState.state_,meas);
+    if(!useSpecialLinearizationPoint_){
+      this->jacInput(H_,filterState.state_,meas);
+      this->jacNoise(Hn_,filterState.state_,meas);
+      this->eval(y_,filterState.state_,meas);
+    } else {
+      filterState.state_.boxPlus(filterState.difVecLin_,linState_);
+      this->jacInput(H_,linState_,meas);
+      this->jacNoise(Hn_,linState_,meas);
+      this->eval(y_,linState_,meas);
+    }
 
     if(isCoupled){
       C_ = filterState.G_*preupdnoiP_*Hn_.transpose();
@@ -307,7 +314,7 @@ class Update: public ModelBase<typename FilterState::mtState,Innovation,Meas,Noi
     }
     y_.boxMinus(yIdentity_,innVector_);
 
-    // Outlier detection
+    // Outlier detection // TODO: adapt for special linearization point
     outlierDetection_.doOutlierDetection(innVector_,Py_,H_);
     Pyinv_.setIdentity();
     Py_.llt().solveInPlace(Pyinv_);
@@ -322,13 +329,13 @@ class Update: public ModelBase<typename FilterState::mtState,Innovation,Meas,Noi
     if(!useSpecialLinearizationPoint_){
       updateVec_ = -K_*innVector_;
     } else {
-      updateVec_ = -K_*(innVector_-H_*filterState.state_.difVecLin_); // includes correction for offseted linearization point
+      updateVec_ = -K_*(innVector_-H_*filterState.difVecLin_); // includes correction for offseted linearization point
     }
     filterState.state_.boxPlus(updateVec_,filterState.state_);
     postProcess(filterState,meas,outlierDetection_);
     return 0;
   }
-  int performUpdateIEKF(mtFilterState& filterState, const mtMeas& meas){ // TODO: handle coupled
+  int performUpdateIEKF(mtFilterState& filterState, const mtMeas& meas){
     preProcess(filterState,meas);
     mtState linState = filterState.state_;
     updateVecNorm_ = updateVecNormTermination_;
@@ -337,8 +344,12 @@ class Update: public ModelBase<typename FilterState::mtState,Innovation,Meas,Noi
       this->jacNoise(Hn_,linState,meas);
       this->eval(y_,linState,meas);
 
-      // Update
-      Py_ = H_*filterState.cov_*H_.transpose() + Hn_*updnoiP_*Hn_.transpose();
+      if(isCoupled){
+        C_ = filterState.G_*preupdnoiP_*Hn_.transpose();
+        Py_ = H_*filterState.cov_*H_.transpose() + Hn_*updnoiP_*Hn_.transpose() + H_*C_ + C_.transpose()*H_.transpose();
+      } else {
+        Py_ = H_*filterState.cov_*H_.transpose() + Hn_*updnoiP_*Hn_.transpose();
+      }
       y_.boxMinus(yIdentity_,innVector_);
 
       // Outlier detection
@@ -347,9 +358,13 @@ class Update: public ModelBase<typename FilterState::mtState,Innovation,Meas,Noi
       Py_.llt().solveInPlace(Pyinv_);
 
       // Kalman Update
-      K_ = filterState.cov_*H_.transpose()*Pyinv_;
-      linState.boxMinus(filterState.state_,difVecLin_);
-      updateVec_ = -K_*(innVector_-H_*difVecLin_); // includes correction for offseted linearization point
+      if(isCoupled){
+        K_ = (filterState.cov_*H_.transpose()+C_)*Pyinv_;
+      } else {
+        K_ = filterState.cov_*H_.transpose()*Pyinv_;
+      }
+      linState.boxMinus(filterState.state_,filterState.difVecLin_);
+      updateVec_ = -K_*(innVector_-H_*filterState.difVecLin_); // includes correction for offseted linearization point
       filterState.state_.boxPlus(updateVec_,linState);
       updateVecNorm_ = updateVec_.norm();
     }

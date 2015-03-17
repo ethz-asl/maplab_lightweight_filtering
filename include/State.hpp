@@ -462,17 +462,13 @@ class State{
   typedef Eigen::Matrix<double,D_,1> mtDifVec;
   typedef Eigen::Matrix<double,D_,D_> mtCovMat;
   t mElements_;
-  mtDifVec difVecLin_;
   State(){
     createDefaultNames();
-    difVecLin_.setZero();
   }
   State(const State<Elements...>& other): mElements_(other.mElements_){
-    difVecLin_ = other.difVecLin_;
   }
   void boxPlus(const mtDifVec& vecIn, State<Elements...>& stateOut) const{
     boxPlus_(vecIn,stateOut);
-    stateOut.difVecLin_ = difVecLin_; // TODO: -vecIn
   }
   template<unsigned int i=0,unsigned int j=0,typename std::enable_if<(i<E_)>::type* = nullptr>
   inline void boxPlus_(const mtDifVec& vecIn, State<Elements...>& stateOut) const{

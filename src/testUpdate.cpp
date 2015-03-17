@@ -434,7 +434,7 @@ TYPED_TEST(UpdateModelTest, performUpdateLEKF1) {
   filterState2.cov_ = filterState1.cov_;
   filterState1.state_ = this->testState_;
   filterState2.state_ = this->testState_;
-  linState.boxMinus(filterState1.state_,filterState1.state_.difVecLin_);
+  linState.boxMinus(filterState1.state_,filterState1.difVecLin_);
   this->testUpdate_.useSpecialLinearizationPoint_ = true;
   this->testUpdate_.performUpdateEKF(filterState1,this->testUpdateMeas_);
   this->testUpdate_.useSpecialLinearizationPoint_ = false;
@@ -468,7 +468,7 @@ TYPED_TEST(UpdateModelTest, performUpdateLEKF2) {
   filterState2.cov_ = filterState1.cov_;
   filterState1.state_ = this->testState_;
   filterState2.state_ = this->testState_;
-  linState.boxMinus(filterState1.state_,filterState1.state_.difVecLin_);
+  linState.boxMinus(filterState1.state_,filterState1.difVecLin_);
   this->testUpdate_.useSpecialLinearizationPoint_ = true;
   this->testUpdate_.performUpdateEKF(filterState1,this->testUpdateMeas_);
   this->testUpdate_.useSpecialLinearizationPoint_ = false;
@@ -527,7 +527,7 @@ TYPED_TEST(UpdateModelTest, performUpdateLEKF3) {
   updateVec = -K*(innVector-H*difVecLin);
   filterState.state_.boxPlus(updateVec,stateUpdated);
 
-  linState.boxMinus(filterState.state_,filterState.state_.difVecLin_);
+  linState.boxMinus(filterState.state_,filterState.difVecLin_);
   this->testUpdate_.useSpecialLinearizationPoint_ = true;
   this->testUpdate_.performUpdateEKF(filterState,this->testUpdateMeas_);
   this->testUpdate_.useSpecialLinearizationPoint_ = false;
