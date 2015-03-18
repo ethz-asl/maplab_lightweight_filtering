@@ -5,8 +5,8 @@
  *      Author: Bloeschm
  */
 
-#ifndef UPDATEMODEL_HPP_
-#define UPDATEMODEL_HPP_
+#ifndef LWF_UPDATEMODEL_HPP_
+#define LWF_UPDATEMODEL_HPP_
 
 #include <Eigen/Dense>
 #include <iostream>
@@ -264,4 +264,4 @@ class Update: public ModelBase<typename FilterState::mtState,Innovation,Meas,Noi
 
 }
 
-#endif /* UPDATEMODEL_HPP_ */
+#endif /* LWF_UPDATEMODEL_HPP_ */

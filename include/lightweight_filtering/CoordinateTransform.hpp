@@ -5,8 +5,8 @@
  *      Author: Bloeschm
  */
 
-#ifndef CoordinateTransform_HPP_
-#define CoordinateTransform_HPP_
+#ifndef LWF_CoordinateTransform_HPP_
+#define LWF_CoordinateTransform_HPP_
 
 #include <Eigen/Dense>
 #include "lightweight_filtering/ModelBase.hpp"
@@ -45,4 +45,4 @@ class CoordinateTransform: public ModelBase<Input,Output,Input,Input,useDynamicM
 
 }
 
-#endif /* CoordinateTransform_HPP_ */
+#endif /* LWF_CoordinateTransform_HPP_ */

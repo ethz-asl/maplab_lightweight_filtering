@@ -5,8 +5,8 @@
  *      Author: Bloeschm
  */
 
-#ifndef PropertyHandler_HPP_
-#define PropertyHandler_HPP_
+#ifndef LWF_PropertyHandler_HPP_
+#define LWF_PropertyHandler_HPP_
 
 #include <Eigen/Dense>
 #include "kindr/rotations/RotationEigen.hpp"
@@ -175,4 +175,4 @@ class PropertyHandler{
 
 }
 
-#endif /* PropertyHandler_HPP_ */
+#endif /* LWF_PropertyHandler_HPP_ */

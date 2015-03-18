@@ -5,8 +5,8 @@
  *      Author: Bloeschm
  */
 
-#ifndef SIGMAPOINTS_HPP_
-#define SIGMAPOINTS_HPP_
+#ifndef LWF_SIGMAPOINTS_HPP_
+#define LWF_SIGMAPOINTS_HPP_
 
 #include "lightweight_filtering/State.hpp"
 #include <Eigen/Dense>
@@ -199,4 +199,4 @@ class SigmaPoints{
 
 }
 
-#endif /* SIGMAPOINTS_HPP_ */
+#endif /* LWF_SIGMAPOINTS_HPP_ */

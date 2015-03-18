@@ -5,8 +5,8 @@
  *      Author: Bloeschm
  */
 
-#ifndef ModelBase_HPP_
-#define ModelBase_HPP_
+#ifndef LWF_ModelBase_HPP_
+#define LWF_ModelBase_HPP_
 
 #include <Eigen/Dense>
 #include <iostream>
@@ -123,4 +123,4 @@ class ModelBase{
 
 }
 
-#endif /* ModelBase_HPP_ */
+#endif /* LWF_ModelBase_HPP_ */

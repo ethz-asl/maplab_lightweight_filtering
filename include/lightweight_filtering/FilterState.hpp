@@ -5,8 +5,8 @@
  *      Author: Bloeschm
  */
 
-#ifndef FILTERSTATE_HPP_
-#define FILTERSTATE_HPP_
+#ifndef LWF_FILTERSTATE_HPP_
+#define LWF_FILTERSTATE_HPP_
 
 #include <Eigen/Dense>
 #include <iostream>
@@ -78,4 +78,4 @@ class FilterState{
 
 }
 
-#endif /* FILTERSTATE_HPP_ */
+#endif /* LWF_FILTERSTATE_HPP_ */

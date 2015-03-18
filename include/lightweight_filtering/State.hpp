@@ -5,8 +5,8 @@
  *      Author: Bloeschm
  */
 
-#ifndef STATE_HPP_
-#define STATE_HPP_
+#ifndef LWF_STATE_HPP_
+#define LWF_STATE_HPP_
 
 #include <Eigen/Dense>
 #include <iostream>
@@ -675,4 +675,4 @@ static Eigen::Matrix3d Lmat (Eigen::Vector3d a) {
 
 }
 
-#endif /* STATE_HPP_ */
+#endif /* LWF_STATE_HPP_ */

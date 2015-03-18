@@ -5,8 +5,8 @@
  *      Author: Bloeschm
  */
 
-#ifndef OUTLIERDETECTION_HPP_
-#define OUTLIERDETECTION_HPP_
+#ifndef LWF_OUTLIERDETECTION_HPP_
+#define LWF_OUTLIERDETECTION_HPP_
 
 #include <Eigen/Dense>
 #include "lightweight_filtering/PropertyHandler.hpp"
@@ -166,4 +166,4 @@ class OutlierDetection<ODEntry<S,D,0>>: public OutlierDetectionDefault{};
 
 }
 
-#endif /* OUTLIERDETECTION_HPP_ */
+#endif /* LWF_OUTLIERDETECTION_HPP_ */

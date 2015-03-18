@@ -5,8 +5,8 @@
  *      Author: Bloeschm
  */
 
-#ifndef FilterBase_HPP_
-#define FilterBase_HPP_
+#ifndef LWF_FilterBase_HPP_
+#define LWF_FilterBase_HPP_
 
 #include <Eigen/Dense>
 #include <iostream>
@@ -260,4 +260,4 @@ class FilterBase: public PropertyHandler{
 
 }
 
-#endif /* FilterBase_HPP_ */
+#endif /* LWF_FilterBase_HPP_ */

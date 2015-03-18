@@ -5,8 +5,8 @@
  *      Author: Bloeschm
  */
 
-#ifndef PREDICTIONMODEL_HPP_
-#define PREDICTIONMODEL_HPP_
+#ifndef LWF_PREDICTIONMODEL_HPP_
+#define LWF_PREDICTIONMODEL_HPP_
 
 #include <Eigen/Dense>
 #include <iostream>
@@ -174,4 +174,4 @@ class Prediction: public ModelBase<typename FilterState::mtState,typename Filter
 
 }
 
-#endif /* PREDICTIONMODEL_HPP_ */
+#endif /* LWF_PREDICTIONMODEL_HPP_ */

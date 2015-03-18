@@ -5,8 +5,8 @@
  *      Author: Bloeschm
  */
 
-#ifndef TestClasses_HPP_
-#define TestClasses_HPP_
+#ifndef LWF_TestClasses_HPP_
+#define LWF_TestClasses_HPP_
 
 #include "lightweight_filtering/State.hpp"
 #include "lightweight_filtering/Update.hpp"
@@ -387,4 +387,4 @@ class LinearTest{
 
 }
 
-#endif /* TestClasses_HPP_ */
+#endif /* LWF_TestClasses_HPP_ */
