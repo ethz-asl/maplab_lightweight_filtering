@@ -19,6 +19,37 @@ namespace rot = kindr::rotations::eigen_impl;
 
 namespace LWF{
 
+template<int nRow, int nCol, bool isDynamic = false>
+class LWFMatrix;
+
+template<int nRow, int nCol>
+class LWFMatrix<nRow,nCol,true>: public Eigen::MatrixXd{
+ public:
+  LWFMatrix():Eigen::MatrixXd(nRow,nCol){}
+  typedef Eigen::MatrixXd Base;
+  template<typename OtherDerived>
+  LWFMatrix(const Eigen::MatrixBase<OtherDerived>& other): Eigen::MatrixXd(other){}
+  template<typename OtherDerived>
+  LWFMatrix & operator= (const Eigen::MatrixBase <OtherDerived>& other){
+    this->Base::operator=(other);
+    return *this;
+  }
+};
+
+template<int nRow, int nCol>
+class LWFMatrix<nRow,nCol,false>: public Eigen::Matrix<double,nRow,nCol>{
+ public:
+  LWFMatrix(){}
+  typedef Eigen::Matrix<double,nRow,nCol> Base;
+  template<typename OtherDerived>
+  LWFMatrix(const Eigen::MatrixBase<OtherDerived>& other): Eigen::Matrix<double,nRow,nCol>(other){}
+  template<typename OtherDerived>
+  LWFMatrix & operator= (const Eigen::MatrixBase <OtherDerived>& other){
+    this->Base::operator=(other);
+    return *this;
+  }
+};
+
 template<typename DERIVED, typename GET, unsigned int D, unsigned int E = D>
 class ElementBase{
  public:
@@ -48,8 +79,8 @@ class ElementBase{
   virtual mtGet& get(unsigned int i) = 0;
   virtual const mtGet& get(unsigned int i) const = 0;
   virtual void registerElementToPropertyHandler(PropertyHandler* mpPropertyHandler, const std::string& str) = 0;
-  template<int N,int j>
-  void registerCovarianceToPropertyHandler(Eigen::Matrix<double,N,N>& cov, PropertyHandler* mpPropertyHandler, const std::string& str){
+  template<int N,int j,bool useDynamicMatrix>
+  void registerCovarianceToPropertyHandler(LWFMatrix<N,N,useDynamicMatrix>& cov, PropertyHandler* mpPropertyHandler, const std::string& str){
     assert(j+D_<=N);
     for(unsigned int i=0;i<DERIVED::D_;i++){
       mpPropertyHandler->doubleRegister_.registerScalar(str + name_ + "_" + std::to_string(i), cov(j+i,j+i));
@@ -546,16 +577,17 @@ class State{
   }
   template<unsigned int i=0,typename std::enable_if<(i>=E_)>::type* = nullptr>
   inline void registerElementsToPropertyHandler_(PropertyHandler* mtPropertyHandler, const std::string& str){}
-  void registerCovarianceToPropertyHandler(Eigen::Matrix<double,D_,D_>& cov, PropertyHandler* mpPropertyHandler, const std::string& str){
-    registerCovarianceToPropertyHandler_(cov,mpPropertyHandler,str);
+  template<bool useDynamicMatrix>
+  void registerCovarianceToPropertyHandler(LWFMatrix<D_,D_,useDynamicMatrix>& cov, PropertyHandler* mpPropertyHandler, const std::string& str){
+    registerCovarianceToPropertyHandler_<useDynamicMatrix>(cov,mpPropertyHandler,str);
   }
-  template<unsigned int i=0,unsigned int j=0,typename std::enable_if<(i<E_)>::type* = nullptr>
-  inline void registerCovarianceToPropertyHandler_(Eigen::Matrix<double,D_,D_>& cov, PropertyHandler* mpPropertyHandler, const std::string& str){
-    std::get<i>(mElements_).template registerCovarianceToPropertyHandler<D_,j>(cov,mpPropertyHandler,str);
-    registerCovarianceToPropertyHandler_<i+1,j+std::tuple_element<i,decltype(mElements_)>::type::D_>(cov,mpPropertyHandler,str);
+  template<bool useDynamicMatrix, unsigned int i=0,unsigned int j=0,typename std::enable_if<(i<E_)>::type* = nullptr>
+  inline void registerCovarianceToPropertyHandler_(LWFMatrix<D_,D_,useDynamicMatrix>& cov, PropertyHandler* mpPropertyHandler, const std::string& str){
+    std::get<i>(mElements_).template registerCovarianceToPropertyHandler<D_,j,useDynamicMatrix>(cov,mpPropertyHandler,str);
+    registerCovarianceToPropertyHandler_<useDynamicMatrix,i+1,j+std::tuple_element<i,decltype(mElements_)>::type::D_>(cov,mpPropertyHandler,str);
   }
-  template<unsigned int i=0,unsigned int j=0,typename std::enable_if<(i>=E_)>::type* = nullptr>
-  inline void registerCovarianceToPropertyHandler_(Eigen::Matrix<double,D_,D_>& cov, PropertyHandler* mpPropertyHandler, const std::string& str){}
+  template<bool useDynamicMatrix, unsigned int i=0,unsigned int j=0,typename std::enable_if<(i>=E_)>::type* = nullptr>
+  inline void registerCovarianceToPropertyHandler_(LWFMatrix<D_,D_,useDynamicMatrix>& cov, PropertyHandler* mpPropertyHandler, const std::string& str){}
   void createDefaultNames(const std::string& str = "def"){
     createDefaultNames_(str);
   }

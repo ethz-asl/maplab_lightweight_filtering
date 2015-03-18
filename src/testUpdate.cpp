@@ -103,7 +103,7 @@ TYPED_TEST(UpdateModelTest, performUpdateEKF) {
   // Update
   typename TestFixture::mtUpdateExample::mtInnovation::mtCovMat Py = H*filterState.cov_*H.transpose() + Hn*this->testUpdate_.updnoiP_*Hn.transpose();
   y.boxMinus(yIdentity,innVector);
-  typename TestFixture::mtUpdateExample::mtInnovation::mtCovMat Pyinv = Py.inverse();
+  typename TestFixture::mtUpdateExample::mtInnovation::mtCovMat Pyinv = typename TestFixture::mtUpdateExample::mtInnovation::mtCovMat::Base(Py.inverse());
 
   // Kalman Update
   Eigen::Matrix<double,TestFixture::mtUpdateExample::mtState::D_,TestFixture::mtUpdateExample::mtInnovation::D_> K = filterState.cov_*H.transpose()*Pyinv;
@@ -156,7 +156,7 @@ TYPED_TEST(UpdateModelTest, updateEKFWithOutlier) {
   Py.block(0,0,3,TestFixture::mtUpdateExample::mtInnovation::D_).setZero();
   Py.block(0,0,3,3).setIdentity();
   H.block(0,0,3,TestFixture::mtUpdateExample::mtState::D_).setZero();
-  typename TestFixture::mtUpdateExample::mtInnovation::mtCovMat Pyinv = Py.inverse();
+  typename TestFixture::mtUpdateExample::mtInnovation::mtCovMat Pyinv = typename TestFixture::mtUpdateExample::mtInnovation::mtCovMat::Base(Py.inverse());
 
   // Kalman Update
   Eigen::Matrix<double,TestFixture::mtUpdateExample::mtState::D_,TestFixture::mtUpdateExample::mtInnovation::D_> K = filterState.cov_*H.transpose()*Pyinv;
@@ -515,7 +515,7 @@ TYPED_TEST(UpdateModelTest, performUpdateLEKF3) {
   // Update
   typename TestFixture::mtUpdateExample::mtInnovation::mtCovMat Py = H*filterState.cov_*H.transpose() + Hn*this->testUpdate_.updnoiP_*Hn.transpose();
   y.boxMinus(yIdentity,innVector);
-  typename TestFixture::mtUpdateExample::mtInnovation::mtCovMat Pyinv = Py.inverse();
+  typename TestFixture::mtUpdateExample::mtInnovation::mtCovMat Pyinv = typename TestFixture::mtUpdateExample::mtInnovation::mtCovMat::Base(Py.inverse());
 
   // Kalman Update
   Eigen::Matrix<double,TestFixture::mtUpdateExample::mtState::D_,TestFixture::mtUpdateExample::mtInnovation::D_> K = filterState.cov_*H.transpose()*Pyinv;
@@ -610,7 +610,7 @@ TYPED_TEST(UpdateModelTest, performUpdateIEKF2) {
     // Update
     Py = H*filterState.cov_*H.transpose() + Hn*this->testUpdate_.updnoiP_*Hn.transpose();
     y.boxMinus(yIdentity,innVector);
-    Pyinv = Py.inverse();
+    Pyinv = typename TestFixture::mtUpdateExample::mtInnovation::mtCovMat::Base(Py.inverse());
 
     // Kalman Update
     K = filterState.cov_*H.transpose()*Pyinv;

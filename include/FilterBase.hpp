@@ -12,8 +12,6 @@
 #include <iostream>
 #include "PropertyHandler.hpp"
 #include <map>
-#include <boost/property_tree/ptree.hpp>
-#include <boost/property_tree/info_parser.hpp>
 #include <tuple>
 
 namespace LWF{
@@ -73,7 +71,6 @@ class FilterBase: public PropertyHandler{
  public:
   typedef Prediction mtPrediction;
   typedef typename mtPrediction::mtState mtState;
-  typedef typename mtState::mtCovMat mtCovMat;
   static const unsigned int D_ = mtState::D_;
   static const unsigned int nUpdates_ = sizeof...(Updates);
   typedef typename mtPrediction::mtFilterState mtFilterState;

@@ -10,37 +10,18 @@
 
 #include <Eigen/Dense>
 #include <iostream>
-#include "kindr/rotations/RotationEigen.hpp"
 
 namespace LWF{
 
-template<typename Input, typename Output, typename Noise,bool useDynamicMatrix>
-class ModelBaseMat{
-};
-
-template<typename Input, typename Output, typename Noise>
-class ModelBaseMat<Input,Output,Noise,false>{
- public:
-  typedef Eigen::Matrix<double,Output::D_,Input::D_> mtJacInput;
-  typedef Eigen::Matrix<double,Output::D_,Noise::D_> mtJacNoise;
-};
-
-template<typename Input, typename Output, typename Noise>
-class ModelBaseMat<Input,Output,Noise,true>{
- public:
-  typedef Eigen::MatrixXd mtJacInput;
-  typedef Eigen::MatrixXd mtJacNoise;
-};
-
 template<typename Input, typename Output, typename Meas, typename Noise,bool useDynamicMatrix = false>
-class ModelBase: public ModelBaseMat<Input,Output,Noise,useDynamicMatrix>{
+class ModelBase{
  public:
   typedef Input mtInput;
   typedef Output mtOutput;
   typedef Meas mtMeas;
   typedef Noise mtNoise;
-  using typename ModelBaseMat<Input,Output,Noise,useDynamicMatrix>::mtJacInput;
-  using typename ModelBaseMat<Input,Output,Noise,useDynamicMatrix>::mtJacNoise;
+  typedef LWFMatrix<Output::D_,Input::D_,useDynamicMatrix> mtJacInput;
+  typedef LWFMatrix<Output::D_,Noise::D_,useDynamicMatrix> mtJacNoise;
   ModelBase(){};
   virtual ~ModelBase(){};
   virtual void eval(mtOutput& output, const mtInput& input, const mtMeas& meas, double dt = 0.0) const{
@@ -62,7 +43,7 @@ class ModelBase: public ModelBaseMat<Input,Output,Noise,useDynamicMatrix>{
     mtOutput outputReference;
     mtOutput outputDisturbed;
     eval(outputReference,input,meas,dt);
-    typename mtInput::mtCovMat I;
+    LWFMatrix<mtInput::D_,mtInput::D_,useDynamicMatrix> I;
     typename mtOutput::mtDifVec dif;
     I.setIdentity();
     for(unsigned int i=0;i<mtInput::D_;i++){
@@ -80,7 +61,7 @@ class ModelBase: public ModelBaseMat<Input,Output,Noise,useDynamicMatrix>{
     mtOutput outputReference;
     mtOutput outputDisturbed;
     eval(outputReference,input,meas,noise,dt);
-    typename mtNoise::mtCovMat I;
+    LWFMatrix<mtNoise::D_,mtNoise::D_,useDynamicMatrix> I;
     typename mtOutput::mtDifVec dif;
     I.setIdentity();
     for(unsigned int i=0;i<mtNoise::D_;i++){

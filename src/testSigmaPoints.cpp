@@ -40,7 +40,7 @@ class SigmaPointTest : public ::testing::Test {
       }
     }
     Eigen::ColPivHouseholderQR<mtCovMat> qr(Qmat_);
-    Qmat_ = qr.householderQ();
+    Qmat_ = mtCovMat(qr.householderQ());
   }
   ~SigmaPointTest() {
   }

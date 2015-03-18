@@ -13,16 +13,16 @@
 #include "kindr/rotations/RotationEigen.hpp"
 #include "ModelBase.hpp"
 #include "State.hpp"
+#include "FilterState.hpp"
 #include "PropertyHandler.hpp"
 #include "SigmaPoints.hpp"
-#include "Prediction.hpp"
 #include "OutlierDetection.hpp"
 #include <type_traits>
 
 namespace LWF{
 
 template<typename Innovation, typename FilterState, typename Meas, typename Noise, typename OutlierDetection = OutlierDetectionDefault, bool isCoupled = false>
-class Update: public ModelBase<typename FilterState::mtState,Innovation,Meas,Noise>, public PropertyHandler{
+class Update: public ModelBase<typename FilterState::mtState,Innovation,Meas,Noise,FilterState::useDynamicMatrix_>, public PropertyHandler{
  public:
   static_assert(!isCoupled || Noise::D_ == FilterState::noiseExtensionDim_,"Noise Size for coupled Update must match noise extension of prediction!");
   typedef FilterState mtFilterState;
@@ -36,31 +36,31 @@ class Update: public ModelBase<typename FilterState::mtState,Innovation,Meas,Noi
   typedef OutlierDetection mtOutlierDetection;
   static const bool coupledToPrediction_ = isCoupled;
   bool useSpecialLinearizationPoint_;
-  typedef ModelBase<mtState,mtInnovation,mtMeas,mtNoise> mtModelBase;
+  typedef ModelBase<mtState,mtInnovation,mtMeas,mtNoise,mtFilterState::useDynamicMatrix_> mtModelBase;
   typename mtModelBase::mtJacInput H_;
   typename mtModelBase::mtJacNoise Hn_;
-  typename mtNoise::mtCovMat updnoiP_;
-  Eigen::Matrix<double,mtPredictionNoise::D_,mtNoise::D_> preupdnoiP_;
-  Eigen::Matrix<double,mtNoise::D_,mtNoise::D_> noiP_;
-  Eigen::Matrix<double,mtState::D_,mtInnovation::D_> C_;
+  LWFMatrix<mtNoise::D_,mtNoise::D_,mtFilterState::useDynamicMatrix_> updnoiP_;
+  LWFMatrix<mtNoise::D_,mtNoise::D_,mtFilterState::useDynamicMatrix_> noiP_;
+  LWFMatrix<mtPredictionNoise::D_,mtNoise::D_,mtFilterState::useDynamicMatrix_> preupdnoiP_;
+  LWFMatrix<mtState::D_,mtInnovation::D_,mtFilterState::useDynamicMatrix_> C_;
   mtInnovation y_;
-  typename mtInnovation::mtCovMat Py_;
-  typename mtInnovation::mtCovMat Pyinv_;
+  LWFMatrix<mtInnovation::D_,mtInnovation::D_,mtFilterState::useDynamicMatrix_> Py_;
+  LWFMatrix<mtInnovation::D_,mtInnovation::D_,mtFilterState::useDynamicMatrix_> Pyinv_;
   typename mtInnovation::mtDifVec innVector_;
   mtInnovation yIdentity_;
   typename mtState::mtDifVec updateVec_;
   mtState linState_;
   double updateVecNorm_;
-  Eigen::Matrix<double,mtState::D_,mtInnovation::D_> K_;
-  Eigen::Matrix<double,mtInnovation::D_,mtState::D_> Pyx_;
+  LWFMatrix<mtState::D_,mtInnovation::D_,mtFilterState::useDynamicMatrix_> K_;
+  LWFMatrix<mtInnovation::D_,mtState::D_,mtFilterState::useDynamicMatrix_> Pyx_;
 
-  SigmaPoints<mtState,2*mtState::D_+1,2*(mtState::D_+mtNoise::D_)+1,0> stateSigmaPoints_;
-  SigmaPoints<mtNoise,2*mtNoise::D_+1,2*(mtState::D_+mtNoise::D_)+1,2*mtState::D_> stateSigmaPointsNoi_;
-  SigmaPoints<mtInnovation,2*(mtState::D_+mtNoise::D_)+1,2*(mtState::D_+mtNoise::D_)+1,0> innSigmaPoints_;
-  SigmaPoints<mtNoise,2*(mtNoise::D_+mtPredictionNoise::D_)+1,2*(mtState::D_+mtNoise::D_+mtPredictionNoise::D_)+1,2*(mtState::D_)> coupledStateSigmaPointsNoi_;
-  SigmaPoints<mtInnovation,2*(mtState::D_+mtNoise::D_+mtPredictionNoise::D_)+1,2*(mtState::D_+mtNoise::D_+mtPredictionNoise::D_)+1,0> coupledInnSigmaPoints_;
-  SigmaPoints<LWF::VectorElement<mtState::D_>,2*mtState::D_+1,2*mtState::D_+1,0> updateVecSP_;
-  SigmaPoints<mtState,2*mtState::D_+1,2*mtState::D_+1,0> posterior_;
+  SigmaPoints<mtState,2*mtState::D_+1,2*(mtState::D_+mtNoise::D_)+1,0,mtFilterState::useDynamicMatrix_> stateSigmaPoints_;
+  SigmaPoints<mtNoise,2*mtNoise::D_+1,2*(mtState::D_+mtNoise::D_)+1,2*mtState::D_,mtFilterState::useDynamicMatrix_> stateSigmaPointsNoi_;
+  SigmaPoints<mtInnovation,2*(mtState::D_+mtNoise::D_)+1,2*(mtState::D_+mtNoise::D_)+1,0,mtFilterState::useDynamicMatrix_> innSigmaPoints_;
+  SigmaPoints<mtNoise,2*(mtNoise::D_+mtPredictionNoise::D_)+1,2*(mtState::D_+mtNoise::D_+mtPredictionNoise::D_)+1,2*(mtState::D_),mtFilterState::useDynamicMatrix_> coupledStateSigmaPointsNoi_;
+  SigmaPoints<mtInnovation,2*(mtState::D_+mtNoise::D_+mtPredictionNoise::D_)+1,2*(mtState::D_+mtNoise::D_+mtPredictionNoise::D_)+1,0,mtFilterState::useDynamicMatrix_> coupledInnSigmaPoints_;
+  SigmaPoints<LWF::VectorElement<mtState::D_>,2*mtState::D_+1,2*mtState::D_+1,0,mtFilterState::useDynamicMatrix_> updateVecSP_;
+  SigmaPoints<mtState,2*mtState::D_+1,2*mtState::D_+1,0,mtFilterState::useDynamicMatrix_> posterior_;
   double alpha_;
   double beta_;
   double kappa_;
@@ -73,9 +73,10 @@ class Update: public ModelBase<typename FilterState::mtState,Innovation,Meas,Noi
     kappa_ = 0.0;
     updateVecNormTermination_ = 1e-6;
     maxNumIteration_  = 10;
-    updnoiP_ = mtNoise::mtCovMat::Identity()*0.0001;
+    updnoiP_.setIdentity();
+    updnoiP_ *= 0.0001;
     noiP_.setZero();
-    preupdnoiP_ = Eigen::Matrix<double,mtPredictionNoise::D_,mtNoise::D_>::Zero();
+    preupdnoiP_.setZero();
     useSpecialLinearizationPoint_ = false;
     yIdentity_.setIdentity();
     updateVec_.setIdentity();

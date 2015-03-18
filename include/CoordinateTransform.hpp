@@ -9,26 +9,26 @@
 #define CoordinateTransform_HPP_
 
 #include <Eigen/Dense>
-#include <iostream>
-#include "kindr/rotations/RotationEigen.hpp"
 #include "ModelBase.hpp"
 #include "State.hpp"
 
 namespace LWF{
 
-template<typename Input, typename Output>
-class CoordinateTransform: public ModelBase<Input,Output,Input,Input>{
+template<typename Input, typename Output, bool useDynamicMatrix = false>
+class CoordinateTransform: public ModelBase<Input,Output,Input,Input,useDynamicMatrix>{
  public:
-  typedef ModelBase<Input,Output,Input,Input> Base;
+  typedef ModelBase<Input,Output,Input,Input,useDynamicMatrix> Base;
   using Base::eval;
   using Base::jacInput;
   typedef Input mtInput;
-  typedef typename Input::mtCovMat mtInputCovMat;
+  typedef LWFMatrix<mtInput::D_,mtInput::D_,useDynamicMatrix> mtInputCovMat;
   typedef Output mtOutput;
-  typedef typename Output::mtCovMat mtOutputCovMat;
+  typedef LWFMatrix<mtOutput::D_,mtOutput::D_,useDynamicMatrix> mtOutputCovMat;
   typedef typename Base::mtJacInput mtJacInput;
   mtJacInput J_;
   mtOutputCovMat outputCov_;
+  CoordinateTransform(){};
+  virtual ~CoordinateTransform(){};
   mtOutput transformState(mtInput& input) const{
     mtOutput output;
     eval(output, input, input);

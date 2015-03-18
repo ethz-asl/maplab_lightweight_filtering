@@ -21,7 +21,7 @@
 namespace LWF{
 
 template<typename FilterState>
-class Prediction: public ModelBase<typename FilterState::mtState,typename FilterState::mtState,typename FilterState::mtPredictionMeas,typename FilterState::mtPredictionNoise>, public PropertyHandler{
+class Prediction: public ModelBase<typename FilterState::mtState,typename FilterState::mtState,typename FilterState::mtPredictionMeas,typename FilterState::mtPredictionNoise,FilterState::useDynamicMatrix_>, public PropertyHandler{
  public:
   typedef FilterState mtFilterState;
   typedef typename mtFilterState::mtState mtState;
@@ -29,9 +29,10 @@ class Prediction: public ModelBase<typename FilterState::mtState,typename Filter
   typedef typename mtFilterState::mtPredictionMeas mtMeas;
   typedef typename mtFilterState::mtPredictionNoise mtNoise;
   typedef ModelBase<mtState,mtState,mtMeas,mtNoise> mtModelBase;
-  typename mtNoise::mtCovMat prenoiP_;
+  LWFMatrix<mtNoise::D_,mtNoise::D_,mtFilterState::useDynamicMatrix_> prenoiP_;
   Prediction(){
-    prenoiP_ = mtNoise::mtCovMat::Identity()*0.0001;
+    prenoiP_.setIdentity();
+    prenoiP_ *= 0.0001;
     mtNoise n;
     n.registerCovarianceToPropertyHandler_(prenoiP_,this,"PredictionNoise.");
   };

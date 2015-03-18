@@ -34,8 +34,8 @@ class OutlierDetectionBase{
     outlierCount_ = 0;
   }
   virtual ~OutlierDetectionBase(){};
-  template<int E>
-  void check(const Eigen::Matrix<double,E,1>& innVector,const Eigen::Matrix<double,E,E>& Py){
+  template<int E,bool useDynamicMatrix>
+  void check(const Eigen::Matrix<double,E,1>& innVector,const LWFMatrix<E,E,useDynamicMatrix>& Py){
     const double d = ((innVector.block(S_,0,D_,1)).transpose()*Py.block(S_,S_,D_,D_).inverse()*innVector.block(S_,0,D_,1))(0,0);
     outlier_ = d > mahalanobisTh_;
     if(outlier_){
@@ -64,8 +64,8 @@ class OutlierDetectionConcat: public OutlierDetectionBase<S,D>{
   using OutlierDetectionBase<S,D>::outlierCount_;
   using OutlierDetectionBase<S,D>::check;
   T sub_;
-  template<int dI, int dS>
-  void doOutlierDetection(const Eigen::Matrix<double,dI,1>& innVector,Eigen::Matrix<double,dI,dI>& Py,Eigen::Matrix<double,dI,dS>& H){
+  template<int dI, int dS,bool useDynamicMatrix>
+  void doOutlierDetection(const Eigen::Matrix<double,dI,1>& innVector,LWFMatrix<dI,dI,useDynamicMatrix>& Py,LWFMatrix<dI,dS,useDynamicMatrix>& H){
     static_assert(dI>=S+D,"Outlier detection out of range");
     check(innVector,Py);
     sub_.doOutlierDetection(innVector,Py,H);
@@ -123,8 +123,8 @@ class OutlierDetectionDefault: public OutlierDetectionBase<0,0>{
  public:
   using OutlierDetectionBase<0,0>::mahalanobisTh_;
   using OutlierDetectionBase<0,0>::outlierCount_;
-  template<int dI, int dS>
-  void doOutlierDetection(const Eigen::Matrix<double,dI,1>& innVector,Eigen::Matrix<double,dI,dI>& Py,Eigen::Matrix<double,dI,dS>& H){
+  template<int dI, int dS,bool useDynamicMatrix>
+  void doOutlierDetection(const Eigen::Matrix<double,dI,1>& innVector,LWFMatrix<dI,dI,useDynamicMatrix>& Py,LWFMatrix<dI,dS,useDynamicMatrix>& H){
   }
   void registerToPropertyHandler(PropertyHandler* mpPropertyHandler, const std::string& str, unsigned int i = 0){
   }
