@@ -67,6 +67,7 @@ class Update: public ModelBase<typename FilterState::mtState,Innovation,Meas,Noi
   double updateVecNormTermination_;
   int maxNumIteration_;
   mtOutlierDetection outlierDetection_;
+  unsigned int numSequences;
   Update(){
     alpha_ = 1e-3;
     beta_ = 2.0;
@@ -90,6 +91,7 @@ class Update: public ModelBase<typename FilterState::mtState,Innovation,Meas,Noi
     doubleRegister_.registerScalar("updateVecNormTermination",updateVecNormTermination_);
     intRegister_.registerScalar("maxNumIteration",maxNumIteration_);
     outlierDetection_.setEnabledAll(false);
+    numSequences = 1;
   };
   void refreshNoiseSigmaPoints(){
     if(noiP_ != updnoiP_){
@@ -112,23 +114,34 @@ class Update: public ModelBase<typename FilterState::mtState,Innovation,Meas,Noi
     refreshUKFParameter();
   }
   virtual void refreshPropertiesCustom(){}
-  virtual void preProcess(mtFilterState& filterState, const mtMeas& meas){};
-  virtual void postProcess(mtFilterState& filterState, const mtMeas& meas, mtOutlierDetection outlierDetection){};
+  virtual void preProcess(mtFilterState& filterState, const mtMeas& meas, const int s = 0){};
+  virtual void postProcess(mtFilterState& filterState, const mtMeas& meas, mtOutlierDetection outlierDetection, const int s = 0){};
   virtual ~Update(){};
   int performUpdate(mtFilterState& filterState, const mtMeas& meas){
-    switch(filterState.mode_){
-      case ModeEKF:
-        return performUpdateEKF(filterState,meas);
-      case ModeUKF:
-        return performUpdateUKF(filterState,meas);
-      case ModeIEKF:
-        return performUpdateIEKF(filterState,meas);
-      default:
-        return performUpdateEKF(filterState,meas);
+    int s = 0;
+    int r = 0;
+    while(s<numSequences){
+      preProcess(filterState,meas,s);
+      switch(filterState.mode_){
+        case ModeEKF:
+          r = performUpdateEKF(filterState,meas);
+          break;
+        case ModeUKF:
+          r = performUpdateUKF(filterState,meas);
+          break;
+        case ModeIEKF:
+          r = performUpdateIEKF(filterState,meas);
+          break;
+        default:
+          r = performUpdateEKF(filterState,meas);
+          break;
+      }
+      postProcess(filterState,meas,outlierDetection_,s);
+      s++;
     }
+    return r;
   }
   int performUpdateEKF(mtFilterState& filterState, const mtMeas& meas){
-    preProcess(filterState,meas);
     if(!useSpecialLinearizationPoint_){
       this->jacInput(H_,filterState.state_,meas);
       this->jacNoise(Hn_,filterState.state_,meas);
@@ -166,11 +179,9 @@ class Update: public ModelBase<typename FilterState::mtState,Innovation,Meas,Noi
       updateVec_ = -K_*(innVector_-H_*filterState.difVecLin_); // includes correction for offseted linearization point
     }
     filterState.state_.boxPlus(updateVec_,filterState.state_);
-    postProcess(filterState,meas,outlierDetection_);
     return 0;
   }
   int performUpdateIEKF(mtFilterState& filterState, const mtMeas& meas){
-    preProcess(filterState,meas);
     mtState linState = filterState.state_;
     updateVecNorm_ = updateVecNormTermination_;
     for(unsigned int i=0;i<maxNumIteration_ & updateVecNorm_>=updateVecNormTermination_;i++){
@@ -204,11 +215,9 @@ class Update: public ModelBase<typename FilterState::mtState,Innovation,Meas,Noi
     }
     filterState.state_ = linState;
     filterState.cov_ = filterState.cov_ - K_*Py_*K_.transpose();
-    postProcess(filterState,meas,outlierDetection_);
     return 0;
   }
   int performUpdateUKF(mtFilterState& filterState, const mtMeas& meas){
-    preProcess(filterState,meas);
     handleUpdateSigmaPoints<isCoupled>(filterState,meas);
     y_.boxMinus(yIdentity_,innVector_);
 
@@ -228,7 +237,6 @@ class Update: public ModelBase<typename FilterState::mtState,Innovation,Meas,Noi
     }
     filterState.state_ = posterior_.getMean();
     filterState.cov_ = posterior_.getCovarianceMatrix(filterState.state_);
-    postProcess(filterState,meas,outlierDetection_);
     return 0;
   }
   template<bool IC = isCoupled, typename std::enable_if<(IC)>::type* = nullptr>
