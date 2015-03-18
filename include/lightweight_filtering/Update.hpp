@@ -11,12 +11,12 @@
 #include <Eigen/Dense>
 #include <iostream>
 #include "kindr/rotations/RotationEigen.hpp"
-#include "ModelBase.hpp"
-#include "State.hpp"
-#include "FilterState.hpp"
-#include "PropertyHandler.hpp"
-#include "SigmaPoints.hpp"
-#include "OutlierDetection.hpp"
+#include "lightweight_filtering/ModelBase.hpp"
+#include "lightweight_filtering/State.hpp"
+#include "lightweight_filtering/FilterState.hpp"
+#include "lightweight_filtering/PropertyHandler.hpp"
+#include "lightweight_filtering/SigmaPoints.hpp"
+#include "lightweight_filtering/OutlierDetection.hpp"
 #include <type_traits>
 
 namespace LWF{

@@ -1,5 +1,5 @@
-#include "SigmaPoints.hpp"
-#include "State.hpp"
+#include "lightweight_filtering/SigmaPoints.hpp"
+#include "lightweight_filtering/State.hpp"
 #include "gtest/gtest.h"
 #include <assert.h>
 

@@ -9,8 +9,8 @@
 #define CoordinateTransform_HPP_
 
 #include <Eigen/Dense>
-#include "ModelBase.hpp"
-#include "State.hpp"
+#include "lightweight_filtering/ModelBase.hpp"
+#include "lightweight_filtering/State.hpp"
 
 namespace LWF{
 

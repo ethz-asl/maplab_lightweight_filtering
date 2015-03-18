@@ -11,7 +11,7 @@
 #include <Eigen/Dense>
 #include <iostream>
 #include "kindr/rotations/RotationEigen.hpp"
-#include "PropertyHandler.hpp"
+#include "lightweight_filtering/PropertyHandler.hpp"
 #include <type_traits>
 #include <tuple>
 

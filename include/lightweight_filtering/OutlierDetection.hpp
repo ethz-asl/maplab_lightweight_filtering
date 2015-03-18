@@ -9,7 +9,7 @@
 #define OUTLIERDETECTION_HPP_
 
 #include <Eigen/Dense>
-#include "PropertyHandler.hpp"
+#include "lightweight_filtering/PropertyHandler.hpp"
 
 namespace LWF{
 

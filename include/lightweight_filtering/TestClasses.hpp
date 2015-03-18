@@ -8,9 +8,9 @@
 #ifndef TestClasses_HPP_
 #define TestClasses_HPP_
 
-#include "State.hpp"
-#include "Update.hpp"
-#include "Prediction.hpp"
+#include "lightweight_filtering/State.hpp"
+#include "lightweight_filtering/Update.hpp"
+#include "lightweight_filtering/Prediction.hpp"
 
 namespace LWFTest{
 

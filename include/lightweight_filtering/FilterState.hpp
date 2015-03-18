@@ -10,7 +10,7 @@
 
 #include <Eigen/Dense>
 #include <iostream>
-#include "SigmaPoints.hpp"
+#include "lightweight_filtering/SigmaPoints.hpp"
 
 namespace LWF{
 

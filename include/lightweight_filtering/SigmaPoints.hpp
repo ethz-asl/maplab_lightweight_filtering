@@ -8,7 +8,7 @@
 #ifndef SIGMAPOINTS_HPP_
 #define SIGMAPOINTS_HPP_
 
-#include "State.hpp"
+#include "lightweight_filtering/State.hpp"
 #include <Eigen/Dense>
 #include <iostream>
 #include <vector>

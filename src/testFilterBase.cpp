@@ -1,5 +1,5 @@
-#include "TestClasses.hpp"
-#include "FilterBase.hpp"
+#include "lightweight_filtering/TestClasses.hpp"
+#include "lightweight_filtering/FilterBase.hpp"
 #include "gtest/gtest.h"
 #include <assert.h>
 

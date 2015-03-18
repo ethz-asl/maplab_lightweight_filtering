@@ -10,7 +10,7 @@
 
 #include <Eigen/Dense>
 #include <iostream>
-#include "PropertyHandler.hpp"
+#include "lightweight_filtering/PropertyHandler.hpp"
 #include <map>
 #include <tuple>
 
