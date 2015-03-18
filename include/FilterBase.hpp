@@ -20,18 +20,20 @@ template<typename Meas>
 class MeasurementTimeline{
  public:
   typedef Meas mtMeas;
-  MeasurementTimeline(){
-    maxWaitTime_ = 0.1;
-  };
-  virtual ~MeasurementTimeline(){};
   std::map<double,mtMeas> measMap_;
   typename std::map<double,mtMeas>::iterator itMeas_;
   double maxWaitTime_;
+  double minWaitTime_;
+  MeasurementTimeline(){
+    maxWaitTime_ = 0.1;
+    minWaitTime_ = 0.0;
+  };
+  virtual ~MeasurementTimeline(){};
   void addMeas(const mtMeas& meas, const double& t){
     measMap_[t] = meas;
   }
   void clean(double t){
-    while(!measMap_.empty() && measMap_.begin()->first<=t){
+    while(measMap_.size() > 1 && measMap_.begin()->first<=t){
       measMap_.erase(measMap_.begin());
     }
   }
@@ -46,8 +48,8 @@ class MeasurementTimeline{
   }
   void waitTime(double actualTime, double& time){
     double measurementTime = actualTime-maxWaitTime_;
-    if(!measMap_.empty() && measMap_.rbegin()->first > measurementTime){
-      measurementTime = measMap_.rbegin()->first;
+    if(!measMap_.empty() && measMap_.rbegin()->first + minWaitTime_ > measurementTime){
+      measurementTime = measMap_.rbegin()->first + minWaitTime_;
     }
     if(time > measurementTime){
       time = measurementTime;

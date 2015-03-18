@@ -256,8 +256,8 @@ TYPED_TEST(FilterBaseTest, updateSafe) {
   ASSERT_EQ(safeTime,0.1);
   this->testFilter_.updateSafe();
   ASSERT_EQ(this->testFilter_.safe_.t_,0.1);
-  ASSERT_EQ(this->testFilter_.predictionTimeline_.measMap_.size(),0);
-  ASSERT_EQ(std::get<0>(this->testFilter_.updateTimelineTuple_).measMap_.size(),0);
+  ASSERT_EQ(this->testFilter_.predictionTimeline_.measMap_.size(),1);
+  ASSERT_EQ(std::get<0>(this->testFilter_.updateTimelineTuple_).measMap_.size(),1);
 
   std::cout << "Should print warning (2):" << std::endl;
   this->testFilter_.addPredictionMeas(this->testPredictionMeas_,0.1);
@@ -284,15 +284,15 @@ TYPED_TEST(FilterBaseTest, updateSafe) {
   this->testFilter_.updateSafe();
   ASSERT_EQ(this->testFilter_.safe_.t_,0.2);
   ASSERT_EQ(this->testFilter_.predictionTimeline_.measMap_.size(),1);
-  ASSERT_EQ(std::get<0>(this->testFilter_.updateTimelineTuple_).measMap_.size(),0);
+  ASSERT_EQ(std::get<0>(this->testFilter_.updateTimelineTuple_).measMap_.size(),1);
 
   this->testFilter_.template addUpdateMeas<0>(this->testUpdateMeas_,0.3);
   ASSERT_TRUE(this->testFilter_.getSafeTime(safeTime));
   ASSERT_EQ(safeTime,0.3);
   this->testFilter_.updateSafe();
   ASSERT_EQ(this->testFilter_.safe_.t_,0.3);
-  ASSERT_EQ(this->testFilter_.predictionTimeline_.measMap_.size(),0);
-  ASSERT_EQ(std::get<0>(this->testFilter_.updateTimelineTuple_).measMap_.size(),0);
+  ASSERT_EQ(this->testFilter_.predictionTimeline_.measMap_.size(),1);
+  ASSERT_EQ(std::get<0>(this->testFilter_.updateTimelineTuple_).measMap_.size(),1);
 }
 
 // Test updateFront
