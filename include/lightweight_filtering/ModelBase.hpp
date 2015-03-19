@@ -88,12 +88,15 @@ class ModelBase{
   }
   void testJacInput(const mtInput& input, const mtMeas& meas, double d = 1e-6,double th = 1e-6,double dt = 0.1){
     mtJacInput F,F_FD;
+    mtOutput output;
     typename mtJacInput::Index maxRow, maxCol = 0;
     jacInput(F,input,meas,dt);
     jacInputFD(F_FD,input,meas,dt,d);
     const double r = (F-F_FD).array().abs().maxCoeff(&maxRow, &maxCol);
     if(r>th){
-      std::cout << "==== Model jacInput Test failed: " << r << " is larger than " << th << " at (" << maxRow << "," << maxCol << ") ====" << std::endl;
+      unsigned int outputId = mtOutput::getElementId(maxRow);
+      unsigned int inputId = mtInput::getElementId(maxCol);
+      std::cout << "==== Model jacInput Test failed: " << r << " is larger than " << th << " at row " << maxRow << "("<< output.getName(outputId) << ") and col " << maxCol << "("<< input.getName(inputId) << ") ====" << std::endl;
       std::cout << "  " << F(maxRow,maxCol) << "  " << F_FD(maxRow,maxCol) << std::endl;
     } else {
       std::cout << "==== Test successful (" << r << ") ====" << std::endl;
@@ -101,12 +104,16 @@ class ModelBase{
   }
   void testJacNoise(const mtInput& input, const mtMeas& meas, double d = 1e-6,double th = 1e-6,double dt = 0.1){
     mtJacNoise H,H_FD;
+    mtOutput output;
+    mtNoise noise;
     typename mtJacNoise::Index maxRow, maxCol = 0;
     jacNoise(H,input,meas,dt);
     jacNoiseFD(H_FD,input,meas,dt,d);
     const double r = (H-H_FD).array().abs().maxCoeff(&maxRow, &maxCol);
     if(r>th){
-      std::cout << "==== Model jacNoise Test failed: " << r << " is larger than " << th << " at (" << maxRow << "," << maxCol << ") ====" << std::endl;
+      unsigned int outputId = mtOutput::getElementId(maxRow);
+      unsigned int noiseId = mtNoise::getElementId(maxCol);
+      std::cout << "==== Model jacNoise Test failed: " << r << " is larger than " << th << " at row " << maxRow << "("<< output.getName(outputId) << ") and col " << maxCol << "("<< noise.getName(noiseId) << ") ====" << std::endl;
       std::cout << "  " << H(maxRow,maxCol) << "  " << H_FD(maxRow,maxCol) << std::endl;
     } else {
       std::cout << "==== Test successful (" << r << ") ====" << std::endl;

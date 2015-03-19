@@ -636,6 +636,21 @@ class State{
   inline const std::string& getName() const{
     return std::get<i>(mElements_).name_;
   };
+  inline std::string getName(unsigned int j) const{
+    return getName_(j);
+  };
+  template<unsigned int i = 0,typename std::enable_if<(i<E_)>::type* = nullptr>
+  inline const std::string getName_(unsigned int j) const{
+    if(i==j){
+      return std::get<i>(mElements_).name_;
+    } else {
+      return getName_<i+1>(j);
+    }
+  };
+  template<unsigned int i = 0,typename std::enable_if<(i>=E_)>::type* = nullptr>
+  inline const std::string getName_(unsigned int j) const{
+    return "ERROR";
+  };
   static State Identity(){
     State identity;
     identity.setIdentity();
