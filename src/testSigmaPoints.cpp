@@ -1,5 +1,6 @@
 #include "lightweight_filtering/SigmaPoints.hpp"
 #include "lightweight_filtering/State.hpp"
+#include "lightweight_filtering/common.hpp"
 #include "gtest/gtest.h"
 #include <assert.h>
 
@@ -15,9 +16,9 @@ class SigmaPointTest : public ::testing::Test {
     }
     mean_.template get<1>(0) << 2.1, -0.2, -1.9;
     for(int i=1;i<V_;i++){
-      mean_.template get<1>(i) = mean_.template get<1>(i-1) + Eigen::Vector3d(0.3,10.9,2.3);
+      mean_.template get<1>(i) = mean_.template get<1>(i-1) + V3D(0.3,10.9,2.3);
     }
-    mean_.template get<2>(0) = rot::RotationQuaternionPD(4.0/sqrt(30.0),3.0/sqrt(30.0),1.0/sqrt(30.0),2.0/sqrt(30.0));
+    mean_.template get<2>(0) = QPD(4.0/sqrt(30.0),3.0/sqrt(30.0),1.0/sqrt(30.0),2.0/sqrt(30.0));
     for(int i=1;i<Q_;i++){
       mean_.template get<2>(i) = mean_.template get<2>(i-1).boxPlus(mean_.template get<1>(i-1));
     }
@@ -149,14 +150,14 @@ TEST_F(SigmaPointTest, getCovariance2) {
 
   // Apply simple linear transformation
   for(int i=0;i<L_;i++){
-    sigmaPointsVector_(i).v_ = sigmaPoints_(i).template get<1>(0)*2.45+Eigen::Vector3d::Ones()*sigmaPoints_(i).template get<0>(0)*0.51;
+    sigmaPointsVector_(i).v_ = sigmaPoints_(i).template get<1>(0)*2.45+V3D::Ones()*sigmaPoints_(i).template get<0>(0)*0.51;
   }
 
   Eigen::Matrix<double,mtElementVector::D_,mtState::D_> M = sigmaPointsVector_.getCovarianceMatrix(sigmaPoints_);
   Eigen::Matrix<double,mtElementVector::D_,mtState::D_> H; // Jacobian of linear transformation
   H.setZero();
-  H.block(0,S_,3,3) = Eigen::Matrix3d::Identity()*2.45;
-  H.block(0,0,3,1) = Eigen::Vector3d::Ones()*0.51;
+  H.block(0,S_,3,3) = M3D::Identity()*2.45;
+  H.block(0,0,3,1) = V3D::Ones()*0.51;
   Eigen::Matrix<double,mtElementVector::D_,mtState::D_> Mref = H*P_;
   for(int i=0;i<mtElementVector::D_;i++){
     for(int j=0;j<mtState::D_;j++){

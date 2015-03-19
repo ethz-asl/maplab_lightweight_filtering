@@ -10,6 +10,7 @@
 
 #include <Eigen/Dense>
 #include <iostream>
+#include "lightweight_filtering/common.hpp"
 
 namespace LWF{
 

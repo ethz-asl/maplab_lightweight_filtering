@@ -11,6 +11,7 @@
 #include <Eigen/Dense>
 #include <iostream>
 #include "lightweight_filtering/PropertyHandler.hpp"
+#include "lightweight_filtering/common.hpp"
 #include <map>
 #include <tuple>
 

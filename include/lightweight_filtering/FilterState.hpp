@@ -11,6 +11,7 @@
 #include <Eigen/Dense>
 #include <iostream>
 #include "lightweight_filtering/SigmaPoints.hpp"
+#include "lightweight_filtering/common.hpp"
 
 namespace LWF{
 

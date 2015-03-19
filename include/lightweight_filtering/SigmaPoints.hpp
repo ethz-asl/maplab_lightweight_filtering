@@ -9,6 +9,7 @@
 #define LWF_SIGMAPOINTS_HPP_
 
 #include "lightweight_filtering/State.hpp"
+#include "lightweight_filtering/common.hpp"
 #include <Eigen/Dense>
 #include <iostream>
 #include <vector>

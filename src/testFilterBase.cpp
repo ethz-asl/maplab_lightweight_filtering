@@ -1,5 +1,6 @@
 #include "lightweight_filtering/TestClasses.hpp"
 #include "lightweight_filtering/FilterBase.hpp"
+#include "lightweight_filtering/common.hpp"
 #include "gtest/gtest.h"
 #include <assert.h>
 
@@ -365,8 +366,8 @@ TYPED_TEST(FilterBaseTest, highlevel) {
 
 // Test high level logic 2: coupled
 TYPED_TEST(FilterBaseTest, highlevel2) {
-  std::get<1>(this->testFilter_.mUpdates_).preupdnoiP_.block(0,0,3,3) = Eigen::Matrix3d::Identity()*0.00009;
-  std::get<1>(this->testFilter2_.mUpdates_).preupdnoiP_.block(0,0,3,3) = Eigen::Matrix3d::Identity()*0.00009;
+  std::get<1>(this->testFilter_.mUpdates_).preupdnoiP_.block(0,0,3,3) = M3D::Identity()*0.00009;
+  std::get<1>(this->testFilter2_.mUpdates_).preupdnoiP_.block(0,0,3,3) = M3D::Identity()*0.00009;
   this->testFilterState_.state_ = this->testFilter_.safe_.state_;
   this->testFilterState_.cov_ = this->testFilter_.safe_.cov_;
   std::get<1>(this->testFilter_.updateTimelineTuple_).maxWaitTime_ = 1.0;

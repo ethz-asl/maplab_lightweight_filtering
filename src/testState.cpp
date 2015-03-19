@@ -1,4 +1,5 @@
 #include "lightweight_filtering/State.hpp"
+#include "lightweight_filtering/common.hpp"
 #include "gtest/gtest.h"
 #include <assert.h>
 
@@ -120,8 +121,8 @@ TEST_F(QuaternionElementTest, constructor) {
 // Test setIdentity and Identity
 TEST_F(QuaternionElementTest, setIdentity) {
   testElement1_.setIdentity();
-  ASSERT_TRUE(testElement1_.q_.isNear(rot::RotationQuaternionPD(),1e-6));
-  ASSERT_TRUE(LWF::QuaternionElement::Identity().q_.isNear(rot::RotationQuaternionPD(),1e-6));
+  ASSERT_TRUE(testElement1_.q_.isNear(QPD(),1e-6));
+  ASSERT_TRUE(LWF::QuaternionElement::Identity().q_.isNear(QPD(),1e-6));
 }
 
 // Test plus and minus
@@ -149,13 +150,13 @@ TEST_F(QuaternionElementTest, LMat) {
   double d = 0.00001;
   LWF::QuaternionElement att;
   LWF::VectorElement<3> vec;
-  vec.v_ = Eigen::Vector3d(0.4,-0.2,1.7);
-  Eigen::Matrix3d J;
+  vec.v_ = V3D(0.4,-0.2,1.7);
+  M3D J;
   LWF::QuaternionElement attDisturbed;
   LWF::VectorElement<3> vecDisturbed;
-  Eigen::Matrix3d I;
+  M3D I;
   I.setIdentity();
-  Eigen::Vector3d dif;
+  V3D dif;
   I = d*I;
   att.q_ = att.q_.exponentialMap(vec.v_);
   for(unsigned int i=0;i<3;i++){
@@ -174,18 +175,18 @@ TEST_F(QuaternionElementTest, DerivativeOfRotation) {
   unsigned int s = 1;
   att.setRandom(s);
   LWF::QuaternionElement attDisturbed;
-  Eigen::Matrix3d J;
-  Eigen::Vector3d dif;
-  Eigen::Vector3d a(2.1,0.7,-1.7);
-  Eigen::Vector3d b = att.q_.rotate(a);
-  Eigen::Vector3d b_disturbed;
+  M3D J;
+  V3D dif;
+  V3D a(2.1,0.7,-1.7);
+  V3D b = att.q_.rotate(a);
+  V3D b_disturbed;
   for(unsigned int i=0;i<3;i++){
     dif.setZero(); dif(i) = d;
     att.boxPlus(dif,attDisturbed);
     b_disturbed = attDisturbed.q_.rotate(a);
     J.col(i) = (b_disturbed-b)/d;
   }
-  ASSERT_NEAR((J-kindr::linear_algebra::getSkewMatrixFromVector(b)).norm(),0.0,1e-5);
+  ASSERT_NEAR((J-gSM(b)).norm(),0.0,1e-5);
 }
 
 // The fixture for testing class NormalVectorElementTest
@@ -211,8 +212,8 @@ TEST_F(NormalVectorElementTest, constructor) {
 // Test setIdentity and Identity
 TEST_F(NormalVectorElementTest, setIdentity) {
   testElement1_.setIdentity();
-  ASSERT_TRUE(testElement1_.getVec() == Eigen::Vector3d(0,0,1));
-  ASSERT_TRUE(LWF::NormalVectorElement::Identity().getVec() == Eigen::Vector3d(0,0,1));
+  ASSERT_TRUE(testElement1_.getVec() == V3D(0,0,1));
+  ASSERT_TRUE(LWF::NormalVectorElement::Identity().getVec() == V3D(0,0,1));
 }
 
 // Test plus and minus
@@ -276,8 +277,8 @@ TEST_F(NormalVectorElementTest, derivative) {
 
 // Test getRotationFromTwoNormals
 TEST_F(NormalVectorElementTest, getRotationFromTwoNormals) {
-  Eigen::Vector3d theta = LWF::NormalVectorElement::getRotationFromTwoNormals(testElement1_,testElement2_);
-  rot::RotationQuaternionPD q = q.exponentialMap(theta);
+  V3D theta = LWF::NormalVectorElement::getRotationFromTwoNormals(testElement1_,testElement2_);
+  QPD q = q.exponentialMap(theta);
   ASSERT_NEAR((testElement1_.rotated(q).getVec()-testElement2_.getVec()).norm(),0.0,1e-6);
   ASSERT_NEAR((LWF::NormalVectorElement::getRotationFromTwoNormals(testElement1_,testElement2_)+LWF::NormalVectorElement::getRotationFromTwoNormals(testElement2_,testElement1_)).norm(),0.0,1e-6);
 }
@@ -329,8 +330,8 @@ TEST_F(ArrayElementTest, constructor) {
 TEST_F(ArrayElementTest, setIdentity) {
   testElement1_.setIdentity();
   for(unsigned int i=0;i<N_;i++){
-    ASSERT_TRUE(testElement1_.array_[i].q_.isNear(rot::RotationQuaternionPD(),1e-6));
-    ASSERT_TRUE((LWF::ArrayElement<LWF::QuaternionElement,N_>::Identity().array_[i].q_.isNear(rot::RotationQuaternionPD(),1e-6)));
+    ASSERT_TRUE(testElement1_.array_[i].q_.isNear(QPD(),1e-6));
+    ASSERT_TRUE((LWF::ArrayElement<LWF::QuaternionElement,N_>::Identity().array_[i].q_.isNear(QPD(),1e-6)));
   }
 }
 
@@ -387,11 +388,11 @@ class StateTesting : public virtual ::testing::Test {
     testVector1_[0] << 2.1, -0.2, -1.9;
     testVector2_[0] << -10.6, 0.2, -105.2;
     for(int i=1;i<4;i++){
-      testVector1_[i] = testVector1_[i-1] + Eigen::Vector3d(0.3,10.9,2.3);
-      testVector2_[i] = testVector2_[i-1] + Eigen::Vector3d(-1.5,12,1785.23);
+      testVector1_[i] = testVector1_[i-1] + V3D(0.3,10.9,2.3);
+      testVector2_[i] = testVector2_[i-1] + V3D(-1.5,12,1785.23);
     }
-    testQuat1_[0] = rot::RotationQuaternionPD(4.0/sqrt(30.0),3.0/sqrt(30.0),1.0/sqrt(30.0),2.0/sqrt(30.0));
-    testQuat2_[0] = rot::RotationQuaternionPD(0.0,0.36,0.48,0.8);
+    testQuat1_[0] = QPD(4.0/sqrt(30.0),3.0/sqrt(30.0),1.0/sqrt(30.0),2.0/sqrt(30.0));
+    testQuat2_[0] = QPD(0.0,0.36,0.48,0.8);
     for(int i=1;i<4;i++){
       testQuat1_[i] = testQuat1_[i-1].boxPlus(testVector1_[i-1]);
       testQuat2_[i] = testQuat2_[i-1].boxPlus(testVector2_[i-1]);
@@ -429,10 +430,10 @@ class StateTesting : public virtual ::testing::Test {
   mtState::mtDifVec difVec_;
   double testScalar1_;
   double testScalar2_;
-  Eigen::Vector3d testVector1_[4];
-  Eigen::Vector3d testVector2_[4];
-  rot::RotationQuaternionPD testQuat1_[4];
-  rot::RotationQuaternionPD testQuat2_[4];
+  V3D testVector1_[4];
+  V3D testVector2_[4];
+  QPD testQuat1_[4];
+  QPD testQuat2_[4];
 };
 
 // Test constructors
@@ -453,20 +454,20 @@ TEST_F(StateTesting, setIdentity) {
   ASSERT_EQ(testState1_.get<_vec1>().norm(),0);
   ASSERT_EQ(testState1_.get<_vec2>().norm(),0);
   ASSERT_EQ(testState1_.get<_vec3>().norm(),0);
-  ASSERT_EQ(testState1_.get<_qua0>(0).boxMinus(rot::RotationQuaternionPD()).norm(),0.0);
-  ASSERT_EQ(testState1_.get<_qua0>(1).boxMinus(rot::RotationQuaternionPD()).norm(),0.0);
-  ASSERT_EQ(testState1_.get<_qua1>(0).boxMinus(rot::RotationQuaternionPD()).norm(),0.0);
-  ASSERT_EQ(testState1_.get<_qua1>(1).boxMinus(rot::RotationQuaternionPD()).norm(),0.0);
+  ASSERT_EQ(testState1_.get<_qua0>(0).boxMinus(QPD()).norm(),0.0);
+  ASSERT_EQ(testState1_.get<_qua0>(1).boxMinus(QPD()).norm(),0.0);
+  ASSERT_EQ(testState1_.get<_qua1>(0).boxMinus(QPD()).norm(),0.0);
+  ASSERT_EQ(testState1_.get<_qua1>(1).boxMinus(QPD()).norm(),0.0);
   ASSERT_EQ(testState1_.get<_aux>().x_,2.3);
   ASSERT_EQ(mtState::Identity().get<_sca>(),0);
   ASSERT_EQ(mtState::Identity().get<_vec0>().norm(),0);
   ASSERT_EQ(mtState::Identity().get<_vec1>().norm(),0);
   ASSERT_EQ(mtState::Identity().get<_vec2>().norm(),0);
   ASSERT_EQ(mtState::Identity().get<_vec3>().norm(),0);
-  ASSERT_EQ(mtState::Identity().get<_qua0>(0).boxMinus(rot::RotationQuaternionPD()).norm(),0.0);
-  ASSERT_EQ(mtState::Identity().get<_qua0>(1).boxMinus(rot::RotationQuaternionPD()).norm(),0.0);
-  ASSERT_EQ(mtState::Identity().get<_qua1>(0).boxMinus(rot::RotationQuaternionPD()).norm(),0.0);
-  ASSERT_EQ(mtState::Identity().get<_qua1>(1).boxMinus(rot::RotationQuaternionPD()).norm(),0.0);
+  ASSERT_EQ(mtState::Identity().get<_qua0>(0).boxMinus(QPD()).norm(),0.0);
+  ASSERT_EQ(mtState::Identity().get<_qua0>(1).boxMinus(QPD()).norm(),0.0);
+  ASSERT_EQ(mtState::Identity().get<_qua1>(0).boxMinus(QPD()).norm(),0.0);
+  ASSERT_EQ(mtState::Identity().get<_qua1>(1).boxMinus(QPD()).norm(),0.0);
   ASSERT_EQ(mtState::Identity().get<_aux>().x_,1.0);
 }
 

@@ -16,6 +16,7 @@
 #include "lightweight_filtering/State.hpp"
 #include "lightweight_filtering/FilterState.hpp"
 #include "lightweight_filtering/PropertyHandler.hpp"
+#include "lightweight_filtering/common.hpp"
 #include <map>
 
 namespace LWF{

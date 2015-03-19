@@ -1,5 +1,6 @@
 #include "lightweight_filtering/State.hpp"
 #include "lightweight_filtering/ModelBase.hpp"
+#include "lightweight_filtering/common.hpp"
 #include "gtest/gtest.h"
 #include <assert.h>
 
@@ -41,24 +42,24 @@ class ModelExample: public LWF::ModelBase<Input,Output,Meas,Noise>{
   ~ModelExample(){};
   void eval(Output& output, const Input& input, const Meas& meas, const Noise noise, double dt) const{
     output.get<Output::v0>() = (input.get<Input::q0>().inverted()*input.get<Input::q1>()).rotate(input.get<Input::v1>())-input.get<Input::v0>()+noise.get<Noise::v0>()-meas.get<Meas::v0>();
-    rot::RotationQuaternionPD dQ = dQ.exponentialMap(noise.get<Noise::v1>());
+    QPD dQ = dQ.exponentialMap(noise.get<Noise::v1>());
     output.get<Output::q0>() = meas.get<Meas::q0>().inverted()*dQ*input.get<Input::q1>().inverted()*input.get<Input::q0>();
   }
   void jacInput(mtJacInput& J, const Input& input, const Meas& meas, double dt) const{
     Output output;
     J.setZero();
-    J.block<3,3>(output.getId<Output::v0>(),input.getId<Input::v0>()) = -Eigen::Matrix3d::Identity();
-    J.block<3,3>(output.getId<Output::v0>(),input.getId<Input::v1>()) = rot::RotationMatrixPD(input.get<Input::q0>().inverted()*input.get<Input::q1>()).matrix();
-    J.block<3,3>(output.getId<Output::v0>(),input.getId<Input::q0>()) = -kindr::linear_algebra::getSkewMatrixFromVector((input.get<Input::q0>().inverted()*input.get<Input::q1>()).rotate(input.get<Input::v1>()))*rot::RotationMatrixPD(input.get<Input::q0>().inverted()).matrix();
-    J.block<3,3>(output.getId<Output::v0>(),input.getId<Input::q1>()) = kindr::linear_algebra::getSkewMatrixFromVector((input.get<Input::q0>().inverted()*input.get<Input::q1>()).rotate(input.get<Input::v1>()))*rot::RotationMatrixPD(input.get<Input::q0>().inverted()).matrix();
-    J.block<3,3>(output.getId<Output::q0>(),input.getId<Input::q0>()) = rot::RotationMatrixPD(meas.get<Meas::q0>().inverted()*input.get<Input::q1>().inverted()).matrix();
-    J.block<3,3>(output.getId<Output::q0>(),input.getId<Input::q1>()) = -rot::RotationMatrixPD(meas.get<Meas::q0>().inverted()*input.get<Input::q1>().inverted()).matrix();
+    J.block<3,3>(output.getId<Output::v0>(),input.getId<Input::v0>()) = -M3D::Identity();
+    J.block<3,3>(output.getId<Output::v0>(),input.getId<Input::v1>()) = MPD(input.get<Input::q0>().inverted()*input.get<Input::q1>()).matrix();
+    J.block<3,3>(output.getId<Output::v0>(),input.getId<Input::q0>()) = -gSM((input.get<Input::q0>().inverted()*input.get<Input::q1>()).rotate(input.get<Input::v1>()))*MPD(input.get<Input::q0>().inverted()).matrix();
+    J.block<3,3>(output.getId<Output::v0>(),input.getId<Input::q1>()) = gSM((input.get<Input::q0>().inverted()*input.get<Input::q1>()).rotate(input.get<Input::v1>()))*MPD(input.get<Input::q0>().inverted()).matrix();
+    J.block<3,3>(output.getId<Output::q0>(),input.getId<Input::q0>()) = MPD(meas.get<Meas::q0>().inverted()*input.get<Input::q1>().inverted()).matrix();
+    J.block<3,3>(output.getId<Output::q0>(),input.getId<Input::q1>()) = -MPD(meas.get<Meas::q0>().inverted()*input.get<Input::q1>().inverted()).matrix();
   }
   void jacNoise(mtJacNoise& J, const Input& input, const Meas& meas, double dt) const{
     Output output;
     J.setZero();
-    J.block<3,3>(output.getId<Output::v0>(),0) = Eigen::Matrix3d::Identity();
-    J.block<3,3>(output.getId<Output::q0>(),3) = rot::RotationMatrixPD(meas.get<Meas::q0>().inverted()).matrix();
+    J.block<3,3>(output.getId<Output::v0>(),0) = M3D::Identity();
+    J.block<3,3>(output.getId<Output::q0>(),3) = MPD(meas.get<Meas::q0>().inverted()).matrix();
   }
 };
 
@@ -66,12 +67,12 @@ class ModelExample: public LWF::ModelBase<Input,Output,Meas,Noise>{
 class ModelBaseTest : public ::testing::Test {
  protected:
   ModelBaseTest() {
-    testInput_.get<Input::v0>() = Eigen::Vector3d(2.1,-0.2,-1.9);
-    testInput_.get<Input::v1>() = Eigen::Vector3d(0.3,10.9,2.3);
-    testInput_.get<Input::q0>() = rot::RotationQuaternionPD(4.0/sqrt(30.0),3.0/sqrt(30.0),1.0/sqrt(30.0),2.0/sqrt(30.0));
-    testInput_.get<Input::q1>() = rot::RotationQuaternionPD(0.0,0.36,0.48,0.8);
-    testMeas_.get<Meas::v0>() = Eigen::Vector3d(-1.5,12,1785.23);
-    testMeas_.get<Meas::q0>() = rot::RotationQuaternionPD(-3.0/sqrt(15.0),1.0/sqrt(15.0),1.0/sqrt(15.0),2.0/sqrt(15.0));
+    testInput_.get<Input::v0>() = V3D(2.1,-0.2,-1.9);
+    testInput_.get<Input::v1>() = V3D(0.3,10.9,2.3);
+    testInput_.get<Input::q0>() = QPD(4.0/sqrt(30.0),3.0/sqrt(30.0),1.0/sqrt(30.0),2.0/sqrt(30.0));
+    testInput_.get<Input::q1>() = QPD(0.0,0.36,0.48,0.8);
+    testMeas_.get<Meas::v0>() = V3D(-1.5,12,1785.23);
+    testMeas_.get<Meas::q0>() = QPD(-3.0/sqrt(15.0),1.0/sqrt(15.0),1.0/sqrt(15.0),2.0/sqrt(15.0));
   }
   virtual ~ModelBaseTest(){}
   ModelExample model_;

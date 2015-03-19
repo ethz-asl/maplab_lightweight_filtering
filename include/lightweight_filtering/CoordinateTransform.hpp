@@ -11,6 +11,7 @@
 #include <Eigen/Dense>
 #include "lightweight_filtering/ModelBase.hpp"
 #include "lightweight_filtering/State.hpp"
+#include "lightweight_filtering/common.hpp"
 
 namespace LWF{
 

@@ -1,4 +1,5 @@
 #include "lightweight_filtering/TestClasses.hpp"
+#include "lightweight_filtering/common.hpp"
 #include "gtest/gtest.h"
 #include <assert.h>
 
@@ -379,7 +380,7 @@ TYPED_TEST(UpdateModelTest, comparePredictAndUpdate) {
   filterState2.state_ = this->testState_;
   this->testPrediction_.performPredictionEKF(filterState1,this->testPredictionMeas_,this->dt_);
   this->testPredictAndUpdate_.performUpdateEKF(filterState1,this->testUpdateMeas_);
-  this->testPredictAndUpdate_.preupdnoiP_.block(0,0,3,3) = Eigen::Matrix3d::Identity()*0.00009;
+  this->testPredictAndUpdate_.preupdnoiP_.block(0,0,3,3) = M3D::Identity()*0.00009;
   this->testPrediction_.performPredictionUKF(filterState2,this->testPredictionMeas_,this->dt_);
   this->testPredictAndUpdate_.performUpdateUKF(filterState2,this->testUpdateMeas_);
   filterState1.state_.boxMinus(filterState2.state_,dif);

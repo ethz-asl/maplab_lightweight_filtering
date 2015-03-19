@@ -12,6 +12,7 @@
 #include <iostream>
 #include "kindr/rotations/RotationEigen.hpp"
 #include "lightweight_filtering/PropertyHandler.hpp"
+#include "lightweight_filtering/common.hpp"
 #include <type_traits>
 #include <tuple>
 
@@ -204,9 +205,9 @@ class VectorElement: public ElementBase<VectorElement<N>,Eigen::Matrix<double,N,
   }
 };
 
-class QuaternionElement: public ElementBase<QuaternionElement,rot::RotationQuaternionPD,3>{
+class QuaternionElement: public ElementBase<QuaternionElement,QPD,3>{
  public:
-  rot::RotationQuaternionPD q_;
+  QPD q_;
   QuaternionElement(){}
   QuaternionElement(const QuaternionElement& other){
     q_ = other.q_;
@@ -251,32 +252,32 @@ class QuaternionElement: public ElementBase<QuaternionElement,rot::RotationQuate
 
 class NormalVectorElement: public ElementBase<NormalVectorElement,NormalVectorElement,2>{
  public:
-  rot::RotationQuaternionPD q_;
-  const Eigen::Vector3d e_x;
-  const Eigen::Vector3d e_y;
-  const Eigen::Vector3d e_z;
+  QPD q_;
+  const V3D e_x;
+  const V3D e_y;
+  const V3D e_z;
   NormalVectorElement(): e_x(1,0,0), e_y(0,1,0), e_z(0,0,1){}
   NormalVectorElement(const NormalVectorElement& other): e_x(1,0,0), e_y(0,1,0), e_z(0,0,1){
     q_ = other.q_;
   }
-  NormalVectorElement(const rot::RotationQuaternionPD& q): e_x(1,0,0), e_y(0,1,0), e_z(0,0,1){
+  NormalVectorElement(const QPD& q): e_x(1,0,0), e_y(0,1,0), e_z(0,0,1){
     q_ = q;
   }
-  Eigen::Vector3d getVec() const{
+  V3D getVec() const{
     return q_.rotate(e_z);
   }
-  Eigen::Vector3d getPerp1() const{
+  V3D getPerp1() const{
     return q_.rotate(e_x);
   }
-  Eigen::Vector3d getPerp2() const{
+  V3D getPerp2() const{
     return q_.rotate(e_y);
   }
   NormalVectorElement& operator=(const NormalVectorElement& other){
     q_ = other.q_;
     return *this;
   }
-  static Eigen::Vector3d getRotationFromTwoNormals(const Eigen::Vector3d& a, const Eigen::Vector3d& b, const Eigen::Vector3d& a_perp){
-    const Eigen::Vector3d cross = a.cross(b);
+  static V3D getRotationFromTwoNormals(const V3D& a, const V3D& b, const V3D& a_perp){
+    const V3D cross = a.cross(b);
     const double crossNorm = cross.norm();
     const double c = a.dot(b);
     const double angle = std::acos(c);
@@ -290,43 +291,43 @@ class NormalVectorElement: public ElementBase<NormalVectorElement,NormalVectorEl
       return -cross*(angle/crossNorm);
     }
   }
-  static Eigen::Vector3d getRotationFromTwoNormals(const NormalVectorElement& a, const NormalVectorElement& b){
+  static V3D getRotationFromTwoNormals(const NormalVectorElement& a, const NormalVectorElement& b){
     return getRotationFromTwoNormals(a.getVec(),b.getVec(),a.getPerp1());
   }
-  static Eigen::Matrix3d getRotationFromTwoNormalsJac(const Eigen::Vector3d& a, const Eigen::Vector3d& b){ // TODO: test
-    const Eigen::Vector3d cross = a.cross(b);
+  static M3D getRotationFromTwoNormalsJac(const V3D& a, const V3D& b){ // TODO: test
+    const V3D cross = a.cross(b);
     const double crossNorm = cross.norm();
-    Eigen::Vector3d crossNormalized = cross/crossNorm;
-    Eigen::Matrix3d crossNormalizedSqew = kindr::linear_algebra::getSkewMatrixFromVector(crossNormalized);
+    V3D crossNormalized = cross/crossNorm;
+    M3D crossNormalizedSqew = gSM(crossNormalized);
     const double c = a.dot(b);
     const double angle = std::acos(c);
     if(crossNorm<1e-6){
       if(c>0){
-        return kindr::linear_algebra::getSkewMatrixFromVector(b);
+        return gSM(b);
       } else {
-        return Eigen::Matrix3d::Zero();
+        return M3D::Zero();
       }
     } else {
-      return 1/crossNorm*(crossNormalized*b.transpose()-(crossNormalizedSqew*crossNormalizedSqew*kindr::linear_algebra::getSkewMatrixFromVector(b)*angle));
+      return 1/crossNorm*(crossNormalized*b.transpose()-(crossNormalizedSqew*crossNormalizedSqew*gSM(b)*angle));
     }
   }
-  static Eigen::Matrix3d getRotationFromTwoNormalsJac(const NormalVectorElement& a, const NormalVectorElement& b){
+  static M3D getRotationFromTwoNormalsJac(const NormalVectorElement& a, const NormalVectorElement& b){
     return getRotationFromTwoNormalsJac(a.getVec(),b.getVec());
   }
-  void setFromVector(Eigen::Vector3d vec){
+  void setFromVector(V3D vec){
     assert(vec.norm() != 0.0);
     vec.normalize();
     q_ = q_.exponentialMap(getRotationFromTwoNormals(e_z,vec,e_x));
   }
-  NormalVectorElement rotated(const rot::RotationQuaternionPD& q) const{
+  NormalVectorElement rotated(const QPD& q) const{
     return NormalVectorElement(q*q_);
   }
   NormalVectorElement inverted() const{
-    rot::RotationQuaternionPD q = q.exponentialMap(M_PI*getPerp1());
+    QPD q = q.exponentialMap(M_PI*getPerp1());
     return NormalVectorElement(q*q_);
   }
   void boxPlus(const mtDifVec& vecIn, NormalVectorElement& stateOut) const{
-    rot::RotationQuaternionPD q = q.exponentialMap(vecIn(0)*getPerp1()+vecIn(1)*getPerp2());
+    QPD q = q.exponentialMap(vecIn(0)*getPerp1()+vecIn(1)*getPerp2());
     stateOut.q_ = q*q_;
   }
   void boxMinus(const NormalVectorElement& stateIn, mtDifVec& vecOut) const{
@@ -649,16 +650,16 @@ template <typename Arg, unsigned int N>
 class TH_convert<TH_multiple_elements<Arg,N>>: public TH_multiple_elements<Arg,N>{
 };
 
-static Eigen::Matrix3d Lmat (Eigen::Vector3d a) {
+static M3D Lmat (V3D a) {
   double aNorm = a.norm();
   double factor1 = 0;
   double factor2 = 0;
-  Eigen::Matrix3d ak;
-  Eigen::Matrix3d ak2;
-  Eigen::Matrix3d G_k;
+  M3D ak;
+  M3D ak2;
+  M3D G_k;
 
   // Get sqew matrices
-  ak = kindr::linear_algebra::getSkewMatrixFromVector(a);
+  ak = gSM(a);
   ak2 = ak*ak;
 
   // Compute factors
@@ -670,7 +671,7 @@ static Eigen::Matrix3d Lmat (Eigen::Vector3d a) {
     factor2 = 1/6;
   }
 
-  return Eigen::Matrix3d::Identity()-factor1*ak+factor2*ak2;
+  return M3D::Identity()-factor1*ak+factor2*ak2;
 }
 
 }

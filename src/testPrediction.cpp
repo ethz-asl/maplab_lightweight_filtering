@@ -1,4 +1,5 @@
 #include "lightweight_filtering/TestClasses.hpp"
+#include "lightweight_filtering/common.hpp"
 #include "gtest/gtest.h"
 #include <assert.h>
 

@@ -12,6 +12,7 @@
 #include "kindr/rotations/RotationEigen.hpp"
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/info_parser.hpp>
+#include "lightweight_filtering/common.hpp"
 #include <map>
 #include <unordered_map>
 #include <unordered_set>
