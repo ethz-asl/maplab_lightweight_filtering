@@ -35,7 +35,7 @@ class CoordinateTransform: public ModelBase<Input,Output,Input,Input,useDynamicM
     return output;
   }
   mtOutputCovMat transformCovMat(const mtInput& input,const mtInputCovMat& inputCov){
-    J_ = jacInput(input,input);
+    jacInput(J_,input,input);
     outputCov_ = J_*inputCov*J_.transpose();
     postProcess(outputCov_,input);
     return outputCov_;

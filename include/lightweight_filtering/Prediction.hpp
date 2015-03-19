@@ -30,15 +30,23 @@ class Prediction: public ModelBase<typename FilterState::mtState,typename Filter
   typedef typename mtFilterState::mtPredictionNoise mtNoise;
   typedef ModelBase<mtState,mtState,mtMeas,mtNoise> mtModelBase;
   LWFMatrix<mtNoise::D_,mtNoise::D_,mtFilterState::useDynamicMatrix_> prenoiP_;
+  bool disablePreAndPostProcessingWarning_;
   Prediction(){
     prenoiP_.setIdentity();
     prenoiP_ *= 0.0001;
     mtNoise n;
     n.registerCovarianceToPropertyHandler_(prenoiP_,this,"PredictionNoise.");
+    disablePreAndPostProcessingWarning_ = false;
   };
   virtual void noMeasCase(mtFilterState& filterState, mtMeas& meas, double dt){};
-  virtual void preProcess(mtFilterState& filterState, const mtMeas& meas, double dt){};
-  virtual void postProcess(mtFilterState& filterState, const mtMeas& meas, double dt){};
+  virtual void preProcess(mtFilterState& filterState, const mtMeas& meas, double dt){
+    if(!disablePreAndPostProcessingWarning_){
+      std::cout << "Warning: preProcessing is not implement!" << std::endl;
+    }};
+  virtual void postProcess(mtFilterState& filterState, const mtMeas& meas, double dt){
+    if(!disablePreAndPostProcessingWarning_){
+      std::cout << "Warning: postProcessing is not implement!" << std::endl;
+    }};
   virtual ~Prediction(){};
   int performPrediction(mtFilterState& filterState, const mtMeas& meas, double dt){
     switch(filterState.mode_){

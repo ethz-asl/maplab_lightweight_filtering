@@ -68,6 +68,7 @@ class Update: public ModelBase<typename FilterState::mtState,Innovation,Meas,Noi
   int maxNumIteration_;
   mtOutlierDetection outlierDetection_;
   unsigned int numSequences;
+  bool disablePreAndPostProcessingWarning_;
   Update(){
     alpha_ = 1e-3;
     beta_ = 2.0;
@@ -92,6 +93,7 @@ class Update: public ModelBase<typename FilterState::mtState,Innovation,Meas,Noi
     intRegister_.registerScalar("maxNumIteration",maxNumIteration_);
     outlierDetection_.setEnabledAll(false);
     numSequences = 1;
+    disablePreAndPostProcessingWarning_ = false;
   };
   void refreshNoiseSigmaPoints(){
     if(noiP_ != updnoiP_){
@@ -114,8 +116,16 @@ class Update: public ModelBase<typename FilterState::mtState,Innovation,Meas,Noi
     refreshUKFParameter();
   }
   virtual void refreshPropertiesCustom(){}
-  virtual void preProcess(mtFilterState& filterState, const mtMeas& meas, const int s = 0){};
-  virtual void postProcess(mtFilterState& filterState, const mtMeas& meas, mtOutlierDetection outlierDetection, const int s = 0){};
+  virtual void preProcess(mtFilterState& filterState, const mtMeas& meas, const int s = 0){
+    if(!disablePreAndPostProcessingWarning_){
+      std::cout << "Warning: preProcessing is not implement!" << std::endl;
+    }
+  }
+  virtual void postProcess(mtFilterState& filterState, const mtMeas& meas, const mtOutlierDetection& outlierDetection, const int s = 0){
+    if(!disablePreAndPostProcessingWarning_){
+      std::cout << "Warning: postProcessing is not implement!" << std::endl;
+    }
+  }
   virtual ~Update(){};
   int performUpdate(mtFilterState& filterState, const mtMeas& meas){
     int s = 0;
