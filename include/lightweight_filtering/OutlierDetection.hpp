@@ -69,8 +69,9 @@ class OutlierDetectionConcat: public OutlierDetectionBase<S,D>{
   void doOutlierDetection(const Eigen::Matrix<double,dI,1>& innVector,LWFMatrix<dI,dI,useDynamicMatrix>& Py,LWFMatrix<dI,dS,useDynamicMatrix>& H){
     static_assert(dI>=S+D,"Outlier detection out of range");
     check(innVector,Py);
+    outlier_ = outlier_ & enabled_;
     sub_.doOutlierDetection(innVector,Py,H);
-    if(outlier_ && enabled_){
+    if(outlier_){
       Py.block(0,S_,dI,D_).setZero();
       Py.block(S_,0,D_,dI).setZero();
       Py.block(S_,S_,D_,D_).setIdentity();
