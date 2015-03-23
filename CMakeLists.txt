@@ -26,6 +26,7 @@ include_directories(include)
 
 
 if(DEFINED CATKIN_DEVEL_PREFIX)
+  find_package(catkin REQUIRED)
 	catkin_package(
 	   INCLUDE_DIRS include
 	   CATKIN_DEPENDS 
