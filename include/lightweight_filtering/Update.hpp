@@ -148,6 +148,7 @@ class Update: public ModelBase<typename FilterState::mtState,Innovation,Meas,Noi
           break;
       }
       postProcess(filterState,meas,outlierDetection_,s);
+      filterState.state_.fix();
       s++;
     }
     return r;

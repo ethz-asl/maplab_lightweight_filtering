@@ -43,11 +43,13 @@ class Prediction: public ModelBase<typename FilterState::mtState,typename Filter
   virtual void preProcess(mtFilterState& filterState, const mtMeas& meas, double dt){
     if(!disablePreAndPostProcessingWarning_){
       std::cout << "Warning: preProcessing is not implement!" << std::endl;
-    }};
+    }
+  };
   virtual void postProcess(mtFilterState& filterState, const mtMeas& meas, double dt){
     if(!disablePreAndPostProcessingWarning_){
       std::cout << "Warning: postProcessing is not implement!" << std::endl;
-    }};
+    }
+  };
   virtual ~Prediction(){};
   int performPrediction(mtFilterState& filterState, const mtMeas& meas, double dt){
     switch(filterState.mode_){

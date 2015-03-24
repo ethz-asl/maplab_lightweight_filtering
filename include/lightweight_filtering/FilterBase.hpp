@@ -110,6 +110,7 @@ class FilterBase: public PropertyHandler{
   };
   void reset(double t = 0.0){
     init_.t_ = t;
+    init_.state_.fix();
     safe_ = init_;
     front_ = init_;
     safeWarningTime_ = t;
