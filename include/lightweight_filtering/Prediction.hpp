@@ -110,12 +110,13 @@ class Prediction: public ModelBase<typename FilterState::mtState,typename Filter
         return predictMergedEKF(filterState,tTarget,measMap);
     }
   }
-  virtual int predictMergedEKF(mtFilterState& filterState, double tTarget, const std::map<double,mtMeas>& measMap){
+  virtual int predictMergedEKF(mtFilterState& filterState, const double tTarget, const std::map<double,mtMeas>& measMap){
     const typename std::map<double,mtMeas>::const_iterator itMeasStart = measMap.upper_bound(filterState.t_);
     if(itMeasStart == measMap.end()) return 0;
-    const typename std::map<double,mtMeas>::const_iterator itMeasEnd = measMap.upper_bound(tTarget);
-    if(itMeasEnd == measMap.begin()) return 0;
-    double dT = std::prev(itMeasEnd)->first-filterState.t_;
+    typename std::map<double,mtMeas>::const_iterator itMeasEnd = measMap.lower_bound(tTarget);
+    if(itMeasEnd != measMap.end()) ++itMeasEnd;
+    double dT = std::min(std::prev(itMeasEnd)->first,tTarget)-filterState.t_;
+    if(dT <= 0) return 0;
 
     // Compute mean Measurement
     mtMeas meanMeas;
@@ -125,8 +126,8 @@ class Prediction: public ModelBase<typename FilterState::mtState,typename Filter
     double t = itMeasStart->first;
     for(typename std::map<double,mtMeas>::const_iterator itMeas=next(itMeasStart);itMeas!=itMeasEnd;itMeas++){
       itMeasStart->second.boxMinus(itMeas->second,difVec);
-      vec = vec + difVec*(itMeas->first-t);
-      t = itMeas->first;
+      vec = vec + difVec*(std::min(itMeas->first,tTarget)-t);
+      t = std::min(itMeas->first,tTarget);
     }
     vec = vec/dT;
     itMeasStart->second.boxPlus(vec,meanMeas);
@@ -135,13 +136,13 @@ class Prediction: public ModelBase<typename FilterState::mtState,typename Filter
     this->jacInput(filterState.F_,filterState.state_,meanMeas,dT);
     this->jacNoise(filterState.G_,filterState.state_,meanMeas,dT); // Works for time continuous parametrization of noise
     for(typename std::map<double,mtMeas>::const_iterator itMeas=itMeasStart;itMeas!=itMeasEnd;itMeas++){
-      this->eval(filterState.state_,filterState.state_,itMeas->second,itMeas->first-filterState.t_);
-      filterState.t_ = itMeas->first;
+      this->eval(filterState.state_,filterState.state_,itMeas->second,std::min(itMeas->first,tTarget)-filterState.t_);
+      filterState.t_ = std::min(itMeas->first,tTarget);
     }
     filterState.cov_ = filterState.F_*filterState.cov_*filterState.F_.transpose() + filterState.G_*prenoiP_*filterState.G_.transpose();
     filterState.state_.fix();
     filterState.cov_ = 0.5*(filterState.cov_+filterState.cov_.transpose()); // Enforce symmetry
-    filterState.t_ = std::prev(itMeasEnd)->first;
+    filterState.t_ = std::min(std::prev(itMeasEnd)->first,tTarget);
     postProcess(filterState,meanMeas,dT);
     return 0;
   }

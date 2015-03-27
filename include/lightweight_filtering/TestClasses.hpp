@@ -94,7 +94,9 @@ class UpdateExample: public LWF::Update<Innovation,FilterState,UpdateMeas,Update
   typedef UpdateMeas mtMeas;
   typedef UpdateNoise mtNoise;
   typedef Innovation mtInnovation;
-  UpdateExample(){};
+  UpdateExample(){
+    disablePreAndPostProcessingWarning_ = true;
+  };
   ~UpdateExample(){};
   void eval(mtInnovation& inn, const mtState& state, const mtMeas& meas, const mtNoise noise, double dt = 0.0) const{
     inn.get<Innovation::POS>() = state.get<State::ATT>().rotate(state.get<State::POS>())-meas.get<UpdateMeas::POS>()+noise.get<UpdateNoise::POS>();
@@ -121,7 +123,9 @@ class PredictionExample: public LWF::Prediction<FilterState>{
   using mtState = LWF::Prediction<FilterState>::mtState;
   typedef PredictionMeas mtMeas;
   typedef PredictionNoise mtNoise;
-  PredictionExample(){};
+  PredictionExample(){
+    disablePreAndPostProcessingWarning_ = true;
+  };
   ~PredictionExample(){};
   void eval(mtState& output, const mtState& state, const mtMeas& meas, const mtNoise noise, double dt) const{
     V3D g_(0,0,-9.81);
@@ -173,7 +177,9 @@ class PredictAndUpdateExample: public LWF::Update<Innovation,FilterState,UpdateM
   typedef UpdateMeas mtMeas;
   typedef UpdateNoise mtNoise;
   typedef Innovation mtInnovation;
-  PredictAndUpdateExample(){};
+  PredictAndUpdateExample(){
+    disablePreAndPostProcessingWarning_ = true;
+  };
   ~PredictAndUpdateExample(){};
   void eval(mtInnovation& inn, const mtState& state, const mtMeas& meas, const mtNoise noise, double dt = 0.0) const{
     inn.get<Innovation::POS>() = state.get<State::ATT>().rotate(state.get<State::POS>())-meas.get<UpdateMeas::POS>()+noise.get<UpdateNoise::POS>();
@@ -263,7 +269,9 @@ class UpdateExample: public LWF::Update<Innovation,FilterState,UpdateMeas,Update
   typedef UpdateMeas mtMeas;
   typedef UpdateNoise mtNoise;
   typedef Innovation mtInnovation;
-  UpdateExample(){};
+  UpdateExample(){
+    disablePreAndPostProcessingWarning_ = true;
+  };
   ~UpdateExample(){};
   void eval(mtInnovation& inn, const mtState& state, const mtMeas& meas, const mtNoise noise, double dt = 0.0) const{
     inn.get<Innovation::POS>() = state.get<State::POS>()-meas.get<UpdateMeas::POS>()+noise.get<UpdateNoise::POS>();
@@ -289,7 +297,9 @@ class PredictionExample: public LWF::Prediction<FilterState>{
   using mtState = LWF::Prediction<FilterState>::mtState;
   typedef PredictionMeas mtMeas;
   typedef PredictionNoise mtNoise;
-  PredictionExample(){};
+  PredictionExample(){
+    disablePreAndPostProcessingWarning_ = true;
+  };
   ~PredictionExample(){};
   void eval(mtState& output, const mtState& state, const mtMeas& meas, const mtNoise noise, double dt) const{
     output.get<mtState::POS>() = state.get<mtState::POS>()+dt*state.get<mtState::VEL>();
@@ -314,7 +324,9 @@ class PredictAndUpdateExample: public LWF::Update<Innovation,FilterState,UpdateM
   typedef UpdateMeas mtMeas;
   typedef UpdateNoise mtNoise;
   typedef Innovation mtInnovation;
-  PredictAndUpdateExample(){};
+  PredictAndUpdateExample(){
+    disablePreAndPostProcessingWarning_ = true;
+  };
   ~PredictAndUpdateExample(){};
   void eval(mtInnovation& inn, const mtState& state, const mtMeas& meas, const mtNoise noise, double dt = 0.0) const{
     inn.get<Innovation::POS>() = state.get<State::POS>()-meas.get<UpdateMeas::POS>()+noise.get<UpdateNoise::POS>();
