@@ -9,23 +9,27 @@ SET(CMAKE_BUILD_TYPE "Debug")
 endif()
 
 ##################### Find, include, and compile library #####################
-if(DEFINED CATKIN_DEVEL_PREFIX)
-	find_package(catkin REQUIRED COMPONENTS kindr)
-	message(STATUS "Building lightweight_filtering as catkin package")
-else() 
-    find_package(kindr REQUIRED)
-    include_directories(${kindr_INCLUDE_DIRS})
+
+# Attempt to find catkinized kindr
+find_package(kindr QUIET)
+if(NOT kindr_FOUND)
+  # Attempt to find package-based kindr
+  find_package(PkgConfig REQUIRED)
+  pkg_check_modules(kindr kindr REQUIRED)
 endif()
+
 find_package(Eigen3 REQUIRED)
 
+include_directories(${kindr_INCLUDE_DIRS})
 include_directories(${EIGEN3_INCLUDE_DIR})
 include_directories(include)
 
 
 if(DEFINED CATKIN_DEVEL_PREFIX)
+  find_package(catkin REQUIRED)
 	catkin_package(
 	   INCLUDE_DIRS include
-	   CATKIN_DEPENDS kindr
+	   CATKIN_DEPENDS 
 	)
 endif()
 
