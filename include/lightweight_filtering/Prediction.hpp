@@ -76,7 +76,7 @@ class Prediction: public ModelBase<typename FilterState::mtState,typename Filter
     this->eval(filterState.state_,filterState.state_,meas,dt);
     filterState.cov_ = filterState.F_*filterState.cov_*filterState.F_.transpose() + filterState.G_*prenoiP_*filterState.G_.transpose();
     filterState.state_.fix();
-    filterState.cov_ = 0.5*(filterState.cov_+filterState.cov_.transpose()); // Enforce symmetry
+    filterState.cov_ = 0.5*(filterState.cov_+filterState.cov_.transpose()).eval(); // Enforce symmetry
     filterState.t_ += dt;
     postProcess(filterState,meas,dt);
     return 0;
@@ -141,7 +141,7 @@ class Prediction: public ModelBase<typename FilterState::mtState,typename Filter
     }
     filterState.cov_ = filterState.F_*filterState.cov_*filterState.F_.transpose() + filterState.G_*prenoiP_*filterState.G_.transpose();
     filterState.state_.fix();
-    filterState.cov_ = 0.5*(filterState.cov_+filterState.cov_.transpose()); // Enforce symmetry
+    filterState.cov_ = 0.5*(filterState.cov_+filterState.cov_.transpose()).eval(); // Enforce symmetry
     filterState.t_ = std::min(std::prev(itMeasEnd)->first,tTarget);
     postProcess(filterState,meanMeas,dT);
     return 0;
