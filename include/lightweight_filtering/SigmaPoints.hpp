@@ -53,10 +53,13 @@ class SigmaPoints{
     LWFMatrix<mtState::D_,mtState::D_,useDynamicMatrix> C;
     typename mtState::mtDifVec vec;
     sigmaPoints_[0].boxMinus(mean,vec);
-    C = vec*vec.transpose()*(wc0_+ wc_*(L_-N_));
+    LWFMatrix<mtState::D_,1,useDynamicMatrix> dynVec;
+    dynVec = vec;
+    C = dynVec*dynVec.transpose()*(wc0_+ wc_*(L_-N_));
     for(unsigned int i=1;i<N_;i++){
       sigmaPoints_[i].boxMinus(mean,vec);
-      C += vec*vec.transpose()*wc_;
+      dynVec = vec;
+      C += dynVec*dynVec.transpose()*wc_;
     }
     return C;
   };
@@ -71,13 +74,19 @@ class SigmaPoints{
     LWFMatrix<mtState::D_,State2::D_,useDynamicMatrix> C;
     typename mtState::mtDifVec vec1;
     typename State2::mtDifVec vec2;
+    LWFMatrix<mtState::D_,1,useDynamicMatrix> dynVec1;
+    LWFMatrix<State2::D_,1,useDynamicMatrix> dynVec2;
     (*this)(0).boxMinus(mean1,vec1);
     sigmaPoints2(0).boxMinus(mean2,vec2);
-    C = vec1*vec2.transpose()*wc0_;
+    dynVec1 = vec1;
+    dynVec2 = vec2;
+    C = dynVec1*dynVec2.transpose()*wc0_;
     for(unsigned int i=1;i<L_;i++){
       (*this)(i).boxMinus(mean1,vec1);
       sigmaPoints2(i).boxMinus(mean2,vec2);
-      C += vec1*vec2.transpose()*wc_;
+      dynVec1 = vec1;
+      dynVec2 = vec2;
+      C += dynVec1*dynVec2.transpose()*wc_;
     }
     return C;
   };

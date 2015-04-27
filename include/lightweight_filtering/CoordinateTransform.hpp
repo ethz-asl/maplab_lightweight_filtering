@@ -27,19 +27,15 @@ class CoordinateTransform: public ModelBase<Input,Output,Input,Input,useDynamicM
   typedef LWFMatrix<mtOutput::D_,mtOutput::D_,useDynamicMatrix> mtOutputCovMat;
   typedef typename Base::mtJacInput mtJacInput;
   mtJacInput J_;
-  mtOutputCovMat outputCov_;
   CoordinateTransform(){};
   virtual ~CoordinateTransform(){};
-  mtOutput transformState(mtInput& input) const{
-    mtOutput output;
+  void transformState(const mtInput& input, mtOutput& output) const{
     eval(output, input, input);
-    return output;
   }
-  mtOutputCovMat transformCovMat(const mtInput& input,const mtInputCovMat& inputCov){
+  void transformCovMat(const mtInput& input,const mtInputCovMat& inputCov,mtOutputCovMat& outputCov){
     jacInput(J_,input,input);
-    outputCov_ = J_*inputCov*J_.transpose();
-    postProcess(outputCov_,input);
-    return outputCov_;
+    outputCov = J_*inputCov*J_.transpose();
+    postProcess(outputCov,input);
   }
   virtual void postProcess(mtOutputCovMat& cov,const mtInput& input){}
 };
