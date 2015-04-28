@@ -28,12 +28,13 @@ class SigmaPoints{
   double wc0_ = 1.0;
   double gamma_ = 1.0;
   mtState sigmaPoints_[N];
-  LWFMatrix<mtState::D_,mtState::D_,useDynamicMatrix> S_;
+  typedef LWFMatrix<mtState::D_,mtState::D_,useDynamicMatrix> mtCovMat;
+  mtCovMat S_;
   SigmaPoints(){
     static_assert(N_+O_<=L_, "Bad dimensions for sigmapoints");
     S_.setZero();
   };
-  mtState getMean() const{
+  void getMean(mtState& mean) const{
     typename mtState::mtDifVec vec;
     typename mtState::mtDifVec vecTemp;
     vec.setZero();
@@ -41,16 +42,14 @@ class SigmaPoints{
       sigmaPoints_[i].boxMinus(sigmaPoints_[0],vecTemp);
       vec = vec + wm_*vecTemp;
     }
-    mtState mean;
     sigmaPoints_[0].boxPlus(vec,mean);
-    return mean;
   };
-  LWFMatrix<mtState::D_,mtState::D_,useDynamicMatrix> getCovarianceMatrix() const{
-    mtState mean = getMean();
-    return getCovarianceMatrix(mean);
+  void getCovarianceMatrix(LWFMatrix<mtState::D_,mtState::D_,useDynamicMatrix>& C) const{
+    mtState mean;
+    getMean(mean);
+    getCovarianceMatrix(mean,C);
   };
-  LWFMatrix<mtState::D_,mtState::D_,useDynamicMatrix> getCovarianceMatrix(const mtState& mean) const{
-    LWFMatrix<mtState::D_,mtState::D_,useDynamicMatrix> C;
+  void getCovarianceMatrix(const mtState& mean, LWFMatrix<mtState::D_,mtState::D_,useDynamicMatrix>& C) const{
     typename mtState::mtDifVec vec;
     sigmaPoints_[0].boxMinus(mean,vec);
     LWFMatrix<mtState::D_,1,useDynamicMatrix> dynVec;
@@ -61,17 +60,17 @@ class SigmaPoints{
       dynVec = vec;
       C += dynVec*dynVec.transpose()*wc_;
     }
-    return C;
   };
   template<typename State2, unsigned int N2, unsigned int O2>
-  LWFMatrix<mtState::D_,State2::D_,useDynamicMatrix> getCovarianceMatrix(const SigmaPoints<State2,N2,L_,O2,useDynamicMatrix>& sigmaPoints2) const{
-    mtState mean1 = getMean();
-    State2 mean2 = sigmaPoints2.getMean();
-    return getCovarianceMatrix(sigmaPoints2,mean1,mean2);
+  void getCovarianceMatrix(const SigmaPoints<State2,N2,L_,O2,useDynamicMatrix>& sigmaPoints2, LWFMatrix<mtState::D_,State2::D_,useDynamicMatrix>& C) const{
+    mtState mean1;
+    getMean(mean1);
+    State2 mean2;
+    sigmaPoints2.getMean(mean2);
+    getCovarianceMatrix(sigmaPoints2,mean1,mean2,C);
   };
   template<typename State2, unsigned int N2, unsigned int O2>
-  LWFMatrix<mtState::D_,State2::D_,useDynamicMatrix> getCovarianceMatrix(const SigmaPoints<State2,N2,L_,O2,useDynamicMatrix>& sigmaPoints2, const mtState& mean1, const State2& mean2) const{
-    LWFMatrix<mtState::D_,State2::D_,useDynamicMatrix> C;
+  void getCovarianceMatrix(const SigmaPoints<State2,N2,L_,O2,useDynamicMatrix>& sigmaPoints2, const mtState& mean1, const State2& mean2, LWFMatrix<mtState::D_,State2::D_,useDynamicMatrix>& C) const{
     typename mtState::mtDifVec vec1;
     typename State2::mtDifVec vec2;
     LWFMatrix<mtState::D_,1,useDynamicMatrix> dynVec1;
@@ -88,7 +87,6 @@ class SigmaPoints{
       dynVec2 = vec2;
       C += dynVec1*dynVec2.transpose()*wc_;
     }
-    return C;
   };
   template<typename State2>
   void extendZeroMeanGaussian(const SigmaPoints<State2,N_-2*mtState::D_,L_,O_,useDynamicMatrix>& sigmaPoints2, const LWFMatrix<mtState::D_,mtState::D_,useDynamicMatrix>& P, const LWFMatrix<State2::D_,mtState::D_,useDynamicMatrix>& Q){ // samples the last dimensions

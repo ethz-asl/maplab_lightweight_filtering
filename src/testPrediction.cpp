@@ -203,8 +203,8 @@ TYPED_TEST(PredictionModelTest, predictMergedUKF) {
   for(unsigned int i=0;i<filterState1.stateSigmaPoints_.L_;i++){
     this->testPrediction_.eval(filterState1.stateSigmaPointsPre_(i),filterState1.stateSigmaPoints_(i),meanMeas,filterState1.stateSigmaPointsNoi_(i),dt);
   }
-  filterState1.state_ = filterState1.stateSigmaPointsPre_.getMean();
-  filterState1.cov_ = filterState1.stateSigmaPointsPre_.getCovarianceMatrix(filterState1.state_);
+  filterState1.stateSigmaPointsPre_.getMean(filterState1.state_);
+  filterState1.stateSigmaPointsPre_.getCovarianceMatrix(filterState1.state_,filterState1.cov_);
   this->testPrediction_.predictMergedUKF(filterState2,this->measMap_.rbegin()->first,this->measMap_);
   typename TestFixture::mtPredictionExample::mtState::mtDifVec dif;
   filterState1.state_.boxMinus(filterState2.state_,dif);

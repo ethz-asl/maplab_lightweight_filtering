@@ -165,7 +165,7 @@ TEST_F(QuaternionElementTest, LMat) {
     attDisturbed.boxMinus(att,dif);
     J.col(i) = dif*1/d;
   }
-  ASSERT_NEAR((J-LWF::Lmat(vec.v_)).norm(),0.0,1e-5);
+  ASSERT_NEAR((J-Lmat(vec.v_)).norm(),0.0,1e-5);
 }
 
 // Test LMat and derivative of rotation

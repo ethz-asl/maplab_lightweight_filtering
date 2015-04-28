@@ -91,8 +91,8 @@ class Prediction: public ModelBase<typename FilterState::mtState,typename Filter
       this->eval(filterState.stateSigmaPointsPre_(i),filterState.stateSigmaPoints_(i),meas,filterState.stateSigmaPointsNoi_(i),dt);
     }
     // Calculate mean and variance
-    filterState.state_ = filterState.stateSigmaPointsPre_.getMean();
-    filterState.cov_ = filterState.stateSigmaPointsPre_.getCovarianceMatrix(filterState.state_);
+    filterState.stateSigmaPointsPre_.getMean(filterState.state_);
+    filterState.stateSigmaPointsPre_.getCovarianceMatrix(filterState.state_,filterState.cov_);
     filterState.state_.fix();
     filterState.t_ += dt;
     postProcess(filterState,meas,dt);
@@ -175,8 +175,8 @@ class Prediction: public ModelBase<typename FilterState::mtState,typename Filter
     for(unsigned int i=0;i<filterState.stateSigmaPoints_.L_;i++){
       this->eval(filterState.stateSigmaPointsPre_(i),filterState.stateSigmaPoints_(i),meanMeas,filterState.stateSigmaPointsNoi_(i),dT);
     }
-    filterState.state_ = filterState.stateSigmaPointsPre_.getMean();
-    filterState.cov_ = filterState.stateSigmaPointsPre_.getCovarianceMatrix(filterState.state_);
+    filterState.stateSigmaPointsPre_.getMean(filterState.state_);
+    filterState.stateSigmaPointsPre_.getCovarianceMatrix(filterState.state_,filterState.cov_);
     filterState.state_.fix();
     filterState.t_ = std::prev(itMeasEnd)->first;
     postProcess(filterState,meanMeas,dT);

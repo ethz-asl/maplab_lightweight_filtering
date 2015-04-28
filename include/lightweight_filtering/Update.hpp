@@ -34,14 +34,15 @@ class Update: public ModelBase<typename FilterState::mtState,Innovation,Meas,Noi
   typedef Innovation mtInnovation;
   typedef Meas mtMeas;
   typedef Noise mtNoise;
+  typedef LWFMatrix<mtNoise::D_,mtNoise::D_,mtFilterState::useDynamicMatrix_> mtUpdateNoise;
   typedef OutlierDetection mtOutlierDetection;
   static const bool coupledToPrediction_ = isCoupled;
   bool useSpecialLinearizationPoint_;
   typedef ModelBase<mtState,mtInnovation,mtMeas,mtNoise,mtFilterState::useDynamicMatrix_> mtModelBase;
   typename mtModelBase::mtJacInput H_;
   typename mtModelBase::mtJacNoise Hn_;
-  LWFMatrix<mtNoise::D_,mtNoise::D_,mtFilterState::useDynamicMatrix_> updnoiP_;
-  LWFMatrix<mtNoise::D_,mtNoise::D_,mtFilterState::useDynamicMatrix_> noiP_;
+  mtUpdateNoise updnoiP_;
+  mtUpdateNoise noiP_;
   LWFMatrix<mtPredictionNoise::D_,mtNoise::D_,mtFilterState::useDynamicMatrix_> preupdnoiP_;
   LWFMatrix<mtState::D_,mtInnovation::D_,mtFilterState::useDynamicMatrix_> C_;
   mtInnovation y_;
@@ -247,8 +248,8 @@ class Update: public ModelBase<typename FilterState::mtState,Innovation,Meas,Noi
     for(unsigned int i=0;i<2*mtState::D_+1;i++){
       filterState.state_.boxPlus(updateVec_+updateVecSP_(i).v_,posterior_(i));
     }
-    filterState.state_ = posterior_.getMean();
-    filterState.cov_ = posterior_.getCovarianceMatrix(filterState.state_);
+    posterior_.getMean(filterState.state_);
+    posterior_.getCovarianceMatrix(filterState.state_,filterState.cov_);
     return 0;
   }
   template<bool IC = isCoupled, typename std::enable_if<(IC)>::type* = nullptr>
@@ -257,9 +258,9 @@ class Update: public ModelBase<typename FilterState::mtState,Innovation,Meas,Noi
     for(unsigned int i=0;i<coupledInnSigmaPoints_.L_;i++){
       this->eval(coupledInnSigmaPoints_(i),filterState.stateSigmaPointsPre_(i),meas,coupledStateSigmaPointsNoi_(i));
     }
-    y_ = coupledInnSigmaPoints_.getMean();
-    Py_ = coupledInnSigmaPoints_.getCovarianceMatrix(y_);
-    Pyx_ = (coupledInnSigmaPoints_.getCovarianceMatrix(filterState.stateSigmaPointsPre_));
+    coupledInnSigmaPoints_.getMean(y_);
+    coupledInnSigmaPoints_.getCovarianceMatrix(y_,Py_);
+    coupledInnSigmaPoints_.getCovarianceMatrix(filterState.stateSigmaPointsPre_,Pyx_);
   }
   template<bool IC = isCoupled, typename std::enable_if<(!IC)>::type* = nullptr>
   void handleUpdateSigmaPoints(mtFilterState& filterState, const mtMeas& meas){
@@ -268,9 +269,9 @@ class Update: public ModelBase<typename FilterState::mtState,Innovation,Meas,Noi
     for(unsigned int i=0;i<innSigmaPoints_.L_;i++){
       this->eval(innSigmaPoints_(i),stateSigmaPoints_(i),meas,stateSigmaPointsNoi_(i));
     }
-    y_ = innSigmaPoints_.getMean();
-    Py_ = innSigmaPoints_.getCovarianceMatrix(y_);
-    Pyx_ = (innSigmaPoints_.getCovarianceMatrix(stateSigmaPoints_));
+    innSigmaPoints_.getMean(y_);
+    innSigmaPoints_.getCovarianceMatrix(y_,Py_);
+    innSigmaPoints_.getCovarianceMatrix(stateSigmaPoints_,Pyx_);
   }
 };
 

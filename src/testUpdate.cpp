@@ -50,9 +50,13 @@ TYPED_TEST(UpdateModelTest, constructors) {
   typename TestFixture::mtUpdateExample::mtNoise::mtDifVec dif;
   typename TestFixture::mtUpdateExample::mtNoise noise;
   noise.setIdentity();
-  testUpdate.stateSigmaPointsNoi_.getMean().boxMinus(noise,dif);
+  typename TestFixture::mtUpdateExample::mtNoise mean;
+  testUpdate.stateSigmaPointsNoi_.getMean(mean);
+  mean.boxMinus(noise,dif);
   ASSERT_NEAR(dif.norm(),0.0,1e-6);
-  ASSERT_NEAR((testUpdate.updnoiP_-testUpdate.stateSigmaPointsNoi_.getCovarianceMatrix()).norm(),0.0,1e-8);
+  typename TestFixture::mtUpdateExample::mtUpdateNoise C;
+  testUpdate.stateSigmaPointsNoi_.getCovarianceMatrix(C);
+  ASSERT_NEAR((testUpdate.updnoiP_-C).norm(),0.0,1e-8);
   typename TestFixture::mtPredictAndUpdateExample testPredictAndUpdate;
   coupledToPrediction = testPredictAndUpdate.coupledToPrediction_;
   ASSERT_EQ(coupledToPrediction,true);

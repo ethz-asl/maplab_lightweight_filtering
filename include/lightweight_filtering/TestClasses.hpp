@@ -152,7 +152,7 @@ class PredictionExample: public LWF::Prediction<FilterState>{
     J.template block<3,3>(mtState::getId<State::VEL>(),mtState::getId<State::ATT>()) = dt*MPD(state.get<State::ATT>()).matrix().transpose()*gSM(g_);
     J.template block<3,3>(mtState::getId<State::ACB>(),mtState::getId<State::ACB>()) = M3D::Identity();
     J.template block<3,3>(mtState::getId<State::GYB>(),mtState::getId<State::GYB>()) = M3D::Identity();
-    J.template block<3,3>(mtState::getId<State::ATT>(),mtState::getId<State::GYB>()) = dt*MPD(state.get<State::ATT>()).matrix()*LWF::Lmat(dOmega);
+    J.template block<3,3>(mtState::getId<State::ATT>(),mtState::getId<State::GYB>()) = dt*MPD(state.get<State::ATT>()).matrix()*Lmat(dOmega);
     J.template block<3,3>(mtState::getId<State::ATT>(),mtState::getId<State::ATT>()) = M3D::Identity();
   }
   void jacNoise(mtJacNoise& J, const mtState& state, const mtMeas& meas, double dt) const{
@@ -166,7 +166,7 @@ class PredictionExample: public LWF::Prediction<FilterState>{
     J.template block<3,3>(mtState::getId<State::VEL>(),mtNoise::getId<mtNoise::ATT>()) = gSM(state.get<State::VEL>())*sqrt(dt);
     J.template block<3,3>(mtState::getId<State::ACB>(),mtNoise::getId<mtNoise::ACB>()) = M3D::Identity()*sqrt(dt);
     J.template block<3,3>(mtState::getId<State::GYB>(),mtNoise::getId<mtNoise::GYB>()) = M3D::Identity()*sqrt(dt);
-    J.template block<3,3>(mtState::getId<State::ATT>(),mtNoise::getId<mtNoise::ATT>()) = -MPD(state.get<State::ATT>()).matrix()*LWF::Lmat(dOmega)*sqrt(dt);
+    J.template block<3,3>(mtState::getId<State::ATT>(),mtNoise::getId<mtNoise::ATT>()) = -MPD(state.get<State::ATT>()).matrix()*Lmat(dOmega)*sqrt(dt);
   }
 };
 

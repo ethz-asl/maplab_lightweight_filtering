@@ -40,8 +40,8 @@ class SigmaPointTest : public ::testing::Test {
         Qmat_(j,i) += randValue;
       }
     }
-    Eigen::ColPivHouseholderQR<mtCovMat> qr(Qmat_);
-    Qmat_ = mtCovMat(qr.householderQ());
+    Eigen::ColPivHouseholderQR<mtState::mtCovMat> qr(Qmat_);
+    Qmat_ = mtState::mtCovMat(qr.householderQ());
   }
   ~SigmaPointTest() {
   }
@@ -54,8 +54,9 @@ class SigmaPointTest : public ::testing::Test {
   typedef LWF::State<LWF::ArrayElement<LWF::ScalarElement,S_>,LWF::ArrayElement<LWF::VectorElement<3>,V_>,LWF::ArrayElement<LWF::QuaternionElement,Q_>> mtState;
   typedef LWF::VectorElement<3> mtElementVector;
   typedef mtState::mtDifVec mtDifVec;
-  typedef mtState::mtCovMat mtCovMat;
-  LWF::SigmaPoints<mtState,N_,L_,O_> sigmaPoints_;
+  typedef LWF::SigmaPoints<mtState,N_,L_,O_> mtSigmaPoints;
+  typedef mtSigmaPoints::mtCovMat mtCovMat;
+  mtSigmaPoints sigmaPoints_;
   LWF::SigmaPoints<mtElementVector,L_,L_,0> sigmaPointsVector_;
   mtState mean_;
   mtCovMat P_;
@@ -94,25 +95,27 @@ TEST_F(SigmaPointTest, computeFromGaussianPlusPlus) {
   sigmaPoints_.computeFromGaussian(mean_,P_);
 
   // Check mean is same
-  mtState mean = sigmaPoints_.getMean();
+  mtState mean;
+  sigmaPoints_.getMean(mean);
   mtDifVec vec;
   mean.boxMinus(mean_,vec);
   ASSERT_NEAR(vec.norm(),0.0,1e-8);
 
   // Check covariance is same
-  mtCovMat P = sigmaPoints_.getCovarianceMatrix(mean);
+  mtCovMat P;
+  sigmaPoints_.getCovarianceMatrix(mean,P);
   ASSERT_NEAR((P-P_).norm(),0.0,1e-8);
 
   // computeFromZeroMeanGaussian
   sigmaPoints_.computeFromZeroMeanGaussian(P_);
 
   // Check mean is same
-  mean = sigmaPoints_.getMean();
+  sigmaPoints_.getMean(mean);
   mean.boxMinus(mtState::Identity(),vec);
   ASSERT_NEAR(vec.norm(),0.0,1e-8);
 
   // Check covariance is same
-  P = sigmaPoints_.getCovarianceMatrix(mean);
+  sigmaPoints_.getCovarianceMatrix(mean,P);
   ASSERT_NEAR((P-P_).norm(),0.0,1e-8);
 
   // Test with semidefinite matrix
@@ -120,10 +123,10 @@ TEST_F(SigmaPointTest, computeFromGaussianPlusPlus) {
   Psemi.col(1) = Psemi.col(0);
   Psemi.row(1) = Psemi.row(0);
   sigmaPoints_.computeFromGaussian(mean_,Psemi);
-  mean = sigmaPoints_.getMean();
+  sigmaPoints_.getMean(mean);
   mean.boxMinus(mean_,vec);
   ASSERT_NEAR(vec.norm(),0.0,1e-8);
-  P = sigmaPoints_.getCovarianceMatrix(mean);
+  sigmaPoints_.getCovarianceMatrix(mean,P);
   ASSERT_NEAR((P-Psemi).norm(),0.0,1e-8);
 }
 
@@ -133,13 +136,15 @@ TEST_F(SigmaPointTest, computeFromGaussianQ) {
   sigmaPoints_.computeFromGaussian(mean_,P_,Qmat_);
 
   // Check mean is same
-  mtState mean = sigmaPoints_.getMean();
+  mtState mean;
+  sigmaPoints_.getMean(mean);
   mtDifVec vec;
   mean.boxMinus(mean_,vec);
   ASSERT_NEAR(vec.norm(),0.0,1e-8);
 
   // Check covariance is same
-  mtCovMat P = sigmaPoints_.getCovarianceMatrix(mean);
+  mtCovMat P;
+  sigmaPoints_.getCovarianceMatrix(mean,P);
   ASSERT_NEAR((P-P_).norm(),0.0,1e-8);
 }
 
@@ -153,8 +158,9 @@ TEST_F(SigmaPointTest, getCovariance2) {
     sigmaPointsVector_(i).v_ = sigmaPoints_(i).template get<1>(0)*2.45+V3D::Ones()*sigmaPoints_(i).template get<0>(0)*0.51;
   }
 
-  Eigen::Matrix<double,mtElementVector::D_,mtState::D_> M = sigmaPointsVector_.getCovarianceMatrix(sigmaPoints_);
-  Eigen::Matrix<double,mtElementVector::D_,mtState::D_> H; // Jacobian of linear transformation
+  LWFMatrix<mtElementVector::D_,mtState::D_,false> M;
+  sigmaPointsVector_.getCovarianceMatrix(sigmaPoints_,M);
+  LWFMatrix<mtElementVector::D_,mtState::D_,false> H; // Jacobian of linear transformation
   H.setZero();
   H.block(0,S_,3,3) = M3D::Identity()*2.45;
   H.block(0,0,3,1) = V3D::Ones()*0.51;

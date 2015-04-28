@@ -20,37 +20,6 @@ namespace rot = kindr::rotations::eigen_impl;
 
 namespace LWF{
 
-template<int nRow, int nCol, bool isDynamic = false>
-class LWFMatrix;
-
-template<int nRow, int nCol>
-class LWFMatrix<nRow,nCol,true>: public Eigen::MatrixXd{
- public:
-  LWFMatrix():Eigen::MatrixXd(nRow,nCol){}
-  typedef Eigen::MatrixXd Base;
-  template<typename OtherDerived>
-  LWFMatrix(const Eigen::MatrixBase<OtherDerived>& other): Eigen::MatrixXd(other){}
-  template<typename OtherDerived>
-  LWFMatrix & operator= (const Eigen::MatrixBase <OtherDerived>& other){
-    this->Base::operator=(other);
-    return *this;
-  }
-};
-
-template<int nRow, int nCol>
-class LWFMatrix<nRow,nCol,false>: public Eigen::Matrix<double,nRow,nCol>{
- public:
-  LWFMatrix(){}
-  typedef Eigen::Matrix<double,nRow,nCol> Base;
-  template<typename OtherDerived>
-  LWFMatrix(const Eigen::MatrixBase<OtherDerived>& other): Eigen::Matrix<double,nRow,nCol>(other){}
-  template<typename OtherDerived>
-  LWFMatrix & operator= (const Eigen::MatrixBase <OtherDerived>& other){
-    this->Base::operator=(other);
-    return *this;
-  }
-};
-
 template<typename DERIVED, typename GET, unsigned int D, unsigned int E = D>
 class ElementBase{
  public:
@@ -664,30 +633,6 @@ class TH_convert<State<Args...>>: public State<Args...>{
 template <typename Arg, unsigned int N>
 class TH_convert<TH_multiple_elements<Arg,N>>: public TH_multiple_elements<Arg,N>{
 };
-
-static M3D Lmat (V3D a) {
-  double aNorm = a.norm();
-  double factor1 = 0;
-  double factor2 = 0;
-  M3D ak;
-  M3D ak2;
-  M3D G_k;
-
-  // Get sqew matrices
-  ak = gSM(a);
-  ak2 = ak*ak;
-
-  // Compute factors
-  if(aNorm >= 1e-10){
-    factor1 = (1 - cos(aNorm))/pow(aNorm,2);
-    factor2 = (aNorm-sin(aNorm))/pow(aNorm,3);
-  } else {
-    factor1 = 1/2;
-    factor2 = 1/6;
-  }
-
-  return M3D::Identity()-factor1*ak+factor2*ak2;
-}
 
 }
 
