@@ -16,6 +16,7 @@ class ScalarElementTest : public virtual ::testing::Test {
   LWF::ScalarElement testElement1_;
   LWF::ScalarElement testElement2_;
   LWF::ScalarElement::mtDifVec difVec_;
+  LWF::ScalarElement::mtCovMat covMat_;
 };
 
 // Test constructors
@@ -37,6 +38,12 @@ TEST_F(ScalarElementTest, plusAndMinus) {
   LWF::ScalarElement testElement3;
   testElement1_.boxPlus(difVec_,testElement3);
   ASSERT_NEAR(testElement2_.s_,testElement3.s_,1e-6);
+}
+
+// Test minus Jacobian
+TEST_F(ScalarElementTest, minusJac) {
+  testElement2_.boxMinusJac(testElement1_,covMat_);
+  ASSERT_NEAR((covMat_-LWF::ScalarElement::mtCovMat::Identity()).norm(),0.0,1e-6);
 }
 
 // Test getValue
@@ -64,6 +71,7 @@ class VectorElementTest : public virtual ::testing::Test {
   LWF::VectorElement<N_> testElement1_;
   LWF::VectorElement<N_> testElement2_;
   LWF::VectorElement<N_>::mtDifVec difVec_;
+  LWF::VectorElement<N_>::mtCovMat covMat_;
 };
 
 // Test constructors
@@ -85,6 +93,12 @@ TEST_F(VectorElementTest, plusAndMinus) {
   LWF::VectorElement<N_> testElement3;
   testElement1_.boxPlus(difVec_,testElement3);
   ASSERT_NEAR((testElement2_.v_-testElement3.v_).norm(),0.0,1e-6);
+}
+
+// Test minus Jacobian
+TEST_F(VectorElementTest, minusJac) {
+  testElement2_.boxMinusJac(testElement1_,covMat_);
+  ASSERT_NEAR((covMat_-LWF::VectorElement<N_>::mtCovMat::Identity()).norm(),0.0,1e-6);
 }
 
 // Test getValue
@@ -110,7 +124,12 @@ class QuaternionElementTest : public virtual ::testing::Test {
   }
   LWF::QuaternionElement testElement1_;
   LWF::QuaternionElement testElement2_;
+  LWF::QuaternionElement testElement3_;
   LWF::QuaternionElement::mtDifVec difVec_;
+  LWF::QuaternionElement::mtDifVec difVecIn_;
+  LWF::QuaternionElement::mtDifVec difVecOut1_;
+  LWF::QuaternionElement::mtDifVec difVecOut2_;
+  LWF::QuaternionElement::mtCovMat covMat_;
 };
 
 // Test constructors
@@ -132,6 +151,22 @@ TEST_F(QuaternionElementTest, plusAndMinus) {
   LWF::QuaternionElement testElement3;
   testElement1_.boxPlus(difVec_,testElement3);
   ASSERT_TRUE(testElement2_.q_.isNear(testElement3.q_,1e-6));
+}
+
+// Test minus Jacobian
+TEST_F(QuaternionElementTest, minusJac) {
+  testElement2_.boxMinus(testElement1_,difVecOut1_);
+  double d = 0.00001;
+  testElement2_.boxMinusJac(testElement1_,covMat_);
+  for(unsigned int i=0;i<3;i++){
+    difVecIn_.setZero();
+    difVecIn_(i) = d;
+    testElement2_.boxPlus(difVecIn_,testElement3_);
+    testElement3_.boxMinus(testElement1_,difVecOut2_);
+    difVecOut2_ -= difVecOut1_;
+    difVecOut2_ = difVecOut2_/d;
+    ASSERT_NEAR((covMat_.col(i)-difVecOut2_).norm(),0.0,1e-5);
+  }
 }
 
 // Test getValue
@@ -201,7 +236,12 @@ class NormalVectorElementTest : public virtual ::testing::Test {
   }
   LWF::NormalVectorElement testElement1_;
   LWF::NormalVectorElement testElement2_;
+  LWF::NormalVectorElement testElement3_;
   LWF::NormalVectorElement::mtDifVec difVec_;
+  LWF::NormalVectorElement::mtDifVec difVecIn_;
+  LWF::NormalVectorElement::mtDifVec difVecOut1_;
+  LWF::NormalVectorElement::mtDifVec difVecOut2_;
+  LWF::NormalVectorElement::mtCovMat covMat_;
 };
 
 // Test constructors
@@ -222,6 +262,22 @@ TEST_F(NormalVectorElementTest, plusAndMinus) {
   LWF::NormalVectorElement testElement3;
   testElement1_.boxPlus(difVec_,testElement3);
   ASSERT_NEAR((testElement2_.getVec()-testElement3.getVec()).norm(),0.0,1e-6);
+}
+
+// Test minus Jacobian
+TEST_F(NormalVectorElementTest, minusJac) {
+  testElement2_.boxMinus(testElement1_,difVecOut1_);
+  double d = 0.00001;
+  testElement2_.boxMinusJac(testElement1_,covMat_);
+  for(unsigned int i=0;i<2;i++){
+    difVecIn_.setZero();
+    difVecIn_(i) = d;
+    testElement2_.boxPlus(difVecIn_,testElement3_);
+    testElement3_.boxMinus(testElement1_,difVecOut2_);
+    difVecOut2_ -= difVecOut1_;
+    difVecOut2_ = difVecOut2_/d;
+    ASSERT_NEAR((covMat_.col(i)-difVecOut2_).norm(),0.0,1e-5);
+  }
 }
 
 // Test getValue
@@ -318,7 +374,12 @@ class ArrayElementTest : public virtual ::testing::Test {
   static const unsigned int N_ = 5;
   LWF::ArrayElement<LWF::QuaternionElement,N_> testElement1_;
   LWF::ArrayElement<LWF::QuaternionElement,N_> testElement2_;
+  LWF::ArrayElement<LWF::QuaternionElement,N_> testElement3_;
   LWF::ArrayElement<LWF::QuaternionElement,N_>::mtDifVec difVec_;
+  LWF::ArrayElement<LWF::QuaternionElement,N_>::mtDifVec difVecIn_;
+  LWF::ArrayElement<LWF::QuaternionElement,N_>::mtDifVec difVecOut1_;
+  LWF::ArrayElement<LWF::QuaternionElement,N_>::mtDifVec difVecOut2_;
+  LWF::ArrayElement<LWF::QuaternionElement,N_>::mtCovMat covMat_;
 };
 
 // Test constructors
@@ -345,6 +406,22 @@ TEST_F(ArrayElementTest, plusAndMinus) {
   testElement1_.boxPlus(difVec_,testElement3);
   for(unsigned int i=0;i<N_;i++){
     ASSERT_TRUE(testElement2_.array_[i].q_.isNear(testElement3.array_[i].q_,1e-6));
+  }
+}
+
+// Test minus Jacobian
+TEST_F(ArrayElementTest, minusJac) {
+  testElement2_.boxMinus(testElement1_,difVecOut1_);
+  double d = 0.00001;
+  testElement2_.boxMinusJac(testElement1_,covMat_);
+  for(unsigned int i=0;i<3*N_;i++){
+    difVecIn_.setZero();
+    difVecIn_(i) = d;
+    testElement2_.boxPlus(difVecIn_,testElement3_);
+    testElement3_.boxMinus(testElement1_,difVecOut2_);
+    difVecOut2_ -= difVecOut1_;
+    difVecOut2_ = difVecOut2_/d;
+    ASSERT_NEAR((covMat_.col(i)-difVecOut2_).norm(),0.0,1e-5);
   }
 }
 
@@ -427,7 +504,12 @@ class StateTesting : public virtual ::testing::Test {
       AuxillaryElement> mtState;
   mtState testState1_;
   mtState testState2_;
+  mtState testState3_;
   mtState::mtDifVec difVec_;
+  mtState::mtDifVec difVecIn_;
+  mtState::mtDifVec difVecOut1_;
+  mtState::mtDifVec difVecOut2_;
+  mtState::mtCovMat covMat_;
   double testScalar1_;
   double testScalar2_;
   V3D testVector1_[4];
@@ -498,6 +580,22 @@ TEST_F(StateTesting, plusAndMinus) {
   ASSERT_EQ(testState2_.get<_aux>().x_,testState1_.get<_aux>().x_);
 }
 
+// Test minus Jacobian
+TEST_F(StateTesting, minusJac) {
+  testState2_.boxMinus(testState1_,difVecOut1_);
+  double d = 0.00001;
+  testState2_.boxMinusJac(testState1_,covMat_);
+  for(unsigned int i=0;i<mtState::D_;i++){
+    difVecIn_.setZero();
+    difVecIn_(i) = d;
+    testState2_.boxPlus(difVecIn_,testState3_);
+    testState3_.boxMinus(testState1_,difVecOut2_);
+    difVecOut2_ -= difVecOut1_;
+    difVecOut2_ = difVecOut2_/d;
+    ASSERT_NEAR((covMat_.col(i)-difVecOut2_).norm(),0.0,1e-5);
+  }
+}
+
 // Test getValue, getId, getElementId
 TEST_F(StateTesting, accessors) {
   ASSERT_NEAR(testState1_.get<_sca>(),testScalar1_,1e-10);
@@ -531,6 +629,7 @@ TEST_F(StateTesting, accessors) {
   ASSERT_TRUE(testState1_.getElementId(16) == _qua0);
   ASSERT_TRUE(testState1_.getElementId(19) == _qua1);
   ASSERT_TRUE(testState1_.getElementId(22) == _qua1);
+  std::cout << "CHECK (ERROR: Exceeded state size)" << std::endl;
   ASSERT_TRUE(testState1_.getElementId(25) == _aux+1); // Exceeds state size
 }
 

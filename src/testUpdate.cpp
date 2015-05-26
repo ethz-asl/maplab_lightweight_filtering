@@ -497,6 +497,7 @@ TYPED_TEST(UpdateModelTest, performUpdateLEKF2) {
 TYPED_TEST(UpdateModelTest, performUpdateLEKF3) {
   // Linearization point
   typename TestFixture::mtUpdateExample::mtFilterState filterState;
+  filterState.state_ = this->testState_;
   typename TestFixture::mtUpdateExample::mtState linState;
   unsigned int s = 2;
   linState.setRandom(s);
@@ -505,6 +506,14 @@ TYPED_TEST(UpdateModelTest, performUpdateLEKF3) {
   filterState.cov_.setIdentity();
   typename TestFixture::mtUpdateExample::mtJacInput H;
   this->testUpdate_.jacInput(H,linState,this->testUpdateMeas_,this->dt_);
+  typename TestFixture::mtUpdateExample::mtJacInput Hlin;
+  if(this->testUpdate_.useImprovedJacobian_){
+    typename TestFixture::mtUpdateExample::mtState::mtCovMat boxMinusJac;
+    filterState.state_.boxMinusJac(linState,boxMinusJac);
+    Hlin = H*boxMinusJac;
+  } else {
+    Hlin = H;
+  }
   typename TestFixture::mtUpdateExample::mtJacNoise Hn;
   this->testUpdate_.jacNoise(Hn,linState,this->testUpdateMeas_,this->dt_);
 
@@ -515,15 +524,14 @@ TYPED_TEST(UpdateModelTest, performUpdateLEKF3) {
   typename TestFixture::mtUpdateExample::mtInnovation::mtDifVec innVector;
 
   typename TestFixture::mtUpdateExample::mtState stateUpdated;
-  filterState.state_ = this->testState_;
 
   // Update
-  typename TestFixture::mtUpdateExample::mtInnovation::mtCovMat Py = H*filterState.cov_*H.transpose() + Hn*this->testUpdate_.updnoiP_*Hn.transpose();
+  typename TestFixture::mtUpdateExample::mtInnovation::mtCovMat Py = Hlin*filterState.cov_*Hlin.transpose() + Hn*this->testUpdate_.updnoiP_*Hn.transpose();
   y.boxMinus(yIdentity,innVector);
   typename TestFixture::mtUpdateExample::mtInnovation::mtCovMat Pyinv = typename TestFixture::mtUpdateExample::mtInnovation::mtCovMat::Base(Py.inverse());
 
   // Kalman Update
-  Eigen::Matrix<double,TestFixture::mtUpdateExample::mtState::D_,TestFixture::mtUpdateExample::mtInnovation::D_> K = filterState.cov_*H.transpose()*Pyinv;
+  Eigen::Matrix<double,TestFixture::mtUpdateExample::mtState::D_,TestFixture::mtUpdateExample::mtInnovation::D_> K = filterState.cov_*Hlin.transpose()*Pyinv;
   updateCov = filterState.cov_ - K*Py*K.transpose();
   typename TestFixture::mtUpdateExample::mtState::mtDifVec updateVec;
   typename TestFixture::mtUpdateExample::mtState::mtDifVec difVecLin;

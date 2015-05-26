@@ -38,8 +38,11 @@ class Update: public ModelBase<typename FilterState::mtState,Innovation,Meas,Noi
   typedef OutlierDetection mtOutlierDetection;
   static const bool coupledToPrediction_ = isCoupled;
   bool useSpecialLinearizationPoint_;
+  bool useImprovedJacobian_;
   typedef ModelBase<mtState,mtInnovation,mtMeas,mtNoise,mtFilterState::useDynamicMatrix_> mtModelBase;
   typename mtModelBase::mtJacInput H_;
+  typename mtModelBase::mtJacInput Hlin_;
+  mtFilterCovMat boxMinusJac_;
   typename mtModelBase::mtJacNoise Hn_;
   mtUpdateNoise updnoiP_;
   mtUpdateNoise noiP_;
@@ -55,6 +58,7 @@ class Update: public ModelBase<typename FilterState::mtState,Innovation,Meas,Noi
   double updateVecNorm_;
   LWFMatrix<mtState::D_,mtInnovation::D_,mtFilterState::useDynamicMatrix_> K_;
   LWFMatrix<mtInnovation::D_,mtState::D_,mtFilterState::useDynamicMatrix_> Pyx_;
+  typename mtState::mtDifVec difVecLinInv_;
 
   SigmaPoints<mtState,2*mtState::D_+1,2*(mtState::D_+mtNoise::D_)+1,0,mtFilterState::useDynamicMatrix_> stateSigmaPoints_;
   SigmaPoints<mtNoise,2*mtNoise::D_+1,2*(mtState::D_+mtNoise::D_)+1,2*mtState::D_,mtFilterState::useDynamicMatrix_> stateSigmaPointsNoi_;
@@ -82,6 +86,7 @@ class Update: public ModelBase<typename FilterState::mtState,Innovation,Meas,Noi
     noiP_.setZero();
     preupdnoiP_.setZero();
     useSpecialLinearizationPoint_ = false;
+    useImprovedJacobian_ = false;
     yIdentity_.setIdentity();
     updateVec_.setIdentity();
     refreshNoiseSigmaPoints();
@@ -118,78 +123,89 @@ class Update: public ModelBase<typename FilterState::mtState,Innovation,Meas,Noi
     refreshUKFParameter();
   }
   virtual void refreshPropertiesCustom(){}
-  virtual void preProcess(mtFilterState& filterState, const mtMeas& meas, const int s = 0){
+  virtual void preProcess(mtFilterState& filterState, const mtMeas& meas, bool& isFinished){
+    isFinished = false;
     if(!disablePreAndPostProcessingWarning_){
       std::cout << "Warning: preProcessing is not implement!" << std::endl;
     }
   }
-  virtual void postProcess(mtFilterState& filterState, const mtMeas& meas, const mtOutlierDetection& outlierDetection, const int s = 0){
+  virtual void postProcess(mtFilterState& filterState, const mtMeas& meas, const mtOutlierDetection& outlierDetection, bool& isFinished){
+    isFinished = true;
     if(!disablePreAndPostProcessingWarning_){
       std::cout << "Warning: postProcessing is not implement!" << std::endl;
     }
   }
   virtual ~Update(){};
   int performUpdate(mtFilterState& filterState, const mtMeas& meas){
-    int s = 0;
+    bool isFinished = true;
     int r = 0;
-    while(s<numSequences){
-      preProcess(filterState,meas,s);
-      switch(filterState.mode_){
-        case ModeEKF:
-          r = performUpdateEKF(filterState,meas);
-          break;
-        case ModeUKF:
-          r = performUpdateUKF(filterState,meas);
-          break;
-        case ModeIEKF:
-          r = performUpdateIEKF(filterState,meas);
-          break;
-        default:
-          r = performUpdateEKF(filterState,meas);
-          break;
+    do {
+      preProcess(filterState,meas,isFinished);
+      if(!isFinished){
+        switch(filterState.mode_){
+          case ModeEKF:
+            r = performUpdateEKF(filterState,meas);
+            break;
+          case ModeUKF:
+            r = performUpdateUKF(filterState,meas);
+            break;
+          case ModeIEKF:
+            r = performUpdateIEKF(filterState,meas);
+            break;
+          default:
+            r = performUpdateEKF(filterState,meas);
+            break;
+        }
       }
-      postProcess(filterState,meas,outlierDetection_,s);
+      postProcess(filterState,meas,outlierDetection_,isFinished);
       filterState.state_.fix();
-      s++;
-    }
+    } while (!isFinished);
     return r;
   }
   int performUpdateEKF(mtFilterState& filterState, const mtMeas& meas){
     if(!useSpecialLinearizationPoint_){
       this->jacInput(H_,filterState.state_,meas);
+      Hlin_ = H_;
       this->jacNoise(Hn_,filterState.state_,meas);
       this->eval(y_,filterState.state_,meas);
     } else {
       filterState.state_.boxPlus(filterState.difVecLin_,linState_);
       this->jacInput(H_,linState_,meas);
+      if(useImprovedJacobian_){
+        filterState.state_.boxMinusJac(linState_,boxMinusJac_);
+        Hlin_ = H_*boxMinusJac_;
+      } else {
+        Hlin_ = H_;
+      }
       this->jacNoise(Hn_,linState_,meas);
       this->eval(y_,linState_,meas);
     }
 
     if(isCoupled){
       C_ = filterState.G_*preupdnoiP_*Hn_.transpose();
-      Py_ = H_*filterState.cov_*H_.transpose() + Hn_*updnoiP_*Hn_.transpose() + H_*C_ + C_.transpose()*H_.transpose();
+      Py_ = Hlin_*filterState.cov_*Hlin_.transpose() + Hn_*updnoiP_*Hn_.transpose() + Hlin_*C_ + C_.transpose()*Hlin_.transpose();
     } else {
-      Py_ = H_*filterState.cov_*H_.transpose() + Hn_*updnoiP_*Hn_.transpose();
+      Py_ = Hlin_*filterState.cov_*Hlin_.transpose() + Hn_*updnoiP_*Hn_.transpose();
     }
     y_.boxMinus(yIdentity_,innVector_);
 
     // Outlier detection // TODO: adapt for special linearization point
-    outlierDetection_.doOutlierDetection(innVector_,Py_,H_);
+    outlierDetection_.doOutlierDetection(innVector_,Py_,Hlin_);
     Pyinv_.setIdentity();
     Py_.llt().solveInPlace(Pyinv_);
 
     // Kalman Update
     if(isCoupled){
-      K_ = (filterState.cov_*H_.transpose()+C_)*Pyinv_;
+      K_ = (filterState.cov_*Hlin_.transpose()+C_)*Pyinv_;
     } else {
-      K_ = filterState.cov_*H_.transpose()*Pyinv_;
+      K_ = filterState.cov_*Hlin_.transpose()*Pyinv_;
     }
     filterState.cov_ = filterState.cov_ - K_*Py_*K_.transpose();
     if(!useSpecialLinearizationPoint_){
       updateVec_ = -K_*innVector_;
     } else {
-      updateVec_ = -K_*(innVector_-H_*filterState.difVecLin_); // includes correction for offseted linearization point
+      filterState.state_.boxMinus(linState_,difVecLinInv_);
+      updateVec_ = -K_*(innVector_+H_*difVecLinInv_); // includes correction for offseted linearization point, dif must be recomputed (a-b != (-(b-a)))
     }
     filterState.state_.boxPlus(updateVec_,filterState.state_);
     return 0;

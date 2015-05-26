@@ -33,6 +33,7 @@ class ElementBase{
   std::string name_;
   virtual void boxPlus(const mtDifVec& vecIn, DERIVED& stateOut) const = 0;
   virtual void boxMinus(const DERIVED& stateIn, mtDifVec& vecOut) const = 0;
+  virtual void boxMinusJac(const DERIVED& stateIn, mtCovMat& matOut) const = 0;
   virtual void print() const = 0;
   virtual void setIdentity() = 0;
   virtual void setRandom(unsigned int& s) = 0;
@@ -63,6 +64,7 @@ class AuxiliaryBase: public ElementBase<AuxiliaryBase<DERIVED>,DERIVED,0>{
  public:
   typedef ElementBase<AuxiliaryBase<DERIVED>,DERIVED,0> Base;
   using typename Base::mtDifVec;
+  using typename Base::mtCovMat;
   using typename Base::mtGet;
   AuxiliaryBase(){}
   AuxiliaryBase(const AuxiliaryBase& other){}
@@ -71,6 +73,7 @@ class AuxiliaryBase: public ElementBase<AuxiliaryBase<DERIVED>,DERIVED,0>{
     static_cast<DERIVED&>(stateOut) = static_cast<const DERIVED&>(*this);
   }
   virtual void boxMinus(const AuxiliaryBase& stateIn, mtDifVec& vecOut) const{}
+  virtual void boxMinusJac(const AuxiliaryBase& stateIn, mtCovMat& matOut) const{}
   virtual void print() const{}
   virtual void setIdentity(){}
   virtual void setRandom(unsigned int& s){}
@@ -96,6 +99,9 @@ class ScalarElement: public ElementBase<ScalarElement,double,1>{
   }
   void boxMinus(const ScalarElement& stateIn, mtDifVec& vecOut) const{
     vecOut(0) = s_ - stateIn.s_;
+  }
+  void boxMinusJac(const ScalarElement& stateIn, mtCovMat& matOut) const{
+    matOut.setIdentity();
   }
   void print() const{
     std::cout << s_ << std::endl;
@@ -129,6 +135,7 @@ class VectorElement: public ElementBase<VectorElement<N>,Eigen::Matrix<double,N,
  public:
   typedef ElementBase<VectorElement<N>,Eigen::Matrix<double,N,1>,N> Base;
   using typename Base::mtDifVec;
+  using typename Base::mtCovMat;
   using typename Base::mtGet;
   using Base::name_;
   static const unsigned int N_ = N;
@@ -142,6 +149,9 @@ class VectorElement: public ElementBase<VectorElement<N>,Eigen::Matrix<double,N,
   }
   void boxMinus(const VectorElement<N>& stateIn, mtDifVec& vecOut) const{
     vecOut = v_ - stateIn.v_;
+  }
+  void boxMinusJac(const VectorElement<N>& stateIn, mtCovMat& matOut) const{
+    matOut.setIdentity();
   }
   void print() const{
     std::cout << v_.transpose() << std::endl;
@@ -187,6 +197,11 @@ class QuaternionElement: public ElementBase<QuaternionElement,QPD,3>{
   void boxMinus(const QuaternionElement& stateIn, mtDifVec& vecOut) const{
     vecOut = q_.boxMinus(stateIn.q_);
   }
+  void boxMinusJac(const QuaternionElement& stateIn, mtCovMat& matOut) const{
+    mtDifVec diff;
+    boxMinus(stateIn,diff);
+    matOut = Lmat(diff).inverse();
+  }
   void print() const{
     std::cout << q_ << std::endl;
   }
@@ -228,6 +243,9 @@ class NormalVectorElement: public ElementBase<NormalVectorElement,NormalVectorEl
   NormalVectorElement(): e_x(1,0,0), e_y(0,1,0), e_z(0,0,1){}
   NormalVectorElement(const NormalVectorElement& other): e_x(1,0,0), e_y(0,1,0), e_z(0,0,1){
     q_ = other.q_;
+  }
+  NormalVectorElement(const V3D& vec): e_x(1,0,0), e_y(0,1,0), e_z(0,0,1){
+    setFromVector(vec);
   }
   NormalVectorElement(const QPD& q): e_x(1,0,0), e_y(0,1,0), e_z(0,0,1){
     q_ = q;
@@ -302,6 +320,9 @@ class NormalVectorElement: public ElementBase<NormalVectorElement,NormalVectorEl
   void boxMinus(const NormalVectorElement& stateIn, mtDifVec& vecOut) const{
     vecOut = stateIn.getN().transpose()*getRotationFromTwoNormals(stateIn,*this);
   }
+  void boxMinusJac(const NormalVectorElement& stateIn, mtCovMat& matOut) const{
+    matOut = -stateIn.getN().transpose()*getRotationFromTwoNormalsJac(*this,stateIn)*this->getM();
+  }
   void print() const{
     std::cout << getVec().transpose() << std::endl;
   }
@@ -349,6 +370,7 @@ class ArrayElement: public ElementBase<ArrayElement<Element,M>,typename Element:
  public:
   typedef ElementBase<ArrayElement<Element,M>,typename Element::mtGet,M*Element::D_,Element::D_> Base;
   using typename Base::mtDifVec;
+  using typename Base::mtCovMat;
   using typename Base::mtGet;
   using Base::name_;
   static const unsigned int M_ = M;
@@ -377,6 +399,16 @@ class ArrayElement: public ElementBase<ArrayElement<Element,M>,typename Element:
       for(unsigned int i=0; i<M_;i++){
         array_[i].boxMinus(stateIn.array_[i],difVec);
         vecOut.template block<Element::D_,1>(Element::D_*i,0) = difVec;
+      }
+    }
+  }
+  void boxMinusJac(const ArrayElement& stateIn, mtCovMat& matOut) const{
+    matOut.setZero();
+    if(Element::D_>0){
+      typename Element::mtCovMat mat;
+      for(unsigned int i=0; i<M_;i++){
+        array_[i].boxMinusJac(stateIn.array_[i],mat);
+        matOut.template block<Element::D_,Element::D_>(Element::D_*i,Element::D_*i) = mat;
       }
     }
   }
@@ -497,6 +529,22 @@ class State{
   }
   template<unsigned int i=0,unsigned int j=0,typename std::enable_if<(i>=E_)>::type* = nullptr>
   inline void boxMinus_(const State<Elements...>& stateIn, mtDifVec& vecOut) const{}
+  template<typename Derived>
+  void boxMinusJac(const State<Elements...>& stateIn, Eigen::MatrixBase<Derived>& matOut) const{
+    matOut.setZero();
+    boxMinusJac_(stateIn,matOut);
+  }
+  template<typename Derived,unsigned int i=0,unsigned int j=0,typename std::enable_if<(i<E_)>::type* = nullptr>
+  inline void boxMinusJac_(const State<Elements...>& stateIn, Eigen::MatrixBase<Derived>& matOut) const{
+    if(std::tuple_element<i,decltype(mElements_)>::type::D_>0){
+      typename std::tuple_element<i,decltype(mElements_)>::type::mtCovMat mat;
+      std::get<i>(mElements_).boxMinusJac(std::get<i>(stateIn.mElements_),mat);
+      matOut.template block<std::tuple_element<i,decltype(mElements_)>::type::D_,std::tuple_element<i,decltype(mElements_)>::type::D_>(j,j) = mat;
+    }
+    boxMinusJac_<Derived,i+1,j+std::tuple_element<i,decltype(mElements_)>::type::D_>(stateIn,matOut);
+  }
+  template<typename Derived,unsigned int i=0,unsigned int j=0,typename std::enable_if<(i>=E_)>::type* = nullptr>
+  inline void boxMinusJac_(const State<Elements...>& stateIn, Eigen::MatrixBase<Derived>& matOut) const{}
   void print() const{
     print_();
   }

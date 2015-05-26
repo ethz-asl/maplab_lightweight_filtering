@@ -27,7 +27,14 @@ class CoordinateTransform: public ModelBase<Input,Output,Input,Input,useDynamicM
   typedef LWFMatrix<mtOutput::D_,mtOutput::D_,useDynamicMatrix> mtOutputCovMat;
   typedef typename Base::mtJacInput mtJacInput;
   mtJacInput J_;
-  CoordinateTransform(){};
+  LWFMatrix<mtOutput::D_,mtOutput::D_,useDynamicMatrix> inverseProblem_C_;
+  typename mtInput::mtDifVec inputDiff_;
+  typename mtInput::mtDifVec correction_;
+  typename mtInput::mtDifVec lastCorrection_;
+  typename mtOutput::mtDifVec outputDiff_;
+  mtOutput output_;
+  CoordinateTransform(){
+  };
   virtual ~CoordinateTransform(){};
   void transformState(const mtInput& input, mtOutput& output) const{
     eval(output, input, input);
@@ -38,6 +45,54 @@ class CoordinateTransform: public ModelBase<Input,Output,Input,Input,useDynamicM
     postProcess(outputCov,input);
   }
   virtual void postProcess(mtOutputCovMat& cov,const mtInput& input){}
+  bool solveInverseProblem(mtInput& input,const mtInputCovMat& inputCov, const mtOutput& outputRef, const double tolerance = 1e-6, const int max_iter = 10){
+    const mtInput inputRef = input;
+    int count = 0;
+    while(count < max_iter){
+      jacInput(J_,input,input);
+      inputRef.boxMinus(input,inputDiff_);
+      transformState(input,output_);
+      outputRef.boxMinus(output_,outputDiff_);
+      inverseProblem_C_ = J_*inputCov*J_.transpose();
+      correction_ = inputDiff_ + inputCov*J_.transpose()*inverseProblem_C_.inverse()*(outputDiff_-J_*inputDiff_);
+      input.boxPlus(correction_,input);
+      if(correction_.norm() < tolerance){
+        return true;
+      }
+      count++;
+    }
+    return false;
+  }
+  bool solveInverseProblemRelaxed(mtInput& input,const mtInputCovMat& inputCov, const mtOutput& outputRef,const mtOutputCovMat& outputCov, const double tolerance = 1e-6, const int max_iter = 10){
+    const mtInput inputRef = input; // TODO: correct all for boxminus Jacobian
+    int count = 0;
+    double startError;
+    lastCorrection_.setZero();
+    while(count < max_iter){
+      jacInput(J_,input,input);
+      input.boxMinus(inputRef,inputDiff_);
+      transformState(input,output_);
+      outputRef.boxMinus(output_,outputDiff_);
+      if(count==0) startError = (outputDiff_.transpose()*outputCov.inverse()*outputDiff_ + inputDiff_.transpose()*inputCov.inverse()*inputDiff_)(0);
+      inverseProblem_C_ = J_*inputCov*J_.transpose()+outputCov;
+      correction_ = inputCov*J_.transpose()*inverseProblem_C_.inverse()*(outputDiff_+J_*inputDiff_);
+      inputRef.boxPlus(correction_,input);
+      if((lastCorrection_-correction_).norm() < tolerance){
+        input.boxMinus(inputRef,inputDiff_);
+        transformState(input,output_);
+        outputRef.boxMinus(output_,outputDiff_);
+        const double endError = (outputDiff_.transpose()*outputCov.inverse()*outputDiff_ + inputDiff_.transpose()*inputCov.inverse()*inputDiff_)(0);
+        if(startError > endError){
+          return true;
+        } else {
+          return false;
+        }
+      }
+      lastCorrection_ = correction_;
+      count++;
+    }
+    return false;
+  }
 };
 
 }
