@@ -56,6 +56,11 @@ class LWFMatrix<nRow,nCol,false>: public Eigen::Matrix<double,nRow,nCol>{
   }
 };
 
+template<int nRow, int nCol, bool isDynamic = false>
+static void enforceSymmetry(LWFMatrix<nRow,nCol,true>& mat){
+  mat = 0.5*(mat+mat.transpose()).eval();
+}
+
 static M3D Lmat (V3D a) {
   double aNorm = a.norm();
   double factor1 = 0;

@@ -159,6 +159,7 @@ class Update: public ModelBase<typename FilterState::mtState,Innovation,Meas,Noi
       }
       postProcess(filterState,meas,outlierDetection_,isFinished);
       filterState.state_.fix();
+      enforceSymmetry(filterState.cov_);
     } while (!isFinished);
     return r;
   }

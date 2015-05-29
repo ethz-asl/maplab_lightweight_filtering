@@ -70,15 +70,16 @@ class CoordinateTransform: public ModelBase<Input,Output,Input,Input,useDynamicM
     lastCorrection_.setZero();
     while(count < max_iter){
       jacInput(J_,input,input);
-      input.boxMinus(inputRef,inputDiff_);
+      inputRef.boxMinus(input,inputDiff_);
       transformState(input,output_);
       outputRef.boxMinus(output_,outputDiff_);
       if(count==0) startError = (outputDiff_.transpose()*outputCov.inverse()*outputDiff_ + inputDiff_.transpose()*inputCov.inverse()*inputDiff_)(0);
       inverseProblem_C_ = J_*inputCov*J_.transpose()+outputCov;
-      correction_ = inputCov*J_.transpose()*inverseProblem_C_.inverse()*(outputDiff_+J_*inputDiff_);
+      correction_ = inputCov*J_.transpose()*inverseProblem_C_.inverse()*(outputDiff_-J_*inputDiff_);
+//      std::cout << "    Output error: " << outputDiff_.transpose()*outputCov.inverse()*outputDiff_ << ", Input error: " << inputDiff_.transpose()*inputCov.inverse()*inputDiff_ << ", Correction norm: " << correction_.norm() << std::endl;
       inputRef.boxPlus(correction_,input);
       if((lastCorrection_-correction_).norm() < tolerance){
-        input.boxMinus(inputRef,inputDiff_);
+        inputRef.boxMinus(input,inputDiff_);
         transformState(input,output_);
         outputRef.boxMinus(output_,outputDiff_);
         const double endError = (outputDiff_.transpose()*outputCov.inverse()*outputDiff_ + inputDiff_.transpose()*inputCov.inverse()*inputDiff_)(0);
