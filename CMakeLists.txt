@@ -2,12 +2,6 @@ cmake_minimum_required (VERSION 2.8)
 project(lightweight_filtering)
 add_definitions(-std=c++11)
 
-##################### Set some variables #####################
-if(DEFINED CATKIN_DEVEL_PREFIX)
-else()
-SET(CMAKE_BUILD_TYPE "Debug")
-endif()
-
 ##################### Find, include, and compile library #####################
 
 # Attempt to find catkinized kindr
