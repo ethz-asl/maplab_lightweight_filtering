@@ -5,13 +5,14 @@
  *      Author: Bloeschm
  */
 
-#ifndef PropertyHandler_HPP_
-#define PropertyHandler_HPP_
+#ifndef LWF_PropertyHandler_HPP_
+#define LWF_PropertyHandler_HPP_
 
 #include <Eigen/Dense>
 #include "kindr/rotations/RotationEigen.hpp"
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/info_parser.hpp>
+#include "lightweight_filtering/common.hpp"
 #include <map>
 #include <unordered_map>
 #include <unordered_set>
@@ -78,6 +79,21 @@ class Register{
       }
     }
   }
+  void removeScalarByStr(std::string str){ // slow
+    bool found = false;
+    for(auto it=registerMap_.begin(); it != registerMap_.end(); ++it){
+      if(it->second == str){
+        registerMap_.erase(it);
+        found = true;
+        break;
+      }
+    }
+    if(!found) std::cout << "Property Handler Error: Cannot remove variable with str = " << str << std::endl;
+  }
+  void removeScalarByVar(TYPE& var){
+    if(registerMap_.count(&var)==0) std::cout << "Property Handler Error: Cannot remove variable, does not exist!" << std::endl;
+    registerMap_.erase(&var);
+  }
   void buildPropertyTree(ptree& pt){
     for(typename std::map<TYPE*,std::string>::iterator it=registerMap_.begin(); it != registerMap_.end(); ++it){
       pt.put(it->second, *(it->first));
@@ -88,7 +104,7 @@ class Register{
       *(it->first) = pt.get<TYPE>(it->second);
     }
     for(typename std::unordered_set<TYPE*>::iterator it=zeros_.begin(); it != zeros_.end(); ++it){
-      **it = 0;
+      **it = static_cast<TYPE>(0);
     }
   }
 };
@@ -101,11 +117,13 @@ class PropertyHandler{
   Register<bool> boolRegister_;
   Register<int> intRegister_;
   Register<double> doubleRegister_;
+  Register<std::string> stringRegister_;
   std::unordered_map<std::string,PropertyHandler*> subHandlers_;
   void buildPropertyTree(ptree& pt){
     boolRegister_.buildPropertyTree(pt);
     intRegister_.buildPropertyTree(pt);
     doubleRegister_.buildPropertyTree(pt);
+    stringRegister_.buildPropertyTree(pt);
     for(typename std::unordered_map<std::string,PropertyHandler*>::iterator it=subHandlers_.begin(); it != subHandlers_.end(); ++it){
       ptree ptsub;
       it->second->buildPropertyTree(ptsub);
@@ -116,6 +134,7 @@ class PropertyHandler{
     boolRegister_.readPropertyTree(pt);
     intRegister_.readPropertyTree(pt);
     doubleRegister_.readPropertyTree(pt);
+    stringRegister_.readPropertyTree(pt);
     for(typename std::unordered_map<std::string,PropertyHandler*>::iterator it=subHandlers_.begin(); it != subHandlers_.end(); ++it){
       ptree ptsub;
       ptsub = pt.get_child(it->first);
@@ -157,4 +176,4 @@ class PropertyHandler{
 
 }
 
-#endif /* PropertyHandler_HPP_ */
+#endif /* LWF_PropertyHandler_HPP_ */
