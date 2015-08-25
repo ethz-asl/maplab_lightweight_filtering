@@ -8,44 +8,47 @@
 #ifndef LWF_CoordinateTransform_HPP_
 #define LWF_CoordinateTransform_HPP_
 
-#include <Eigen/Dense>
-#include "lightweight_filtering/ModelBase.hpp"
-#include "lightweight_filtering/State.hpp"
 #include "lightweight_filtering/common.hpp"
+#include "lightweight_filtering/ModelBase.hpp"
 
 namespace LWF{
 
-template<typename Input, typename Output, bool useDynamicMatrix = false>
-class CoordinateTransform: public ModelBase<Input,Output,Input,Input,useDynamicMatrix>{
+template<typename Input, typename Output>
+class CoordinateTransform: public ModelBase<CoordinateTransform<Input,Output>,Input,Output>{
  public:
-  typedef ModelBase<Input,Output,Input,Input,useDynamicMatrix> Base;
-  using Base::eval;
-  using Base::jacInput;
+  typedef ModelBase<CoordinateTransform<Input,Output>,Input,Output> mtModelBaseNew;
+  typedef typename mtModelBaseNew::mtInputTuple mtInputTuple;
   typedef Input mtInput;
-  typedef LWFMatrix<mtInput::D_,mtInput::D_,useDynamicMatrix> mtInputCovMat;
   typedef Output mtOutput;
-  typedef LWFMatrix<mtOutput::D_,mtOutput::D_,useDynamicMatrix> mtOutputCovMat;
-  typedef typename Base::mtJacInput mtJacInput;
-  mtJacInput J_;
-  LWFMatrix<mtOutput::D_,mtOutput::D_,useDynamicMatrix> inverseProblem_C_;
+  Eigen::MatrixXd J_;
+  Eigen::MatrixXd inverseProblem_C_;
   typename mtInput::mtDifVec inputDiff_;
   typename mtInput::mtDifVec correction_;
   typename mtInput::mtDifVec lastCorrection_;
   typename mtOutput::mtDifVec outputDiff_;
   mtOutput output_;
-  CoordinateTransform(){
+  CoordinateTransform(): J_((int)(mtOutput::D_),(int)(mtInput::D_)),inverseProblem_C_((int)(mtOutput::D_),(int)(mtOutput::D_)){
   };
   virtual ~CoordinateTransform(){};
-  void transformState(const mtInput& input, mtOutput& output) const{
-    eval(output, input, input);
+  void eval_(mtOutput& x, const mtInputTuple& inputs, double dt) const{
+    evalResidual(x,std::get<0>(inputs));
   }
-  void transformCovMat(const mtInput& input,const mtInputCovMat& inputCov,mtOutputCovMat& outputCov){
-    jacInput(J_,input,input);
+  template<int i,typename std::enable_if<i==0>::type* = nullptr>
+  void jacInput_(Eigen::MatrixXd& F, const mtInputTuple& inputs, double dt) const{
+    jacState(F,std::get<0>(inputs));
+  }
+  virtual void evalResidual(mtInnovation& y, const mtState& state) const = 0;
+  virtual void jacState(Eigen::MatrixXd& F, const mtState& state) const = 0;
+  void transformState(const mtInput& input, mtOutput& output) const{
+    evalResidual(output, input);
+  }
+  void transformCovMat(const mtInput& input,const Eigen::MatrixXd& inputCov,Eigen::MatrixXd& outputCov){
+    jacInput(J_,input);
     outputCov = J_*inputCov*J_.transpose();
     postProcess(outputCov,input);
   }
-  virtual void postProcess(mtOutputCovMat& cov,const mtInput& input){}
-  bool solveInverseProblem(mtInput& input,const mtInputCovMat& inputCov, const mtOutput& outputRef, const double tolerance = 1e-6, const int max_iter = 10){
+  virtual void postProcess(Eigen::MatrixXd& cov,const mtInput& input){}
+  bool solveInverseProblem(mtInput& input,const Eigen::MatrixXd& inputCov, const mtOutput& outputRef, const double tolerance = 1e-6, const int max_iter = 10){
     const mtInput inputRef = input;
     int count = 0;
     while(count < max_iter){
@@ -63,7 +66,7 @@ class CoordinateTransform: public ModelBase<Input,Output,Input,Input,useDynamicM
     }
     return false;
   }
-  bool solveInverseProblemRelaxed(mtInput& input,const mtInputCovMat& inputCov, const mtOutput& outputRef,const mtOutputCovMat& outputCov, const double tolerance = 1e-6, const int max_iter = 10){
+  bool solveInverseProblemRelaxed(mtInput& input,const Eigen::MatrixXd& inputCov, const mtOutput& outputRef,const Eigen::MatrixXd& outputCov, const double tolerance = 1e-6, const int max_iter = 10){
     const mtInput inputRef = input; // TODO: correct all for boxminus Jacobian
     int count = 0;
     double startError;

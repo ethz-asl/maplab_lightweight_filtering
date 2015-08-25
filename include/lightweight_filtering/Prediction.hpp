@@ -8,37 +8,57 @@
 #ifndef LWF_PREDICTIONMODEL_HPP_
 #define LWF_PREDICTIONMODEL_HPP_
 
-#include <Eigen/Dense>
-#include <iostream>
-#include "kindr/rotations/RotationEigen.hpp"
-#include "lightweight_filtering/ModelBase.hpp"
-#include "lightweight_filtering/SigmaPoints.hpp"
-#include "lightweight_filtering/State.hpp"
-#include "lightweight_filtering/FilterState.hpp"
-#include "lightweight_filtering/PropertyHandler.hpp"
 #include "lightweight_filtering/common.hpp"
-#include <map>
+#include "lightweight_filtering/ModelBase.hpp"
+#include "lightweight_filtering/PropertyHandler.hpp"
 
 namespace LWF{
 
 template<typename FilterState>
-class Prediction: public ModelBase<typename FilterState::mtState,typename FilterState::mtState,typename FilterState::mtPredictionMeas,typename FilterState::mtPredictionNoise,FilterState::useDynamicMatrix_>, public PropertyHandler{
+class Prediction: public ModelBase<Prediction<FilterState>,typename FilterState::mtState,typename FilterState::mtState,typename FilterState::mtPredictionNoise>, public PropertyHandler{
  public:
+  typedef ModelBase<Prediction<FilterState>,typename FilterState::mtState,typename FilterState::mtState,typename FilterState::mtPredictionNoise> mtModelBaseNew;
   typedef FilterState mtFilterState;
   typedef typename mtFilterState::mtState mtState;
-  typedef typename mtFilterState::mtFilterCovMat mtFilterCovMat;
+  typedef typename mtModelBaseNew::mtInputTuple mtInputTuple;
   typedef typename mtFilterState::mtPredictionMeas mtMeas;
   typedef typename mtFilterState::mtPredictionNoise mtNoise;
-  typedef ModelBase<mtState,mtState,mtMeas,mtNoise> mtModelBase;
-  LWFMatrix<mtNoise::D_,mtNoise::D_,mtFilterState::useDynamicMatrix_> prenoiP_;
+  mtMeas meas_;
+  Eigen::MatrixXd prenoiP_;
+  Eigen::MatrixXd prenoiPinv_;
   bool disablePreAndPostProcessingWarning_;
-  Prediction(){
+  Prediction(): prenoiP_((int)(mtNoise::D_),(int)(mtNoise::D_)),
+                prenoiPinv_((int)(mtNoise::D_),(int)(mtNoise::D_)){
     prenoiP_.setIdentity();
     prenoiP_ *= 0.0001;
     mtNoise n;
     n.registerCovarianceToPropertyHandler_(prenoiP_,this,"PredictionNoise.");
     disablePreAndPostProcessingWarning_ = false;
+    refreshProperties();
   };
+  void refreshProperties(){
+    prenoiPinv_.setIdentity();
+    prenoiP_.llt().solveInPlace(prenoiPinv_);
+  }
+  void eval_(mtState& x, const mtInputTuple& inputs, double dt) const{
+    evalResidual(x,std::get<0>(inputs),std::get<1>(inputs),dt);
+  }
+  template<int i,typename std::enable_if<i==0>::type* = nullptr>
+  void jacInput_(Eigen::MatrixXd& F, const mtInputTuple& inputs, double dt) const{
+    jacPreviousState(F,std::get<0>(inputs),dt);
+  }
+  template<int i,typename std::enable_if<i==1>::type* = nullptr>
+  void jacInput_(Eigen::MatrixXd& F, const mtInputTuple& inputs, double dt) const{
+    jacNoise(F,std::get<0>(inputs),dt);
+  }
+  virtual void evalResidual(mtState& x, const mtState& previousState, const mtNoise& noise, double dt) const = 0;
+  virtual void evalResidualShort(mtState& x, const mtState& previousState, double dt) const{
+    mtNoise n; // TODO get static for Identity()
+    n.setIdentity();
+    evalResidual(x,previousState,n,dt);
+  }
+  virtual void jacPreviousState(Eigen::MatrixXd& F, const mtState& previousState, double dt) const = 0;
+  virtual void jacNoise(Eigen::MatrixXd& F, const mtState& previousState, double dt) const = 0;
   virtual void noMeasCase(mtFilterState& filterState, mtMeas& meas, double dt){};
   virtual void preProcess(mtFilterState& filterState, const mtMeas& meas, double dt){
     if(!disablePreAndPostProcessingWarning_){
@@ -71,9 +91,10 @@ class Prediction: public ModelBase<typename FilterState::mtState,typename Filter
   }
   int performPredictionEKF(mtFilterState& filterState, const mtMeas& meas, double dt){
     preProcess(filterState,meas,dt);
-    this->jacInput(filterState.F_,filterState.state_,meas,dt);
-    this->jacNoise(filterState.G_,filterState.state_,meas,dt);
-    this->eval(filterState.state_,filterState.state_,meas,dt);
+    meas_ = meas;
+    this->jacPreviousState(filterState.F_,filterState.state_,dt);
+    this->jacNoise(filterState.G_,filterState.state_,dt);
+    this->evalResidualShort(filterState.state_,filterState.state_,dt);
     filterState.cov_ = filterState.F_*filterState.cov_*filterState.F_.transpose() + filterState.G_*prenoiP_*filterState.G_.transpose();
     filterState.state_.fix();
     enforceSymmetry(filterState.cov_);
@@ -84,11 +105,12 @@ class Prediction: public ModelBase<typename FilterState::mtState,typename Filter
   int performPredictionUKF(mtFilterState& filterState, const mtMeas& meas, double dt){
     filterState.refreshNoiseSigmaPoints(prenoiP_);
     preProcess(filterState,meas,dt);
+    meas_ = meas;
     filterState.stateSigmaPoints_.computeFromGaussian(filterState.state_,filterState.cov_);
 
     // Prediction
     for(unsigned int i=0;i<filterState.stateSigmaPoints_.L_;i++){
-      this->eval(filterState.stateSigmaPointsPre_(i),filterState.stateSigmaPoints_(i),meas,filterState.stateSigmaPointsNoi_(i),dt);
+      this->evalResidual(filterState.stateSigmaPointsPre_(i),filterState.stateSigmaPoints_(i),filterState.stateSigmaPointsNoi_(i),dt);
     }
     // Calculate mean and variance
     filterState.stateSigmaPointsPre_.getMean(filterState.state_);
@@ -133,10 +155,12 @@ class Prediction: public ModelBase<typename FilterState::mtState,typename Filter
     itMeasStart->second.boxPlus(vec,meanMeas);
 
     preProcess(filterState,meanMeas,dT);
-    this->jacInput(filterState.F_,filterState.state_,meanMeas,dT);
-    this->jacNoise(filterState.G_,filterState.state_,meanMeas,dT); // Works for time continuous parametrization of noise
+    meas_ = meanMeas;
+    this->jacPreviousState(filterState.F_,filterState.state_,dT);
+    this->jacNoise(filterState.G_,filterState.state_,dT); // Works for time continuous parametrization of noise
     for(typename std::map<double,mtMeas>::const_iterator itMeas=itMeasStart;itMeas!=itMeasEnd;itMeas++){
-      this->eval(filterState.state_,filterState.state_,itMeas->second,std::min(itMeas->first,tTarget)-filterState.t_);
+      meas_ = itMeas->second;
+      this->evalResidualShort(filterState.state_,filterState.state_,std::min(itMeas->first,tTarget)-filterState.t_);
       filterState.t_ = std::min(itMeas->first,tTarget);
     }
     filterState.cov_ = filterState.F_*filterState.cov_*filterState.F_.transpose() + filterState.G_*prenoiP_*filterState.G_.transpose();
@@ -169,11 +193,12 @@ class Prediction: public ModelBase<typename FilterState::mtState,typename Filter
     itMeasStart->second.boxPlus(vec,meanMeas);
 
     preProcess(filterState,meanMeas,dT);
+    meas_ = meanMeas;
     filterState.stateSigmaPoints_.computeFromGaussian(filterState.state_,filterState.cov_);
 
     // Prediction
     for(unsigned int i=0;i<filterState.stateSigmaPoints_.L_;i++){
-      this->eval(filterState.stateSigmaPointsPre_(i),filterState.stateSigmaPoints_(i),meanMeas,filterState.stateSigmaPointsNoi_(i),dT);
+      this->evalResidual(filterState.stateSigmaPointsPre_(i),filterState.stateSigmaPoints_(i),filterState.stateSigmaPointsNoi_(i),dT);
     }
     filterState.stateSigmaPointsPre_.getMean(filterState.state_);
     filterState.stateSigmaPointsPre_.getCovarianceMatrix(filterState.state_,filterState.cov_);

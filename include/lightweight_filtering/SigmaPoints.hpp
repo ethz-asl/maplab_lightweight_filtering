@@ -10,9 +10,6 @@
 
 #include "lightweight_filtering/State.hpp"
 #include "lightweight_filtering/common.hpp"
-#include <Eigen/Dense>
-#include <iostream>
-#include <vector>
 
 namespace LWF{
 
@@ -28,8 +25,7 @@ class SigmaPoints{
   double wc0_ = 1.0;
   double gamma_ = 1.0;
   mtState sigmaPoints_[N];
-  typedef LWFMatrix<mtState::D_,mtState::D_,useDynamicMatrix> mtCovMat;
-  mtCovMat S_;
+  Eigen::MatrixXd S_;
   SigmaPoints(){
     static_assert(N_+O_<=L_, "Bad dimensions for sigmapoints");
     S_.setZero();
@@ -44,15 +40,15 @@ class SigmaPoints{
     }
     sigmaPoints_[0].boxPlus(vec,mean);
   };
-  void getCovarianceMatrix(LWFMatrix<mtState::D_,mtState::D_,useDynamicMatrix>& C) const{
+  void getCovarianceMatrix(Eigen::MatrixXd& C) const{
     mtState mean;
     getMean(mean);
     getCovarianceMatrix(mean,C);
   };
-  void getCovarianceMatrix(const mtState& mean, LWFMatrix<mtState::D_,mtState::D_,useDynamicMatrix>& C) const{
+  void getCovarianceMatrix(const mtState& mean, Eigen::MatrixXd& C) const{
     typename mtState::mtDifVec vec;
     sigmaPoints_[0].boxMinus(mean,vec);
-    LWFMatrix<mtState::D_,1,useDynamicMatrix> dynVec;
+    Eigen::MatrixXd dynVec;
     dynVec = vec;
     C = dynVec*dynVec.transpose()*(wc0_+ wc_*(L_-N_));
     for(unsigned int i=1;i<N_;i++){
@@ -62,7 +58,7 @@ class SigmaPoints{
     }
   };
   template<typename State2, unsigned int N2, unsigned int O2>
-  void getCovarianceMatrix(const SigmaPoints<State2,N2,L_,O2,useDynamicMatrix>& sigmaPoints2, LWFMatrix<mtState::D_,State2::D_,useDynamicMatrix>& C) const{
+  void getCovarianceMatrix(const SigmaPoints<State2,N2,L_,O2,useDynamicMatrix>& sigmaPoints2, Eigen::MatrixXd& C) const{
     mtState mean1;
     getMean(mean1);
     State2 mean2;
@@ -70,11 +66,11 @@ class SigmaPoints{
     getCovarianceMatrix(sigmaPoints2,mean1,mean2,C);
   };
   template<typename State2, unsigned int N2, unsigned int O2>
-  void getCovarianceMatrix(const SigmaPoints<State2,N2,L_,O2,useDynamicMatrix>& sigmaPoints2, const mtState& mean1, const State2& mean2, LWFMatrix<mtState::D_,State2::D_,useDynamicMatrix>& C) const{
+  void getCovarianceMatrix(const SigmaPoints<State2,N2,L_,O2,useDynamicMatrix>& sigmaPoints2, const mtState& mean1, const State2& mean2, Eigen::MatrixXd& C) const{
     typename mtState::mtDifVec vec1;
     typename State2::mtDifVec vec2;
-    LWFMatrix<mtState::D_,1,useDynamicMatrix> dynVec1;
-    LWFMatrix<State2::D_,1,useDynamicMatrix> dynVec2;
+    Eigen::MatrixXd dynVec1;
+    Eigen::MatrixXd dynVec2;
     (*this)(0).boxMinus(mean1,vec1);
     sigmaPoints2(0).boxMinus(mean2,vec2);
     dynVec1 = vec1;
@@ -89,11 +85,11 @@ class SigmaPoints{
     }
   };
   template<typename State2>
-  void extendZeroMeanGaussian(const SigmaPoints<State2,N_-2*mtState::D_,L_,O_,useDynamicMatrix>& sigmaPoints2, const LWFMatrix<mtState::D_,mtState::D_,useDynamicMatrix>& P, const LWFMatrix<State2::D_,mtState::D_,useDynamicMatrix>& Q){ // samples the last dimensions
-    LWFMatrix<mtState::D_,State2::D_,useDynamicMatrix> C = Q.transpose()*sigmaPoints2.S_.inverse();
-    Eigen::LDLT<typename LWFMatrix<mtState::D_,mtState::D_,useDynamicMatrix>::Base> ldltOfP(P-Q.transpose()*sigmaPoints2.S_.transpose().inverse()*sigmaPoints2.S_.inverse()*Q);
-    LWFMatrix<mtState::D_,mtState::D_,useDynamicMatrix> ldltL = typename LWFMatrix<mtState::D_,mtState::D_,useDynamicMatrix>::Base(ldltOfP.matrixL());
-    LWFMatrix<mtState::D_,mtState::D_,useDynamicMatrix> ldltD = typename LWFMatrix<mtState::D_,mtState::D_,useDynamicMatrix>::Base(ldltOfP.vectorD().asDiagonal());
+  void extendZeroMeanGaussian(const SigmaPoints<State2,N_-2*mtState::D_,L_,O_,useDynamicMatrix>& sigmaPoints2, const Eigen::MatrixXd& P, const Eigen::MatrixXd& Q){ // samples the last dimensions
+    Eigen::MatrixXd C = Q.transpose()*sigmaPoints2.S_.inverse();
+    Eigen::LDLT<Eigen::MatrixXd> ldltOfP(P-Q.transpose()*sigmaPoints2.S_.transpose().inverse()*sigmaPoints2.S_.inverse()*Q);
+    Eigen::MatrixXd ldltL = ldltOfP.matrixL();
+    Eigen::MatrixXd ldltD = ldltOfP.vectorD().asDiagonal();
     for(unsigned int i=0;i<mtState::D_;i++){
       if(ldltD(i,i)>0){
         ldltD(i,i) = std::sqrt(ldltD(i,i));
@@ -119,11 +115,11 @@ class SigmaPoints{
       sigmaPoints_[0].boxPlus(-S_.col(i)*gamma_,sigmaPoints_[2*otherSize+i+1+mtState::D_]);
     }
   };
-  void computeFromGaussian(const mtState mean, const LWFMatrix<mtState::D_,mtState::D_,useDynamicMatrix> &P){
+  void computeFromGaussian(const mtState mean, const Eigen::MatrixXd &P){
     static_assert(N_==2*mtState::D_+1, "computeFromGaussian() requires matching sigmapoints size");
-    Eigen::LDLT<typename LWFMatrix<mtState::D_,mtState::D_,useDynamicMatrix>::Base> ldltOfP(P);
-    LWFMatrix<mtState::D_,mtState::D_,useDynamicMatrix> ldltL = typename LWFMatrix<mtState::D_,mtState::D_,useDynamicMatrix>::Base(ldltOfP.matrixL());
-    LWFMatrix<mtState::D_,mtState::D_,useDynamicMatrix> ldltD = typename LWFMatrix<mtState::D_,mtState::D_,useDynamicMatrix>::Base(ldltOfP.vectorD().asDiagonal());
+    Eigen::LDLT<Eigen::MatrixXd> ldltOfP(P);
+    Eigen::MatrixXd ldltL = ldltOfP.matrixL();
+    Eigen::MatrixXd ldltD = ldltOfP.vectorD().asDiagonal();
     for(unsigned int i=0;i<mtState::D_;i++){
       if(ldltD(i,i)>0){
         ldltD(i,i) = std::sqrt(ldltD(i,i));
@@ -144,12 +140,12 @@ class SigmaPoints{
       mean.boxPlus(-S_.col(i)*gamma_,sigmaPoints_[i+1+mtState::D_]);
     }
   };
-  void computeFromGaussian(const mtState mean, const LWFMatrix<mtState::D_,mtState::D_,useDynamicMatrix> &P, const LWFMatrix<mtState::D_,mtState::D_,useDynamicMatrix> &Q){
+  void computeFromGaussian(const mtState mean, const Eigen::MatrixXd &P, const Eigen::MatrixXd &Q){
     static_assert(N_==2*mtState::D_+1, "computeFromGaussian() requires matching sigmapoints size");
     // The square root of a matrix is not unique, here is a way to influence it by means of an orthonormal matrix Q
-    Eigen::LDLT<typename LWFMatrix<mtState::D_,mtState::D_,useDynamicMatrix>::Base> ldltOfP(Q.transpose()*P*Q); //
-    LWFMatrix<mtState::D_,mtState::D_,useDynamicMatrix> ldltL = typename LWFMatrix<mtState::D_,mtState::D_,useDynamicMatrix>::Base(ldltOfP.matrixL());
-    LWFMatrix<mtState::D_,mtState::D_,useDynamicMatrix> ldltD = typename LWFMatrix<mtState::D_,mtState::D_,useDynamicMatrix>::Base(ldltOfP.vectorD().asDiagonal());
+    Eigen::LDLT<Eigen::MatrixXd> ldltOfP(Q.transpose()*P*Q); //
+    Eigen::MatrixXd ldltL = ldltOfP.matrixL();
+    Eigen::MatrixXd ldltD = ldltOfP.vectorD().asDiagonal();
     for(unsigned int i=0;i<mtState::D_;i++){
       if(ldltD(i,i)>0){
         ldltD(i,i) = std::sqrt(ldltD(i,i));
@@ -170,7 +166,7 @@ class SigmaPoints{
       mean.boxPlus(-S_.col(i)*gamma_,sigmaPoints_[i+1+mtState::D_]);
     }
   };
-  void computeFromZeroMeanGaussian(const LWFMatrix<mtState::D_,mtState::D_,useDynamicMatrix> &P){
+  void computeFromZeroMeanGaussian(const Eigen::MatrixXd &P){
     mtState identity;		// is initialized to 0 by default constructors
     identity.setIdentity();
     computeFromGaussian(identity,P);

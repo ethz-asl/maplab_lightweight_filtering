@@ -8,12 +8,8 @@
 #ifndef LWF_FilterBase_HPP_
 #define LWF_FilterBase_HPP_
 
-#include <Eigen/Dense>
-#include <iostream>
-#include "lightweight_filtering/PropertyHandler.hpp"
 #include "lightweight_filtering/common.hpp"
-#include <map>
-#include <tuple>
+#include "lightweight_filtering/PropertyHandler.hpp"
 
 namespace LWF{
 

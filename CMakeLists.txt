@@ -47,6 +47,9 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/gtest/" AND (NOT DEFINED CATKIN_DEVEL_PRE
 	add_executable(testFilterBase src/testFilterBase.cpp)
 	target_link_libraries(testFilterBase gtest_main gtest pthread )
 	add_test(testFilterBase testFilterBase)
+	add_executable(testGIFPrediction src/testGIFPrediction.cpp)
+	target_link_libraries(testGIFPrediction gtest_main gtest pthread )
+	add_test(testGIFPrediction testGIFPrediction)
 endif()
 
 # Generate FindLWF.cmake file

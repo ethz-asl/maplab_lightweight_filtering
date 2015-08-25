@@ -7,7 +7,7 @@
 // The fixture for testing class ScalarElement.
 class SigmaPointTest : public ::testing::Test {
  protected:
-  SigmaPointTest() {
+  SigmaPointTest(): P_((int)(mtState::D_),(int)(mtState::D_)), Qmat_((int)(mtState::D_),(int)(mtState::D_)){
     sigmaPoints_.computeParameter(1e-3,2.0,0.0);
     sigmaPointsVector_.computeParameter(1e-3,2.0,0.0);
     mean_.template get<0>(0) = 4.5;
@@ -23,7 +23,7 @@ class SigmaPointTest : public ::testing::Test {
       mean_.template get<2>(i) = mean_.template get<2>(i-1).boxPlus(mean_.template get<1>(i-1));
     }
     // Easy way to obtain a pseudo random positive definite matrix
-    P_ = mtState::D_*mtCovMat::Identity();
+    P_ = mtState::D_*Eigen::MatrixXd::Identity((int)(mtState::D_),(int)(mtState::D_));
     double randValue;
     for(int i=0;i<mtState::D_;i++){
       for(int j=i;j<mtState::D_;j++){
@@ -32,7 +32,7 @@ class SigmaPointTest : public ::testing::Test {
         P_(j,i) += randValue;
       }
     }
-    Qmat_ = mtState::D_*mtCovMat::Identity();
+    Qmat_ = mtState::D_*Eigen::MatrixXd::Identity((int)(mtState::D_),(int)(mtState::D_));
     for(int i=0;i<mtState::D_;i++){
       for(int j=i;j<mtState::D_;j++){
         randValue = (cos((double)(123456*(i+j+1)))+1.0)/2.0;
@@ -40,8 +40,8 @@ class SigmaPointTest : public ::testing::Test {
         Qmat_(j,i) += randValue;
       }
     }
-    Eigen::ColPivHouseholderQR<mtState::mtCovMat> qr(Qmat_);
-    Qmat_ = mtState::mtCovMat(qr.householderQ());
+    Eigen::ColPivHouseholderQR<Eigen::MatrixXd> qr(Qmat_);
+    Qmat_ = qr.householderQ();
   }
   ~SigmaPointTest() {
   }
@@ -55,12 +55,11 @@ class SigmaPointTest : public ::testing::Test {
   typedef LWF::VectorElement<3> mtElementVector;
   typedef mtState::mtDifVec mtDifVec;
   typedef LWF::SigmaPoints<mtState,N_,L_,O_> mtSigmaPoints;
-  typedef mtSigmaPoints::mtCovMat mtCovMat;
   mtSigmaPoints sigmaPoints_;
   LWF::SigmaPoints<mtElementVector,L_,L_,0> sigmaPointsVector_;
   mtState mean_;
-  mtCovMat P_;
-  mtCovMat Qmat_;
+  Eigen::MatrixXd P_;
+  Eigen::MatrixXd Qmat_;
   double alpha_ = 1e-3;
   double beta_ = 2.0;
   double kappa_ = 0.0;
@@ -102,7 +101,7 @@ TEST_F(SigmaPointTest, computeFromGaussianPlusPlus) {
   ASSERT_NEAR(vec.norm(),0.0,1e-8);
 
   // Check covariance is same
-  mtCovMat P;
+  Eigen::MatrixXd P((int)(mtState::D_),(int)(mtState::D_));
   sigmaPoints_.getCovarianceMatrix(mean,P);
   ASSERT_NEAR((P-P_).norm(),0.0,1e-8);
 
@@ -119,7 +118,7 @@ TEST_F(SigmaPointTest, computeFromGaussianPlusPlus) {
   ASSERT_NEAR((P-P_).norm(),0.0,1e-8);
 
   // Test with semidefinite matrix
-  mtCovMat Psemi = P_;
+  Eigen::MatrixXd Psemi = P_;
   Psemi.col(1) = Psemi.col(0);
   Psemi.row(1) = Psemi.row(0);
   sigmaPoints_.computeFromGaussian(mean_,Psemi);
@@ -143,7 +142,7 @@ TEST_F(SigmaPointTest, computeFromGaussianQ) {
   ASSERT_NEAR(vec.norm(),0.0,1e-8);
 
   // Check covariance is same
-  mtCovMat P;
+  Eigen::MatrixXd P((int)(mtState::D_),(int)(mtState::D_));
   sigmaPoints_.getCovarianceMatrix(mean,P);
   ASSERT_NEAR((P-P_).norm(),0.0,1e-8);
 }
@@ -158,9 +157,9 @@ TEST_F(SigmaPointTest, getCovariance2) {
     sigmaPointsVector_(i).v_ = sigmaPoints_(i).template get<1>(0)*2.45+V3D::Ones()*sigmaPoints_(i).template get<0>(0)*0.51;
   }
 
-  LWFMatrix<mtElementVector::D_,mtState::D_,false> M;
+  Eigen::MatrixXd M((int)(mtElementVector::D_),(int)(mtState::D_));
   sigmaPointsVector_.getCovarianceMatrix(sigmaPoints_,M);
-  LWFMatrix<mtElementVector::D_,mtState::D_,false> H; // Jacobian of linear transformation
+  Eigen::MatrixXd H((int)(mtElementVector::D_),(int)(mtState::D_)); // Jacobian of linear transformation
   H.setZero();
   H.block(0,S_,3,3) = M3D::Identity()*2.45;
   H.block(0,0,3,1) = V3D::Ones()*0.51;

@@ -8,56 +8,50 @@
 #ifndef LWF_UPDATEMODEL_HPP_
 #define LWF_UPDATEMODEL_HPP_
 
-#include <Eigen/Dense>
-#include <iostream>
-#include "kindr/rotations/RotationEigen.hpp"
+#include "lightweight_filtering/common.hpp"
 #include "lightweight_filtering/ModelBase.hpp"
-#include "lightweight_filtering/State.hpp"
-#include "lightweight_filtering/FilterState.hpp"
 #include "lightweight_filtering/PropertyHandler.hpp"
 #include "lightweight_filtering/SigmaPoints.hpp"
 #include "lightweight_filtering/OutlierDetection.hpp"
-#include "lightweight_filtering/common.hpp"
-#include <type_traits>
 
 namespace LWF{
 
 template<typename Innovation, typename FilterState, typename Meas, typename Noise, typename OutlierDetection = OutlierDetectionDefault, bool isCoupled = false>
-class Update: public ModelBase<typename FilterState::mtState,Innovation,Meas,Noise,FilterState::useDynamicMatrix_>, public PropertyHandler{
+class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierDetection,isCoupled>,Innovation,typename FilterState::mtState,Noise>, public PropertyHandler{
  public:
   static_assert(!isCoupled || Noise::D_ == FilterState::noiseExtensionDim_,"Noise Size for coupled Update must match noise extension of prediction!");
+  typedef ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierDetection,isCoupled>,Innovation,typename FilterState::mtState,Noise> mtModelBaseNew;
   typedef FilterState mtFilterState;
   typedef typename mtFilterState::mtState mtState;
-  typedef typename mtFilterState::mtFilterCovMat mtFilterCovMat;
+  typedef typename mtModelBaseNew::mtInputTuple mtInputTuple;
   typedef typename mtFilterState::mtPredictionMeas mtPredictionMeas;
   typedef typename mtFilterState::mtPredictionNoise mtPredictionNoise;
   typedef Innovation mtInnovation;
   typedef Meas mtMeas;
   typedef Noise mtNoise;
-  typedef LWFMatrix<mtNoise::D_,mtNoise::D_,mtFilterState::useDynamicMatrix_> mtUpdateNoise;
   typedef OutlierDetection mtOutlierDetection;
+  mtMeas meas_; // TODO change to pointer, or remove
   static const bool coupledToPrediction_ = isCoupled;
   bool useSpecialLinearizationPoint_;
   bool useImprovedJacobian_;
-  typedef ModelBase<mtState,mtInnovation,mtMeas,mtNoise,mtFilterState::useDynamicMatrix_> mtModelBase;
-  typename mtModelBase::mtJacInput H_;
-  typename mtModelBase::mtJacInput Hlin_;
-  mtFilterCovMat boxMinusJac_;
-  typename mtModelBase::mtJacNoise Hn_;
-  mtUpdateNoise updnoiP_;
-  mtUpdateNoise noiP_;
-  LWFMatrix<mtPredictionNoise::D_,mtNoise::D_,mtFilterState::useDynamicMatrix_> preupdnoiP_;
-  LWFMatrix<mtState::D_,mtInnovation::D_,mtFilterState::useDynamicMatrix_> C_;
+  Eigen::MatrixXd H_;
+  Eigen::MatrixXd Hlin_;
+  Eigen::MatrixXd boxMinusJac_;
+  Eigen::MatrixXd Hn_;
+  Eigen::MatrixXd updnoiP_;
+  Eigen::MatrixXd noiP_;
+  Eigen::MatrixXd preupdnoiP_;
+  Eigen::MatrixXd C_;
   mtInnovation y_;
-  LWFMatrix<mtInnovation::D_,mtInnovation::D_,mtFilterState::useDynamicMatrix_> Py_;
-  LWFMatrix<mtInnovation::D_,mtInnovation::D_,mtFilterState::useDynamicMatrix_> Pyinv_;
+  Eigen::MatrixXd Py_;
+  Eigen::MatrixXd Pyinv_;
   typename mtInnovation::mtDifVec innVector_;
   mtInnovation yIdentity_;
   typename mtState::mtDifVec updateVec_;
   mtState linState_;
   double updateVecNorm_;
-  LWFMatrix<mtState::D_,mtInnovation::D_,mtFilterState::useDynamicMatrix_> K_;
-  LWFMatrix<mtInnovation::D_,mtState::D_,mtFilterState::useDynamicMatrix_> Pyx_;
+  Eigen::MatrixXd K_;
+  Eigen::MatrixXd Pyx_;
   typename mtState::mtDifVec difVecLinInv_;
 
   SigmaPoints<mtState,2*mtState::D_+1,2*(mtState::D_+mtNoise::D_)+1,0,mtFilterState::useDynamicMatrix_> stateSigmaPoints_;
@@ -75,7 +69,18 @@ class Update: public ModelBase<typename FilterState::mtState,Innovation,Meas,Noi
   mtOutlierDetection outlierDetection_;
   unsigned int numSequences;
   bool disablePreAndPostProcessingWarning_;
-  Update(){
+  Update(): H_((int)(mtInnovation::D_),(int)(mtState::D_)),
+      Hlin_((int)(mtInnovation::D_),(int)(mtState::D_)),
+      boxMinusJac_((int)(mtState::D_),(int)(mtState::D_)),
+      Hn_((int)(mtInnovation::D_),(int)(mtNoise::D_)),
+      updnoiP_((int)(mtNoise::D_),(int)(mtNoise::D_)),
+      noiP_((int)(mtNoise::D_),(int)(mtNoise::D_)),
+      preupdnoiP_((int)(mtPredictionNoise::D_),(int)(mtNoise::D_)),
+      C_((int)(mtState::D_),(int)(mtInnovation::D_)),
+      Py_((int)(mtInnovation::D_),(int)(mtInnovation::D_)),
+      Pyinv_((int)(mtInnovation::D_),(int)(mtInnovation::D_)),
+      K_((int)(mtState::D_),(int)(mtInnovation::D_)),
+      Pyx_((int)(mtInnovation::D_),(int)(mtState::D_)){
     alpha_ = 1e-3;
     beta_ = 2.0;
     kappa_ = 0.0;
@@ -123,6 +128,25 @@ class Update: public ModelBase<typename FilterState::mtState,Innovation,Meas,Noi
     refreshUKFParameter();
   }
   virtual void refreshPropertiesCustom(){}
+  void eval_(mtInnovation& x, const mtInputTuple& inputs, double dt) const{
+    evalResidual(x,std::get<0>(inputs),std::get<1>(inputs));
+  }
+  template<int i,typename std::enable_if<i==0>::type* = nullptr>
+  void jacInput_(Eigen::MatrixXd& F, const mtInputTuple& inputs, double dt) const{
+    jacState(F,std::get<0>(inputs));
+  }
+  template<int i,typename std::enable_if<i==1>::type* = nullptr>
+  void jacInput_(Eigen::MatrixXd& F, const mtInputTuple& inputs, double dt) const{
+    jacNoise(F,std::get<0>(inputs));
+  }
+  virtual void evalResidual(mtInnovation& y, const mtState& state, const mtNoise& noise) const = 0;
+  virtual void evalResidualShort(mtInnovation& y, const mtState& state) const{
+    mtNoise n; // TODO get static for Identity()
+    n.setIdentity();
+    evalResidual(y,state,n);
+  }
+  virtual void jacState(Eigen::MatrixXd& F, const mtState& state) const = 0;
+  virtual void jacNoise(Eigen::MatrixXd& F, const mtState& state) const = 0;
   virtual void preProcess(mtFilterState& filterState, const mtMeas& meas, bool& isFinished){
     isFinished = false;
     if(!disablePreAndPostProcessingWarning_){
@@ -164,22 +188,23 @@ class Update: public ModelBase<typename FilterState::mtState,Innovation,Meas,Noi
     return r;
   }
   int performUpdateEKF(mtFilterState& filterState, const mtMeas& meas){
+    meas_ = meas;
     if(!useSpecialLinearizationPoint_){
-      this->jacInput(H_,filterState.state_,meas);
+      this->jacState(H_,filterState.state_);
       Hlin_ = H_;
-      this->jacNoise(Hn_,filterState.state_,meas);
-      this->eval(y_,filterState.state_,meas);
+      this->jacNoise(Hn_,filterState.state_);
+      this->evalResidualShort(y_,filterState.state_);
     } else {
       filterState.state_.boxPlus(filterState.difVecLin_,linState_);
-      this->jacInput(H_,linState_,meas);
+      this->jacState(H_,linState_);
       if(useImprovedJacobian_){
         filterState.state_.boxMinusJac(linState_,boxMinusJac_);
         Hlin_ = H_*boxMinusJac_;
       } else {
         Hlin_ = H_;
       }
-      this->jacNoise(Hn_,linState_,meas);
-      this->eval(y_,linState_,meas);
+      this->jacNoise(Hn_,linState_);
+      this->evalResidualShort(y_,linState_);
     }
 
     if(isCoupled){
@@ -212,12 +237,13 @@ class Update: public ModelBase<typename FilterState::mtState,Innovation,Meas,Noi
     return 0;
   }
   int performUpdateIEKF(mtFilterState& filterState, const mtMeas& meas){
+    meas_ = meas;
     mtState linState = filterState.state_;
     updateVecNorm_ = updateVecNormTermination_;
     for(unsigned int i=0;i<maxNumIteration_ & updateVecNorm_>=updateVecNormTermination_;i++){
-      this->jacInput(H_,linState,meas);
-      this->jacNoise(Hn_,linState,meas);
-      this->eval(y_,linState,meas);
+      this->jacState(H_,linState);
+      this->jacNoise(Hn_,linState);
+      this->evalResidualShort(y_,linState);
 
       if(isCoupled){
         C_ = filterState.G_*preupdnoiP_*Hn_.transpose();
@@ -248,7 +274,8 @@ class Update: public ModelBase<typename FilterState::mtState,Innovation,Meas,Noi
     return 0;
   }
   int performUpdateUKF(mtFilterState& filterState, const mtMeas& meas){
-    handleUpdateSigmaPoints<isCoupled>(filterState,meas);
+    meas_ = meas;
+    handleUpdateSigmaPoints<isCoupled>(filterState);
     y_.boxMinus(yIdentity_,innVector_);
 
     outlierDetection_.doOutlierDetection(innVector_,Py_,Pyx_);
@@ -270,21 +297,21 @@ class Update: public ModelBase<typename FilterState::mtState,Innovation,Meas,Noi
     return 0;
   }
   template<bool IC = isCoupled, typename std::enable_if<(IC)>::type* = nullptr>
-  void handleUpdateSigmaPoints(mtFilterState& filterState, const mtMeas& meas){
+  void handleUpdateSigmaPoints(mtFilterState& filterState){
     coupledStateSigmaPointsNoi_.extendZeroMeanGaussian(filterState.stateSigmaPointsNoi_,updnoiP_,preupdnoiP_);
     for(unsigned int i=0;i<coupledInnSigmaPoints_.L_;i++){
-      this->eval(coupledInnSigmaPoints_(i),filterState.stateSigmaPointsPre_(i),meas,coupledStateSigmaPointsNoi_(i));
+      this->evalResidual(coupledInnSigmaPoints_(i),filterState.stateSigmaPointsPre_(i),coupledStateSigmaPointsNoi_(i));
     }
     coupledInnSigmaPoints_.getMean(y_);
     coupledInnSigmaPoints_.getCovarianceMatrix(y_,Py_);
     coupledInnSigmaPoints_.getCovarianceMatrix(filterState.stateSigmaPointsPre_,Pyx_);
   }
   template<bool IC = isCoupled, typename std::enable_if<(!IC)>::type* = nullptr>
-  void handleUpdateSigmaPoints(mtFilterState& filterState, const mtMeas& meas){
+  void handleUpdateSigmaPoints(mtFilterState& filterState){
     refreshNoiseSigmaPoints();
     stateSigmaPoints_.computeFromGaussian(filterState.state_,filterState.cov_);
     for(unsigned int i=0;i<innSigmaPoints_.L_;i++){
-      this->eval(innSigmaPoints_(i),stateSigmaPoints_(i),meas,stateSigmaPointsNoi_(i));
+      this->evalResidual(innSigmaPoints_(i),stateSigmaPoints_(i),stateSigmaPointsNoi_(i));
     }
     innSigmaPoints_.getMean(y_);
     innSigmaPoints_.getCovarianceMatrix(y_,Py_);
