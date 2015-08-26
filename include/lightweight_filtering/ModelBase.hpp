@@ -78,7 +78,6 @@ class ModelBase{
   template<int i=0,typename std::enable_if<(i<nInputs_)>::type* = nullptr>
   static inline void _setRandomInputs(mtInputTuple& inputs,unsigned int& s){
     std::get<i>(inputs).setRandom(s);
-    s++;
     _setRandomInputs<i+1>(inputs,s);
   }
   template<int i=0,typename std::enable_if<(i>=nInputs_)>::type* = nullptr>

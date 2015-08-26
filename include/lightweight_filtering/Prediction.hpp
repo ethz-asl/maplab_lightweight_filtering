@@ -208,11 +208,18 @@ class Prediction: public ModelBase<Prediction<FilterState>,typename FilterState:
     return 0;
   }
   bool testPredictionJacs(double d = 1e-6,double th = 1e-6,double dt = 0.1){
-    mtInputTuple inputs;
+    mtState state;
+    mtMeas meas;
     unsigned int s = 1;
-    this->setRandomInputs(inputs,s);
+    state.setRandom(s);
+    meas.setRandom(s);
+    return testPredictionJacs(state,meas,d,th,dt);
+  }
+  bool testPredictionJacs(const mtState& state, const mtMeas& meas, double d = 1e-6,double th = 1e-6,double dt = 0.1){
+    mtInputTuple inputs;
+    std::get<0>(inputs) = state;
     std::get<1>(inputs).setIdentity(); // Noise is always set to zero for Jacobians
-    meas_.setRandom(s);
+    meas_ = meas;
     return this->testJacs(inputs,d,th,dt);
   }
 };

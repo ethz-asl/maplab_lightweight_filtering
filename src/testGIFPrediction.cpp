@@ -65,8 +65,8 @@ TYPED_TEST(GIFPredictionModelTest, constructors) {
   this->GIFpredictionExample_.performPrediction(filterState,this->testPredictionMeas_,dt);
   typename TestFixture::mtGIFPredictionExample testPrediction;
   ASSERT_EQ((testPrediction.noiP_-TestFixture::mtGIFPredictionExample::mtNoise::mtCovMat::Identity()*0.0001).norm(),0.0);
-  ASSERT_TRUE(this->GIFpredictionExample_.testPredictionJacs(1e-8,1e-6,0.1));
-  ASSERT_TRUE(this->GIFpredictionExampleWithUpdate_.testPredictionJacs(1e-8,1e-6,0.1));
+  ASSERT_TRUE(this->GIFpredictionExample_.testPredictionJacs(1e-8,1e-5,0.1));
+  ASSERT_TRUE(this->GIFpredictionExampleWithUpdate_.testPredictionJacs(1e-8,1e-5,0.1));
 }
 
 // Test comparePredict

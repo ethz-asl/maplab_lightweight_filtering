@@ -318,12 +318,19 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
     innSigmaPoints_.getCovarianceMatrix(stateSigmaPoints_,Pyx_);
   }
   bool testUpdateJacs(double d = 1e-6,double th = 1e-6){
+    mtState state;
+    mtMeas meas;
+    unsigned int s = 1;
+    state.setRandom(s);
+    meas.setRandom(s);
+    return testUpdateJacs(state,meas,d,th);
+  }
+  bool testUpdateJacs(const mtState& state, const mtMeas& meas, double d = 1e-6,double th = 1e-6){
     mtInputTuple inputs;
     const double dt = 1.0;
-    unsigned int s = 1;
-    this->setRandomInputs(inputs,s);
+    std::get<0>(inputs) = state;
     std::get<1>(inputs).setIdentity(); // Noise is always set to zero for Jacobians
-    meas_.setRandom(s);
+    meas_ = meas;
     return this->testJacs(inputs,d,th,dt);
   }
 };

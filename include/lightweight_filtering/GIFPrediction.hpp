@@ -133,11 +133,21 @@ class GIFPrediction: public ModelBase<GIFPrediction<FilterState,Innovation,Meas,
     return 1;
   }
   bool testPredictionJacs(double d = 1e-6,double th = 1e-6,double dt = 0.1){
-    mtInputTuple inputs;
+    mtState previousState;
+    mtState currentState;
+    mtMeas meas;
     unsigned int s = 1;
-    this->setRandomInputs(inputs,s);
+    previousState.setRandom(s);
+    currentState.setRandom(s);
+    meas.setRandom(s);
+    return testPredictionJacs(previousState,currentState,meas,d,th,dt);
+  }
+  bool testPredictionJacs(const mtState& previousState,const mtState& currentState, const mtMeas& meas, double d = 1e-6,double th = 1e-6,double dt = 0.1){
+    mtInputTuple inputs;
+    std::get<0>(inputs) = previousState;
+    std::get<1>(inputs) = currentState;
     std::get<2>(inputs).setIdentity(); // Noise is always set to zero for Jacobians
-    meas_.setRandom(s);
+    meas_ = meas;
     return this->testJacs(inputs,d,th,dt);
   }
 };
