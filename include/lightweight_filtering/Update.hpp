@@ -150,16 +150,16 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
   virtual void preProcess(mtFilterState& filterState, const mtMeas& meas, bool& isFinished){
     isFinished = false;
     if(!disablePreAndPostProcessingWarning_){
-      std::cout << "Warning: preProcessing is not implement!" << std::endl;
+      std::cout << "Warning: update preProcessing is not implemented!" << std::endl;
     }
   }
   virtual void postProcess(mtFilterState& filterState, const mtMeas& meas, const mtOutlierDetection& outlierDetection, bool& isFinished){
     isFinished = true;
     if(!disablePreAndPostProcessingWarning_){
-      std::cout << "Warning: postProcessing is not implement!" << std::endl;
+      std::cout << "Warning: update postProcessing is not implemented!" << std::endl;
     }
   }
-  virtual ~Update(){};
+  virtual ~Update(){}
   int performUpdate(mtFilterState& filterState, const mtMeas& meas){
     bool isFinished = true;
     int r = 0;
