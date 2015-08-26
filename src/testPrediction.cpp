@@ -90,7 +90,7 @@ TYPED_TEST(PredictionModelTest, performPredictionEKF) {
   this->testPrediction_.performPredictionEKF(filterState,this->testPredictionMeas_,this->dt_);
   typename TestFixture::mtPredictionExample::mtState::mtDifVec dif;
   typename TestFixture::mtPredictionExample::mtState evalState;
-  this->testPrediction_.evalResidualShort(evalState,this->testState_,this->dt_);
+  this->testPrediction_.evalPredictionShort(evalState,this->testState_,this->dt_);
   filterState.state_.boxMinus(evalState,dif);
   switch(TestFixture::id_){
     case 0:
@@ -164,7 +164,7 @@ TYPED_TEST(PredictionModelTest, predictMergedEKF) {
   filterState2.state_ = this->testState_;
   for(typename std::map<double,typename TestFixture::mtPredictionExample::mtMeas>::iterator it = this->measMap_.begin();it != this->measMap_.end();it++){
     this->testPrediction_.meas_ = it->second;
-    this->testPrediction_.evalResidualShort(filterState2.state_,filterState2.state_,it->first-t);
+    this->testPrediction_.evalPredictionShort(filterState2.state_,filterState2.state_,it->first-t);
     t = it->first;
   }
   typename TestFixture::mtPredictionExample::mtState::mtDifVec dif;
@@ -209,7 +209,7 @@ TYPED_TEST(PredictionModelTest, predictMergedUKF) {
   filterState1.stateSigmaPoints_.computeFromGaussian(filterState1.state_,filterState1.cov_);
   for(unsigned int i=0;i<filterState1.stateSigmaPoints_.L_;i++){
     this->testPrediction_.meas_ = meanMeas;
-    this->testPrediction_.evalResidual(filterState1.stateSigmaPointsPre_(i),filterState1.stateSigmaPoints_(i),filterState1.stateSigmaPointsNoi_(i),dt);
+    this->testPrediction_.evalPrediction(filterState1.stateSigmaPointsPre_(i),filterState1.stateSigmaPoints_(i),filterState1.stateSigmaPointsNoi_(i),dt);
   }
   filterState1.stateSigmaPointsPre_.getMean(filterState1.state_);
   filterState1.stateSigmaPointsPre_.getCovarianceMatrix(filterState1.state_,filterState1.cov_);

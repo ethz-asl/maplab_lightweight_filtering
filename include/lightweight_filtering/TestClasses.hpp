@@ -87,7 +87,7 @@ class PredictionMeas: public LWF::State<LWF::TH_multiple_elements<LWF::VectorEle
 };
 class OutlierDetectionExample: public LWF::OutlierDetection<LWF::ODEntry<0,3,1>>{
 };
-class FilterState: public LWF::FilterState<State,PredictionMeas,PredictionNoise,UpdateNoise::D_,false>{};
+class FilterState: public LWF::FilterState<State,PredictionMeas,PredictionNoise,UpdateNoise::D_>{};
 
 class UpdateExample: public LWF::Update<Innovation,FilterState,UpdateMeas,UpdateNoise,OutlierDetectionExample,false>{
  public:
@@ -99,7 +99,7 @@ class UpdateExample: public LWF::Update<Innovation,FilterState,UpdateMeas,Update
     disablePreAndPostProcessingWarning_ = true;
   };
   ~UpdateExample(){};
-  void evalResidual(mtInnovation& inn, const mtState& state, const mtNoise& noise) const{
+  void evalInnovation(mtInnovation& inn, const mtState& state, const mtNoise& noise) const{
     inn.get<Innovation::POS>() = state.get<State::ATT>().rotate(state.get<State::POS>())-meas_.get<UpdateMeas::POS>()+noise.get<UpdateNoise::POS>();
     inn.get<Innovation::ATT>() = (state.get<State::ATT>()*meas_.get<UpdateMeas::ATT>().inverted()).boxPlus(noise.get<UpdateNoise::ATT>());
   }
@@ -127,7 +127,7 @@ class PredictionExample: public LWF::Prediction<FilterState>{
     disablePreAndPostProcessingWarning_ = true;
   };
   ~PredictionExample(){};
-  void evalResidual(mtState& output, const mtState& state, const mtNoise& noise, double dt) const{
+  void evalPrediction(mtState& output, const mtState& state, const mtNoise& noise, double dt) const{
     V3D g_(0,0,-9.81);
     V3D dOmega = -dt*(meas_.get<PredictionMeas::GYR>()-state.get<State::GYB>()+noise.get<PredictionNoise::ATT>()/sqrt(dt));
     QPD dQ = dQ.exponentialMap(dOmega);
@@ -180,7 +180,7 @@ class PredictAndUpdateExample: public LWF::Update<Innovation,FilterState,UpdateM
     disablePreAndPostProcessingWarning_ = true;
   };
   ~PredictAndUpdateExample(){};
-  void evalResidual(mtInnovation& inn, const mtState& state, const mtNoise& noise) const{
+  void evalInnovation(mtInnovation& inn, const mtState& state, const mtNoise& noise) const{
     inn.get<Innovation::POS>() = state.get<State::ATT>().rotate(state.get<State::POS>())-meas_.get<UpdateMeas::POS>()+noise.get<UpdateNoise::POS>();
     inn.get<Innovation::ATT>() = (state.get<State::ATT>()*meas_.get<UpdateMeas::ATT>().inverted()).boxPlus(noise.get<UpdateNoise::ATT>());
   }
@@ -466,7 +466,7 @@ class PredictionMeas: public LWF::State<LWF::VectorElement<3>>{
 };
 class OutlierDetectionExample: public LWF::OutlierDetection<LWF::ODEntry<0,3,1>>{
 };
-class FilterState: public LWF::FilterState<State,PredictionMeas,PredictionNoise,UpdateNoise::D_,true>{};
+class FilterState: public LWF::FilterState<State,PredictionMeas,PredictionNoise,UpdateNoise::D_>{};
 
 class UpdateExample: public LWF::Update<Innovation,FilterState,UpdateMeas,UpdateNoise,OutlierDetectionExample,false>{
  public:
@@ -478,7 +478,7 @@ class UpdateExample: public LWF::Update<Innovation,FilterState,UpdateMeas,Update
     disablePreAndPostProcessingWarning_ = true;
   };
   ~UpdateExample(){};
-  void evalResidual(mtInnovation& inn, const mtState& state, const mtNoise& noise) const{
+  void evalInnovation(mtInnovation& inn, const mtState& state, const mtNoise& noise) const{
     inn.get<Innovation::POS>() = state.get<State::POS>()-meas_.get<UpdateMeas::POS>()+noise.get<UpdateNoise::POS>();
     inn.get<Innovation::HEI>() = V3D(0,0,1).dot(state.get<State::POS>())-meas_.get<UpdateMeas::HEI>()+noise.get<UpdateNoise::HEI>();
   }
@@ -505,7 +505,7 @@ class PredictionExample: public LWF::Prediction<FilterState>{
     disablePreAndPostProcessingWarning_ = true;
   };
   ~PredictionExample(){};
-  void evalResidual(mtState& output, const mtState& state, const mtNoise& noise, double dt) const{
+  void evalPrediction(mtState& output, const mtState& state, const mtNoise& noise, double dt) const{
     output.get<mtState::POS>() = state.get<mtState::POS>()+dt*state.get<mtState::VEL>()+noise.get<PredictionNoise::VEL>()*sqrt(dt);
     output.get<mtState::VEL>() = state.get<mtState::VEL>()+dt*meas_.get<mtMeas::ACC>()+noise.get<PredictionNoise::ACC>()*sqrt(dt);
   }
@@ -532,7 +532,7 @@ class PredictAndUpdateExample: public LWF::Update<Innovation,FilterState,UpdateM
     disablePreAndPostProcessingWarning_ = true;
   };
   ~PredictAndUpdateExample(){};
-  void evalResidual(mtInnovation& inn, const mtState& state, const mtNoise& noise) const{
+  void evalInnovation(mtInnovation& inn, const mtState& state, const mtNoise& noise) const{
     inn.get<Innovation::POS>() = state.get<State::POS>()-meas_.get<UpdateMeas::POS>()+noise.get<UpdateNoise::POS>();
     inn.get<Innovation::HEI>() = V3D(0,0,1).dot(state.get<State::POS>())-meas_.get<UpdateMeas::HEI>()+noise.get<UpdateNoise::HEI>();
   }

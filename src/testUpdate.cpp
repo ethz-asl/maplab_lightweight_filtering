@@ -102,7 +102,7 @@ TYPED_TEST(UpdateModelTest, performUpdateEKF) {
   this->testUpdate_.jacNoise(Hn,this->testState_);
 
   typename TestFixture::mtUpdateExample::mtInnovation y;
-  this->testUpdate_.evalResidualShort(y,this->testState_);
+  this->testUpdate_.evalInnovationShort(y,this->testState_);
   typename TestFixture::mtUpdateExample::mtInnovation yIdentity;
   yIdentity.setIdentity();
   typename TestFixture::mtUpdateExample::mtInnovation::mtDifVec innVector;
@@ -152,7 +152,7 @@ TYPED_TEST(UpdateModelTest, updateEKFWithOutlier) {
   this->testUpdate_.jacNoise(Hn,this->testState_);
 
   typename TestFixture::mtUpdateExample::mtInnovation y;
-  this->testUpdate_.evalResidualShort(y,this->testState_);
+  this->testUpdate_.evalInnovationShort(y,this->testState_);
   typename TestFixture::mtUpdateExample::mtInnovation yIdentity;
   yIdentity.setIdentity();
   typename TestFixture::mtUpdateExample::mtInnovation::mtDifVec innVector;
@@ -525,7 +525,7 @@ TYPED_TEST(UpdateModelTest, performUpdateLEKF3) {
   this->testUpdate_.jacNoise(Hn,linState);
 
   typename TestFixture::mtUpdateExample::mtInnovation y;
-  this->testUpdate_.evalResidualShort(y,linState);
+  this->testUpdate_.evalInnovationShort(y,linState);
   typename TestFixture::mtUpdateExample::mtInnovation yIdentity;
   yIdentity.setIdentity();
   typename TestFixture::mtUpdateExample::mtInnovation::mtDifVec innVector;
@@ -626,7 +626,7 @@ TYPED_TEST(UpdateModelTest, performUpdateIEKF2) {
     this->testUpdate_.jacState(H,linState);
     this->testUpdate_.jacNoise(Hn,linState);
 
-    this->testUpdate_.evalResidualShort(y,linState);
+    this->testUpdate_.evalInnovationShort(y,linState);
 
     // Update
     Py = H*filterState.cov_*H.transpose() + Hn*this->testUpdate_.updnoiP_*Hn.transpose();

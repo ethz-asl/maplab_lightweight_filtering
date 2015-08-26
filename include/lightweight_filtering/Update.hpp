@@ -54,13 +54,13 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
   Eigen::MatrixXd Pyx_;
   typename mtState::mtDifVec difVecLinInv_;
 
-  SigmaPoints<mtState,2*mtState::D_+1,2*(mtState::D_+mtNoise::D_)+1,0,mtFilterState::useDynamicMatrix_> stateSigmaPoints_;
-  SigmaPoints<mtNoise,2*mtNoise::D_+1,2*(mtState::D_+mtNoise::D_)+1,2*mtState::D_,mtFilterState::useDynamicMatrix_> stateSigmaPointsNoi_;
-  SigmaPoints<mtInnovation,2*(mtState::D_+mtNoise::D_)+1,2*(mtState::D_+mtNoise::D_)+1,0,mtFilterState::useDynamicMatrix_> innSigmaPoints_;
-  SigmaPoints<mtNoise,2*(mtNoise::D_+mtPredictionNoise::D_)+1,2*(mtState::D_+mtNoise::D_+mtPredictionNoise::D_)+1,2*(mtState::D_),mtFilterState::useDynamicMatrix_> coupledStateSigmaPointsNoi_;
-  SigmaPoints<mtInnovation,2*(mtState::D_+mtNoise::D_+mtPredictionNoise::D_)+1,2*(mtState::D_+mtNoise::D_+mtPredictionNoise::D_)+1,0,mtFilterState::useDynamicMatrix_> coupledInnSigmaPoints_;
-  SigmaPoints<LWF::VectorElement<mtState::D_>,2*mtState::D_+1,2*mtState::D_+1,0,mtFilterState::useDynamicMatrix_> updateVecSP_;
-  SigmaPoints<mtState,2*mtState::D_+1,2*mtState::D_+1,0,mtFilterState::useDynamicMatrix_> posterior_;
+  SigmaPoints<mtState,2*mtState::D_+1,2*(mtState::D_+mtNoise::D_)+1,0> stateSigmaPoints_;
+  SigmaPoints<mtNoise,2*mtNoise::D_+1,2*(mtState::D_+mtNoise::D_)+1,2*mtState::D_> stateSigmaPointsNoi_;
+  SigmaPoints<mtInnovation,2*(mtState::D_+mtNoise::D_)+1,2*(mtState::D_+mtNoise::D_)+1,0> innSigmaPoints_;
+  SigmaPoints<mtNoise,2*(mtNoise::D_+mtPredictionNoise::D_)+1,2*(mtState::D_+mtNoise::D_+mtPredictionNoise::D_)+1,2*(mtState::D_)> coupledStateSigmaPointsNoi_;
+  SigmaPoints<mtInnovation,2*(mtState::D_+mtNoise::D_+mtPredictionNoise::D_)+1,2*(mtState::D_+mtNoise::D_+mtPredictionNoise::D_)+1,0> coupledInnSigmaPoints_;
+  SigmaPoints<LWF::VectorElement<mtState::D_>,2*mtState::D_+1,2*mtState::D_+1,0> updateVecSP_;
+  SigmaPoints<mtState,2*mtState::D_+1,2*mtState::D_+1,0> posterior_;
   double alpha_;
   double beta_;
   double kappa_;
@@ -129,7 +129,7 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
   }
   virtual void refreshPropertiesCustom(){}
   void eval_(mtInnovation& x, const mtInputTuple& inputs, double dt) const{
-    evalResidual(x,std::get<0>(inputs),std::get<1>(inputs));
+    evalInnovation(x,std::get<0>(inputs),std::get<1>(inputs));
   }
   template<int i,typename std::enable_if<i==0>::type* = nullptr>
   void jacInput_(Eigen::MatrixXd& F, const mtInputTuple& inputs, double dt) const{
@@ -139,11 +139,11 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
   void jacInput_(Eigen::MatrixXd& F, const mtInputTuple& inputs, double dt) const{
     jacNoise(F,std::get<0>(inputs));
   }
-  virtual void evalResidual(mtInnovation& y, const mtState& state, const mtNoise& noise) const = 0;
-  virtual void evalResidualShort(mtInnovation& y, const mtState& state) const{
+  virtual void evalInnovation(mtInnovation& y, const mtState& state, const mtNoise& noise) const = 0;
+  virtual void evalInnovationShort(mtInnovation& y, const mtState& state) const{
     mtNoise n; // TODO get static for Identity()
     n.setIdentity();
-    evalResidual(y,state,n);
+    evalInnovation(y,state,n);
   }
   virtual void jacState(Eigen::MatrixXd& F, const mtState& state) const = 0;
   virtual void jacNoise(Eigen::MatrixXd& F, const mtState& state) const = 0;
@@ -193,7 +193,7 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
       this->jacState(H_,filterState.state_);
       Hlin_ = H_;
       this->jacNoise(Hn_,filterState.state_);
-      this->evalResidualShort(y_,filterState.state_);
+      this->evalInnovationShort(y_,filterState.state_);
     } else {
       filterState.state_.boxPlus(filterState.difVecLin_,linState_);
       this->jacState(H_,linState_);
@@ -204,7 +204,7 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
         Hlin_ = H_;
       }
       this->jacNoise(Hn_,linState_);
-      this->evalResidualShort(y_,linState_);
+      this->evalInnovationShort(y_,linState_);
     }
 
     if(isCoupled){
@@ -243,7 +243,7 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
     for(unsigned int i=0;i<maxNumIteration_ & updateVecNorm_>=updateVecNormTermination_;i++){
       this->jacState(H_,linState);
       this->jacNoise(Hn_,linState);
-      this->evalResidualShort(y_,linState);
+      this->evalInnovationShort(y_,linState);
 
       if(isCoupled){
         C_ = filterState.G_*preupdnoiP_*Hn_.transpose();
@@ -300,7 +300,7 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
   void handleUpdateSigmaPoints(mtFilterState& filterState){
     coupledStateSigmaPointsNoi_.extendZeroMeanGaussian(filterState.stateSigmaPointsNoi_,updnoiP_,preupdnoiP_);
     for(unsigned int i=0;i<coupledInnSigmaPoints_.L_;i++){
-      this->evalResidual(coupledInnSigmaPoints_(i),filterState.stateSigmaPointsPre_(i),coupledStateSigmaPointsNoi_(i));
+      this->evalInnovation(coupledInnSigmaPoints_(i),filterState.stateSigmaPointsPre_(i),coupledStateSigmaPointsNoi_(i));
     }
     coupledInnSigmaPoints_.getMean(y_);
     coupledInnSigmaPoints_.getCovarianceMatrix(y_,Py_);
@@ -311,11 +311,20 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
     refreshNoiseSigmaPoints();
     stateSigmaPoints_.computeFromGaussian(filterState.state_,filterState.cov_);
     for(unsigned int i=0;i<innSigmaPoints_.L_;i++){
-      this->evalResidual(innSigmaPoints_(i),stateSigmaPoints_(i),stateSigmaPointsNoi_(i));
+      this->evalInnovation(innSigmaPoints_(i),stateSigmaPoints_(i),stateSigmaPointsNoi_(i));
     }
     innSigmaPoints_.getMean(y_);
     innSigmaPoints_.getCovarianceMatrix(y_,Py_);
     innSigmaPoints_.getCovarianceMatrix(stateSigmaPoints_,Pyx_);
+  }
+  bool testUpdateJacs(double d = 1e-6,double th = 1e-6){
+    mtInputTuple inputs;
+    const double dt = 1.0;
+    unsigned int s = 1;
+    this->setRandomInputs(inputs,s);
+    std::get<1>(inputs).setIdentity(); // Noise is always set to zero for Jacobians
+    meas_.setRandom(s);
+    return this->testJacs(inputs,d,th,dt);
   }
 };
 

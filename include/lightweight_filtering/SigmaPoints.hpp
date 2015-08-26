@@ -13,7 +13,7 @@
 
 namespace LWF{
 
-template<typename State, unsigned int N, unsigned int L, unsigned int O,bool useDynamicMatrix = false>
+template<typename State, unsigned int N, unsigned int L, unsigned int O>
 class SigmaPoints{
  public:
   typedef State mtState;
@@ -58,7 +58,7 @@ class SigmaPoints{
     }
   };
   template<typename State2, unsigned int N2, unsigned int O2>
-  void getCovarianceMatrix(const SigmaPoints<State2,N2,L_,O2,useDynamicMatrix>& sigmaPoints2, Eigen::MatrixXd& C) const{
+  void getCovarianceMatrix(const SigmaPoints<State2,N2,L_,O2>& sigmaPoints2, Eigen::MatrixXd& C) const{
     mtState mean1;
     getMean(mean1);
     State2 mean2;
@@ -66,7 +66,7 @@ class SigmaPoints{
     getCovarianceMatrix(sigmaPoints2,mean1,mean2,C);
   };
   template<typename State2, unsigned int N2, unsigned int O2>
-  void getCovarianceMatrix(const SigmaPoints<State2,N2,L_,O2,useDynamicMatrix>& sigmaPoints2, const mtState& mean1, const State2& mean2, Eigen::MatrixXd& C) const{
+  void getCovarianceMatrix(const SigmaPoints<State2,N2,L_,O2>& sigmaPoints2, const mtState& mean1, const State2& mean2, Eigen::MatrixXd& C) const{
     typename mtState::mtDifVec vec1;
     typename State2::mtDifVec vec2;
     Eigen::MatrixXd dynVec1;
@@ -85,7 +85,7 @@ class SigmaPoints{
     }
   };
   template<typename State2>
-  void extendZeroMeanGaussian(const SigmaPoints<State2,N_-2*mtState::D_,L_,O_,useDynamicMatrix>& sigmaPoints2, const Eigen::MatrixXd& P, const Eigen::MatrixXd& Q){ // samples the last dimensions
+  void extendZeroMeanGaussian(const SigmaPoints<State2,N_-2*mtState::D_,L_,O_>& sigmaPoints2, const Eigen::MatrixXd& P, const Eigen::MatrixXd& Q){ // samples the last dimensions
     Eigen::MatrixXd C = Q.transpose()*sigmaPoints2.S_.inverse();
     Eigen::LDLT<Eigen::MatrixXd> ldltOfP(P-Q.transpose()*sigmaPoints2.S_.transpose().inverse()*sigmaPoints2.S_.inverse()*Q);
     Eigen::MatrixXd ldltL = ldltOfP.matrixL();

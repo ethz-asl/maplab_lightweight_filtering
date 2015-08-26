@@ -13,7 +13,7 @@
 
 namespace LWF{
 
-template<typename State, typename PredictionMeas, typename PredictionNoise, unsigned int noiseExtensionDim = 0,bool useDynamicMatrix = false>
+template<typename State, typename PredictionMeas, typename PredictionNoise, unsigned int noiseExtensionDim = 0>
 class FilterState{
  public:
   typedef State mtState;
@@ -22,15 +22,14 @@ class FilterState{
   FilteringMode mode_;
   bool usePredictionMerge_;
   static constexpr unsigned int noiseExtensionDim_ = noiseExtensionDim;
-  static constexpr bool useDynamicMatrix_ = useDynamicMatrix;
   double t_;
   mtState state_;
   Eigen::MatrixXd cov_;
   Eigen::MatrixXd F_;
   Eigen::MatrixXd G_;
-  SigmaPoints<mtState,2*mtState::D_+1,2*(mtState::D_+mtPredictionNoise::D_+noiseExtensionDim)+1,0,useDynamicMatrix> stateSigmaPoints_;
-  SigmaPoints<mtPredictionNoise,2*mtPredictionNoise::D_+1,2*(mtState::D_+mtPredictionNoise::D_+noiseExtensionDim)+1,2*mtState::D_,useDynamicMatrix> stateSigmaPointsNoi_;
-  SigmaPoints<mtState,2*(mtState::D_+mtPredictionNoise::D_)+1,2*(mtState::D_+mtPredictionNoise::D_+noiseExtensionDim)+1,0,useDynamicMatrix> stateSigmaPointsPre_;
+  SigmaPoints<mtState,2*mtState::D_+1,2*(mtState::D_+mtPredictionNoise::D_+noiseExtensionDim)+1,0> stateSigmaPoints_;
+  SigmaPoints<mtPredictionNoise,2*mtPredictionNoise::D_+1,2*(mtState::D_+mtPredictionNoise::D_+noiseExtensionDim)+1,2*mtState::D_> stateSigmaPointsNoi_;
+  SigmaPoints<mtState,2*(mtState::D_+mtPredictionNoise::D_)+1,2*(mtState::D_+mtPredictionNoise::D_+noiseExtensionDim)+1,0> stateSigmaPointsPre_;
   Eigen::MatrixXd prenoiP_; // automatic change tracking
   typename mtState::mtDifVec difVecLin_;
   double alpha_;

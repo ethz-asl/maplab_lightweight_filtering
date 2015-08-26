@@ -41,7 +41,7 @@ class Prediction: public ModelBase<Prediction<FilterState>,typename FilterState:
     prenoiP_.llt().solveInPlace(prenoiPinv_);
   }
   void eval_(mtState& x, const mtInputTuple& inputs, double dt) const{
-    evalResidual(x,std::get<0>(inputs),std::get<1>(inputs),dt);
+    evalPrediction(x,std::get<0>(inputs),std::get<1>(inputs),dt);
   }
   template<int i,typename std::enable_if<i==0>::type* = nullptr>
   void jacInput_(Eigen::MatrixXd& F, const mtInputTuple& inputs, double dt) const{
@@ -51,11 +51,11 @@ class Prediction: public ModelBase<Prediction<FilterState>,typename FilterState:
   void jacInput_(Eigen::MatrixXd& F, const mtInputTuple& inputs, double dt) const{
     jacNoise(F,std::get<0>(inputs),dt);
   }
-  virtual void evalResidual(mtState& x, const mtState& previousState, const mtNoise& noise, double dt) const = 0;
-  virtual void evalResidualShort(mtState& x, const mtState& previousState, double dt) const{
+  virtual void evalPrediction(mtState& x, const mtState& previousState, const mtNoise& noise, double dt) const = 0;
+  virtual void evalPredictionShort(mtState& x, const mtState& previousState, double dt) const{
     mtNoise n; // TODO get static for Identity()
     n.setIdentity();
-    evalResidual(x,previousState,n,dt);
+    evalPrediction(x,previousState,n,dt);
   }
   virtual void jacPreviousState(Eigen::MatrixXd& F, const mtState& previousState, double dt) const = 0;
   virtual void jacNoise(Eigen::MatrixXd& F, const mtState& previousState, double dt) const = 0;
@@ -94,7 +94,7 @@ class Prediction: public ModelBase<Prediction<FilterState>,typename FilterState:
     meas_ = meas;
     this->jacPreviousState(filterState.F_,filterState.state_,dt);
     this->jacNoise(filterState.G_,filterState.state_,dt);
-    this->evalResidualShort(filterState.state_,filterState.state_,dt);
+    this->evalPredictionShort(filterState.state_,filterState.state_,dt);
     filterState.cov_ = filterState.F_*filterState.cov_*filterState.F_.transpose() + filterState.G_*prenoiP_*filterState.G_.transpose();
     filterState.state_.fix();
     enforceSymmetry(filterState.cov_);
@@ -110,7 +110,7 @@ class Prediction: public ModelBase<Prediction<FilterState>,typename FilterState:
 
     // Prediction
     for(unsigned int i=0;i<filterState.stateSigmaPoints_.L_;i++){
-      this->evalResidual(filterState.stateSigmaPointsPre_(i),filterState.stateSigmaPoints_(i),filterState.stateSigmaPointsNoi_(i),dt);
+      this->evalPrediction(filterState.stateSigmaPointsPre_(i),filterState.stateSigmaPoints_(i),filterState.stateSigmaPointsNoi_(i),dt);
     }
     // Calculate mean and variance
     filterState.stateSigmaPointsPre_.getMean(filterState.state_);
@@ -160,7 +160,7 @@ class Prediction: public ModelBase<Prediction<FilterState>,typename FilterState:
     this->jacNoise(filterState.G_,filterState.state_,dT); // Works for time continuous parametrization of noise
     for(typename std::map<double,mtMeas>::const_iterator itMeas=itMeasStart;itMeas!=itMeasEnd;itMeas++){
       meas_ = itMeas->second;
-      this->evalResidualShort(filterState.state_,filterState.state_,std::min(itMeas->first,tTarget)-filterState.t_);
+      this->evalPredictionShort(filterState.state_,filterState.state_,std::min(itMeas->first,tTarget)-filterState.t_);
       filterState.t_ = std::min(itMeas->first,tTarget);
     }
     filterState.cov_ = filterState.F_*filterState.cov_*filterState.F_.transpose() + filterState.G_*prenoiP_*filterState.G_.transpose();
@@ -198,7 +198,7 @@ class Prediction: public ModelBase<Prediction<FilterState>,typename FilterState:
 
     // Prediction
     for(unsigned int i=0;i<filterState.stateSigmaPoints_.L_;i++){
-      this->evalResidual(filterState.stateSigmaPointsPre_(i),filterState.stateSigmaPoints_(i),filterState.stateSigmaPointsNoi_(i),dT);
+      this->evalPrediction(filterState.stateSigmaPointsPre_(i),filterState.stateSigmaPoints_(i),filterState.stateSigmaPointsNoi_(i),dT);
     }
     filterState.stateSigmaPointsPre_.getMean(filterState.state_);
     filterState.stateSigmaPointsPre_.getCovarianceMatrix(filterState.state_,filterState.cov_);
@@ -206,6 +206,14 @@ class Prediction: public ModelBase<Prediction<FilterState>,typename FilterState:
     filterState.t_ = std::prev(itMeasEnd)->first;
     postProcess(filterState,meanMeas,dT);
     return 0;
+  }
+  bool testPredictionJacs(double d = 1e-6,double th = 1e-6,double dt = 0.1){
+    mtInputTuple inputs;
+    unsigned int s = 1;
+    this->setRandomInputs(inputs,s);
+    std::get<1>(inputs).setIdentity(); // Noise is always set to zero for Jacobians
+    meas_.setRandom(s);
+    return this->testJacs(inputs,d,th,dt);
   }
 };
 

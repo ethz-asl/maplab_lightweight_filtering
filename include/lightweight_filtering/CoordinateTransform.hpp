@@ -14,9 +14,9 @@
 namespace LWF{
 
 template<typename Input, typename Output>
-class CoordinateTransform: public ModelBase<CoordinateTransform<Input,Output>,Input,Output>{
+class CoordinateTransform: public ModelBase<CoordinateTransform<Input,Output>,Output,Input>{
  public:
-  typedef ModelBase<CoordinateTransform<Input,Output>,Input,Output> mtModelBaseNew;
+  typedef ModelBase<CoordinateTransform<Input,Output>,Output,Input> mtModelBaseNew;
   typedef typename mtModelBaseNew::mtInputTuple mtInputTuple;
   typedef Input mtInput;
   typedef Output mtOutput;
@@ -31,16 +31,16 @@ class CoordinateTransform: public ModelBase<CoordinateTransform<Input,Output>,In
   };
   virtual ~CoordinateTransform(){};
   void eval_(mtOutput& x, const mtInputTuple& inputs, double dt) const{
-    evalResidual(x,std::get<0>(inputs));
+    evalTransform(x,std::get<0>(inputs));
   }
   template<int i,typename std::enable_if<i==0>::type* = nullptr>
   void jacInput_(Eigen::MatrixXd& F, const mtInputTuple& inputs, double dt) const{
-    jacState(F,std::get<0>(inputs));
+    jacTransform(F,std::get<0>(inputs));
   }
-  virtual void evalResidual(mtInnovation& y, const mtState& state) const = 0;
-  virtual void jacState(Eigen::MatrixXd& F, const mtState& state) const = 0;
+  virtual void evalTransform(mtOutput& output, const mtInput& input) const = 0;
+  virtual void jacTransform(Eigen::MatrixXd& F, const mtInput& input) const = 0;
   void transformState(const mtInput& input, mtOutput& output) const{
-    evalResidual(output, input);
+    evalTransform(output, input);
   }
   void transformCovMat(const mtInput& input,const Eigen::MatrixXd& inputCov,Eigen::MatrixXd& outputCov){
     jacInput(J_,input);
@@ -96,6 +96,13 @@ class CoordinateTransform: public ModelBase<CoordinateTransform<Input,Output>,In
       count++;
     }
     return false;
+  }
+  bool testTransformJac(double d = 1e-6,double th = 1e-6){
+    mtInputTuple inputs;
+    unsigned int s = 1;
+    const double dt = 0.1;
+    this->setRandomInputs(inputs,s);
+    return this->testJacs(inputs,d,th,dt);
   }
 };
 
