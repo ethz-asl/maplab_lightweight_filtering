@@ -17,10 +17,10 @@ namespace LWF{
 template<typename FilterState,typename Innovation,typename Meas,typename Noise>
 class GIFPrediction: public ModelBase<GIFPrediction<FilterState,Innovation,Meas,Noise>,Innovation,typename FilterState::mtState,typename FilterState::mtState,Noise>, public PropertyHandler{
  public:
-  typedef ModelBase<GIFPrediction<FilterState,Innovation,Meas,Noise>,Innovation,typename FilterState::mtState,typename FilterState::mtState,Noise> mtModelBaseNew;
+  typedef ModelBase<GIFPrediction<FilterState,Innovation,Meas,Noise>,Innovation,typename FilterState::mtState,typename FilterState::mtState,Noise> mtModelBase;
   typedef FilterState mtFilterState;
   typedef Innovation mtInnovation;
-  typedef typename mtModelBaseNew::mtInputTuple mtInputTuple;
+  typedef typename mtModelBase::mtInputTuple mtInputTuple;
   typedef typename mtFilterState::mtState mtState;
   typedef Meas mtMeas;
   typedef Noise mtNoise;
@@ -98,29 +98,44 @@ class GIFPrediction: public ModelBase<GIFPrediction<FilterState,Innovation,Meas,
     }
   };
   virtual ~GIFPrediction(){};
+  int performPrediction(mtFilterState& filterState, double dt){
+    mtMeas meas;
+    meas.setIdentity();
+    noMeasCase(filterState,meas,dt);
+    return performPrediction(filterState,meas,dt);
+  }
   int performPrediction(mtFilterState& filterState, const mtMeas& meas, double dt){
     meas_ = meas;
     preProcess(filterState,meas,dt);
     getLinearizationPoint(stateCurrentLin_,filterState,meas,dt);
     jacPreviousState(jacPreviousState_,filterState.state_,stateCurrentLin_,dt);
+    if(!jacPreviousState_.allFinite()) std::cout << "jacPreviousState_ is BAD" << std::endl;
     jacCurrentState(jacCurrentState_,filterState.state_,stateCurrentLin_,dt);
+    if(!jacCurrentState_.allFinite()) std::cout << "jacCurrentState_ is BAD" << std::endl;
     jacNoise(jacNoise_,filterState.state_,stateCurrentLin_,dt);
+    if(!jacNoise_.allFinite()) std::cout << "jacNoise_ is BAD" << std::endl;
     this->evalResidualShort(r_,filterState.state_,stateCurrentLin_,dt);
     r_.boxMinus(mtInnovation::Identity(),dr_);
+    if(!dr_.allFinite()) std::cout << "dr_ is BAD" << std::endl;
     noiPinv_.setIdentity();
     (jacNoise_*noiP_*jacNoise_.transpose()).llt().solveInPlace(noiPinv_); // Make more efficient
+    if(!noiPinv_.allFinite()) std::cout << "noiPinv_ is BAD" << std::endl;
     A00_ = jacPreviousState_.transpose()*noiPinv_*jacPreviousState_;
     A01_ = jacPreviousState_.transpose()*noiPinv_*jacCurrentState_;
     A11_ = jacCurrentState_.transpose()*noiPinv_*jacCurrentState_;
     S_ = filterState.cov_ + A00_;
     Sinv_.setIdentity();
-    S_.llt().solveInPlace(Sinv_);
+    S_.ldlt().solveInPlace(Sinv_); // TODO: check accuracy
+    if(!Sinv_.allFinite()) std::cout << "Sinv_ is BAD" << std::endl;
     filterState.cov_ = A11_ - A01_.transpose()*Sinv_*A01_;
+    if(!filterState.cov_.allFinite()) std::cout << "filterState.cov_ is BAD" << std::endl;
     dx_ = - jacCurrentState_.transpose()*noiPinv_*dr_ + A01_.transpose()*Sinv_*jacPreviousState_.transpose()*noiPinv_*dr_;
-    filterState.cov_.llt().solveInPlace(dx_);
+    if(!dx_.allFinite()) std::cout << "dx_ is BAD before inverse" << std::endl;
+    enforceSymmetry(filterState.cov_);
+    filterState.cov_.ldlt().solveInPlace(dx_); // TODO: check accuracy
+    if(!dx_.allFinite()) std::cout << "dx_ is BAD after inverse" << std::endl;
     stateCurrentLin_.boxPlus(dx_,filterState.state_);
     filterState.state_.fix();
-    enforceSymmetry(filterState.cov_);
     filterState.t_ += dt;
     postProcess(filterState,meas,dt);
     return 0;

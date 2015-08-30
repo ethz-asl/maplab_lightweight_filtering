@@ -27,16 +27,16 @@ class ModelBase{
   void jacInput(Eigen::MatrixXd& F, const mtInputTuple& inputs, double dt = 0.0) const{
     static_cast<const DERIVED&>(*this).template jacInput_<i>(F,inputs,dt);
   }
-  template<int i>
-  void jacInputFD(Eigen::MatrixXd& F, const mtInputTuple& inputs, double dt, double d){
-    F.setZero();
+  template<int i,int s = 0, int n = std::tuple_element<i,mtInputTuple>::type::D_>
+  void jacInputFD(Eigen::MatrixXd& F, const mtInputTuple& inputs, double dt, double d) const{
+    static_assert(s + n <= (std::tuple_element<i,mtInputTuple>::type::D_), "Bad dimension for evaluating jacInputFD");
     mtInputTuple inputsDisturbed = inputs;
     typename std::tuple_element<i,mtInputTuple>::type::mtDifVec difVec;
     mtOutput outputReference;
     mtOutput outputDisturbed;
     eval(outputReference,inputs,dt);
     typename mtOutput::mtDifVec dif;
-    for(unsigned int j=0;j<(std::tuple_element<i,mtInputTuple>::type::D_);j++){
+    for(unsigned int j=s;j<s+n;j++){
       difVec.setZero();
       difVec(j) = d;
       std::get<i>(inputs).boxPlus(difVec,std::get<i>(inputsDisturbed));
@@ -46,13 +46,13 @@ class ModelBase{
     }
   }
   template<int i>
-  bool testJacInput(double d = 1e-6,double th = 1e-6,unsigned int s = 0,double dt = 0.1){
+  bool testJacInput(double d = 1e-6,double th = 1e-6,unsigned int s = 0,double dt = 0.1) const{
     mtInputTuple inputs;
     setRandomInputs(inputs,s);
     return testJacInput<i>(inputs,d,th,dt);
   }
   template<int i>
-  bool testJacInput(const mtInputTuple& inputs, double d = 1e-6,double th = 1e-6,double dt = 0.1){
+  bool testJacInput(const mtInputTuple& inputs, double d = 1e-6,double th = 1e-6,double dt = 0.1) const{
     Eigen::MatrixXd F((int)(mtOutput::D_),(int)(std::tuple_element<i,mtInputTuple>::type::D_));
     Eigen::MatrixXd F_FD((int)(mtOutput::D_),(int)(std::tuple_element<i,mtInputTuple>::type::D_));
     mtOutput output;
@@ -82,26 +82,26 @@ class ModelBase{
   }
   template<int i=0,typename std::enable_if<(i>=nInputs_)>::type* = nullptr>
   static inline void _setRandomInputs(mtInputTuple& inputs,unsigned int& s){}
-  bool testJacs(unsigned int& s, double d = 1e-6,double th = 1e-6,double dt = 0.1){
+  bool testJacs(unsigned int& s, double d = 1e-6,double th = 1e-6,double dt = 0.1) const{
     mtInputTuple inputs;
     setRandomInputs(inputs,s);
     return testJacs(inputs,d,th,dt);
   }
-  bool testJacs(double d = 1e-6,double th = 1e-6,double dt = 0.1){
+  bool testJacs(double d = 1e-6,double th = 1e-6,double dt = 0.1) const{
     mtInputTuple inputs;
     unsigned int s = 1;
     setRandomInputs(inputs,s);
     return testJacs(inputs,d,th,dt);
   }
-  bool testJacs(const mtInputTuple& inputs, double d = 1e-6,double th = 1e-6,double dt = 0.1){
+  bool testJacs(const mtInputTuple& inputs, double d = 1e-6,double th = 1e-6,double dt = 0.1) const{
     return _testJacs(inputs,d,th,dt);
   }
   template<int i=0,typename std::enable_if<(i<nInputs_)>::type* = nullptr>
-  bool _testJacs(const mtInputTuple& inputs, double d = 1e-6,double th = 1e-6,double dt = 0.1){
+  bool _testJacs(const mtInputTuple& inputs, double d = 1e-6,double th = 1e-6,double dt = 0.1) const{
     return (testJacInput<i>(inputs,d,th,dt) & _testJacs<i+1>(inputs,d,th,dt));
   }
   template<int i=0,typename std::enable_if<(i>=nInputs_)>::type* = nullptr>
-  bool _testJacs(const mtInputTuple& inputs, double d = 1e-6,double th = 1e-6,double dt = 0.1){
+  bool _testJacs(const mtInputTuple& inputs, double d = 1e-6,double th = 1e-6,double dt = 0.1) const{
     return true;
   }
 };
