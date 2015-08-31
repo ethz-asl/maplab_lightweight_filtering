@@ -13,6 +13,7 @@
 #include "kindr/rotations/RotationEigen.hpp"
 #include "lightweight_filtering/PropertyHandler.hpp"
 #include "lightweight_filtering/common.hpp"
+#include <random>
 #include <type_traits>
 #include <tuple>
 
@@ -621,7 +622,7 @@ class State{
     return std::get<i>(mElements_).get(j);
   };
   template<unsigned int i>
-  inline const auto get(unsigned int j = 0) const -> decltype (std::get<i>(mElements_).get(j))& {
+  inline auto get(unsigned int j = 0) const -> decltype (std::get<i>(mElements_).get(j))& {
     return std::get<i>(mElements_).get(j);
   };
   template<unsigned int i,unsigned int D=0,typename std::enable_if<(i==0)>::type* = nullptr>
