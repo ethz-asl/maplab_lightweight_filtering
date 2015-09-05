@@ -57,7 +57,7 @@ class LWFMatrix<nRow,nCol,false>: public Eigen::Matrix<double,nRow,nCol>{
 };
 
 template<int nRow, int nCol, bool isDynamic = false>
-static void enforceSymmetry(LWFMatrix<nRow,nCol,true>& mat){
+static void enforceSymmetry(LWFMatrix<nRow,nCol,isDynamic>& mat){
   mat = 0.5*(mat+mat.transpose()).eval();
 }
 
