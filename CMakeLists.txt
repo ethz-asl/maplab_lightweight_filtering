@@ -22,8 +22,7 @@ include_directories(include)
 if(DEFINED CATKIN_DEVEL_PREFIX)
   find_package(catkin REQUIRED)
 	catkin_package(
-	   INCLUDE_DIRS include
-	   CATKIN_DEPENDS 
+	   INCLUDE_DIRS include ${kindr_INCLUDE_DIRS} ${EIGEN3_INCLUDE_DIR}
 	)
 endif()
 

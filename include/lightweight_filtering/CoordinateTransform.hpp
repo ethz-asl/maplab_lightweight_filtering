@@ -43,7 +43,7 @@ class CoordinateTransform: public ModelBase<CoordinateTransform<Input,Output>,Ou
     evalTransform(output, input);
   }
   void transformCovMat(const mtInput& input,const Eigen::MatrixXd& inputCov,Eigen::MatrixXd& outputCov){
-    jacInput(J_,input);
+    jacTransform(J_,input);
     outputCov = J_*inputCov*J_.transpose();
     postProcess(outputCov,input);
   }
@@ -52,7 +52,7 @@ class CoordinateTransform: public ModelBase<CoordinateTransform<Input,Output>,Ou
     const mtInput inputRef = input;
     int count = 0;
     while(count < max_iter){
-      jacInput(J_,input,input);
+      jacTransform(J_,input);
       inputRef.boxMinus(input,inputDiff_);
       transformState(input,output_);
       outputRef.boxMinus(output_,outputDiff_);
@@ -72,7 +72,7 @@ class CoordinateTransform: public ModelBase<CoordinateTransform<Input,Output>,Ou
     double startError;
     lastCorrection_.setZero();
     while(count < max_iter){
-      jacInput(J_,input,input);
+      jacTransform(J_,input);
       inputRef.boxMinus(input,inputDiff_);
       transformState(input,output_);
       outputRef.boxMinus(output_,outputDiff_);
