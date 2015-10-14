@@ -303,9 +303,13 @@ class NormalVectorElement: public ElementBase<NormalVectorElement,NormalVectorEl
     return getRotationFromTwoNormalsJac(a.getVec(),b.getVec());
   }
   void setFromVector(V3D vec){
-    assert(vec.norm() != 0.0);
-    vec.normalize();
-    q_ = q_.exponentialMap(getRotationFromTwoNormals(e_z,vec,e_x));
+    const double d = vec.norm();
+    if(d > 1e-6){
+      vec = vec/d;
+      q_ = q_.exponentialMap(getRotationFromTwoNormals(e_z,vec,e_x));
+    } else {
+      q_.setIdentity();
+    }
   }
   NormalVectorElement rotated(const QPD& q) const{
     return NormalVectorElement(q*q_);
