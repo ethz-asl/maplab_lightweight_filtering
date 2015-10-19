@@ -17,10 +17,10 @@ namespace LWF{
 template<typename FilterState>
 class Prediction: public ModelBase<Prediction<FilterState>,typename FilterState::mtState,typename FilterState::mtState,typename FilterState::mtPredictionNoise>, public PropertyHandler{
  public:
-  typedef ModelBase<Prediction<FilterState>,typename FilterState::mtState,typename FilterState::mtState,typename FilterState::mtPredictionNoise> mtModelBaseNew;
+  typedef ModelBase<Prediction<FilterState>,typename FilterState::mtState,typename FilterState::mtState,typename FilterState::mtPredictionNoise> mtModelBase;
   typedef FilterState mtFilterState;
   typedef typename mtFilterState::mtState mtState;
-  typedef typename mtModelBaseNew::mtInputTuple mtInputTuple;
+  typedef typename mtModelBase::mtInputTuple mtInputTuple;
   typedef typename mtFilterState::mtPredictionMeas mtMeas;
   typedef typename mtFilterState::mtPredictionNoise mtNoise;
   mtMeas meas_;

@@ -609,7 +609,10 @@ class State{
   }
   template<unsigned int i=0,typename std::enable_if<(i>=E_)>::type* = nullptr>
   inline void registerCovarianceToPropertyHandler_(Eigen::MatrixXd& cov, PropertyHandler* mpPropertyHandler, const std::string& str, int j=0){}
-  void createDefaultNames(const std::string& str = "def"){
+  void createDefaultNames(){
+    createDefaultNames_("def");
+  }
+  void createDefaultNames(const std::string& str){
     createDefaultNames_(str);
   }
   template<unsigned int i=0,typename std::enable_if<(i<E_)>::type* = nullptr>

@@ -16,8 +16,8 @@ namespace LWF{
 template<typename Input, typename Output>
 class CoordinateTransform: public ModelBase<CoordinateTransform<Input,Output>,Output,Input>{
  public:
-  typedef ModelBase<CoordinateTransform<Input,Output>,Output,Input> mtModelBaseNew;
-  typedef typename mtModelBaseNew::mtInputTuple mtInputTuple;
+  typedef ModelBase<CoordinateTransform<Input,Output>,Output,Input> mtModelBase;
+  typedef typename mtModelBase::mtInputTuple mtInputTuple;
   typedef Input mtInput;
   typedef Output mtOutput;
   Eigen::MatrixXd J_;
@@ -103,6 +103,10 @@ class CoordinateTransform: public ModelBase<CoordinateTransform<Input,Output>,Ou
     const double dt = 0.1;
     this->setRandomInputs(inputs,s);
     return this->testJacs(inputs,d,th,dt);
+  }
+  bool testTransformJac(const mtInput& input, double d = 1e-6,double th = 1e-6){
+    const double dt = 0.1;
+    return this->testJacs(std::forward_as_tuple(input),d,th,dt);
   }
 };
 

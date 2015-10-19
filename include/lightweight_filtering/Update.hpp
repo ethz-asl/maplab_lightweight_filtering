@@ -20,10 +20,10 @@ template<typename Innovation, typename FilterState, typename Meas, typename Nois
 class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierDetection,isCoupled>,Innovation,typename FilterState::mtState,Noise>, public PropertyHandler{
  public:
   static_assert(!isCoupled || Noise::D_ == FilterState::noiseExtensionDim_,"Noise Size for coupled Update must match noise extension of prediction!");
-  typedef ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierDetection,isCoupled>,Innovation,typename FilterState::mtState,Noise> mtModelBaseNew;
+  typedef ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierDetection,isCoupled>,Innovation,typename FilterState::mtState,Noise> mtModelBase;
   typedef FilterState mtFilterState;
   typedef typename mtFilterState::mtState mtState;
-  typedef typename mtModelBaseNew::mtInputTuple mtInputTuple;
+  typedef typename mtModelBase::mtInputTuple mtInputTuple;
   typedef typename mtFilterState::mtPredictionMeas mtPredictionMeas;
   typedef typename mtFilterState::mtPredictionNoise mtPredictionNoise;
   typedef Innovation mtInnovation;
