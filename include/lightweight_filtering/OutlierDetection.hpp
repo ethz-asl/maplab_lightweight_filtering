@@ -26,18 +26,20 @@ class OutlierDetectionBase{
   bool outlier_;
   bool enabled_;
   double mahalanobisTh_;
+  double d_;
   unsigned int outlierCount_;
   OutlierDetectionBase(){
     mahalanobisTh_ = -0.0376136*D_*D_+1.99223*D_+2.05183; // Quadratic fit to chi square
     enabled_ = false;
     outlier_ = false;
     outlierCount_ = 0;
+    d_ = 0;
   }
   virtual ~OutlierDetectionBase(){};
   template<int E>
   void check(const Eigen::Matrix<double,E,1>& innVector,const Eigen::MatrixXd& Py){
-    const double d = ((innVector.block(S_,0,D_,1)).transpose()*Py.block(S_,S_,D_,D_).inverse()*innVector.block(S_,0,D_,1))(0,0);
-    outlier_ = d > mahalanobisTh_;
+    d_ = ((innVector.block(S_,0,D_,1)).transpose()*Py.block(S_,S_,D_,D_).inverse()*innVector.block(S_,0,D_,1))(0,0);
+    outlier_ = d_ > mahalanobisTh_;
     if(outlier_){
       outlierCount_++;
     } else {
@@ -51,6 +53,7 @@ class OutlierDetectionBase{
   virtual void setEnabledAll(bool enabled) = 0;
   virtual unsigned int& getCount(unsigned int i) = 0;
   virtual double& getMahalTh(unsigned int i) = 0;
+  virtual double getMahalDistance(unsigned int i) const = 0;
 };
 
 template<unsigned int S, unsigned int D,typename T>
@@ -63,6 +66,7 @@ class OutlierDetectionConcat: public OutlierDetectionBase<S,D>{
   using OutlierDetectionBase<S,D>::mahalanobisTh_;
   using OutlierDetectionBase<S,D>::outlierCount_;
   using OutlierDetectionBase<S,D>::check;
+  using OutlierDetectionBase<S,D>::d_;
   T sub_;
   template<int dI>
   void doOutlierDetection(const Eigen::Matrix<double,dI,1>& innVector,Eigen::MatrixXd& Py,Eigen::MatrixXd& H){
@@ -118,6 +122,13 @@ class OutlierDetectionConcat: public OutlierDetectionBase<S,D>{
       return sub_.getMahalTh(i-1);
     }
   }
+  double getMahalDistance(unsigned int i) const{
+    if(i==0){
+      return d_;
+    } else {
+      return sub_.getMahalDistance(i-1);
+    }
+  }
 };
 
 class OutlierDetectionDefault: public OutlierDetectionBase<0,0>{
@@ -132,21 +143,25 @@ class OutlierDetectionDefault: public OutlierDetectionBase<0,0>{
   void reset(){
   }
   bool isOutlier(unsigned int i) const{
-    assert(0);
+    throw std::runtime_error("Outlier index out of range.");
     return false;
   }
   void setEnabled(unsigned int i,bool enabled){
-    assert(0);
+    throw std::runtime_error("Outlier index out of range.");
   }
   void setEnabledAll(bool enabled){
   }
   unsigned int& getCount(unsigned int i){
-    assert(0);
+    throw std::runtime_error("Outlier index out of range.");
     return outlierCount_;
   }
   double& getMahalTh(unsigned int i){
-    assert(0);
+    throw std::runtime_error("Outlier index out of range.");
     return mahalanobisTh_;
+  }
+  double getMahalDistance(unsigned int i) const{
+    throw std::runtime_error("Outlier index out of range.");
+    return d_;
   }
 };
 

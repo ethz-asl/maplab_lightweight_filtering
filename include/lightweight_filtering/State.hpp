@@ -10,6 +10,7 @@
 
 #include "lightweight_filtering/common.hpp"
 #include "lightweight_filtering/PropertyHandler.hpp"
+#include <random>
 
 namespace rot = kindr::rotations::eigen_impl;
 
@@ -232,6 +233,7 @@ class QuaternionElement: public ElementBase<QuaternionElement,QPD,3>{
 
 class NormalVectorElement: public ElementBase<NormalVectorElement,NormalVectorElement,2>{
  public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   QPD q_;
   const V3D e_x;
   const V3D e_y;
@@ -298,9 +300,13 @@ class NormalVectorElement: public ElementBase<NormalVectorElement,NormalVectorEl
     return getRotationFromTwoNormalsJac(a.getVec(),b.getVec());
   }
   void setFromVector(V3D vec){
-    assert(vec.norm() != 0.0);
-    vec.normalize();
-    q_ = q_.exponentialMap(getRotationFromTwoNormals(e_z,vec,e_x));
+    const double d = vec.norm();
+    if(d > 1e-6){
+      vec = vec/d;
+      q_ = q_.exponentialMap(getRotationFromTwoNormals(e_z,vec,e_x));
+    } else {
+      q_.setIdentity();
+    }
   }
   NormalVectorElement rotated(const QPD& q) const{
     return NormalVectorElement(q*q_);
@@ -335,7 +341,9 @@ class NormalVectorElement: public ElementBase<NormalVectorElement,NormalVectorEl
     q_.fix();
     s++;
   }
-  void fix(){}
+  void fix(){
+    q_.fix();
+  }
   mtGet& get(unsigned int i = 0){
     assert(i==0);
     return *this;
@@ -616,7 +624,7 @@ class State{
     return std::get<i>(mElements_).get(j);
   };
   template<unsigned int i>
-  inline const auto get(unsigned int j = 0) const -> decltype (std::get<i>(mElements_).get(j))& {
+  inline auto get(unsigned int j = 0) const -> decltype (std::get<i>(mElements_).get(j))& {
     return std::get<i>(mElements_).get(j);
   };
   template<unsigned int i,unsigned int D=0,typename std::enable_if<(i==0)>::type* = nullptr>
