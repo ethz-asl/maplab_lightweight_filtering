@@ -237,6 +237,7 @@ class QuaternionElement: public ElementBase<QuaternionElement,QPD,3>{
 
 class NormalVectorElement: public ElementBase<NormalVectorElement,NormalVectorElement,2>{
  public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   QPD q_;
   const V3D e_x;
   const V3D e_y;
@@ -344,7 +345,9 @@ class NormalVectorElement: public ElementBase<NormalVectorElement,NormalVectorEl
     q_.fix();
     s++;
   }
-  void fix(){}
+  void fix(){
+    q_.fix();
+  }
   mtGet& get(unsigned int i = 0){
     assert(i==0);
     return *this;
