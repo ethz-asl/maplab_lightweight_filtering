@@ -8,9 +8,8 @@
 #ifndef LWF_OUTLIERDETECTION_HPP_
 #define LWF_OUTLIERDETECTION_HPP_
 
-#include <Eigen/Dense>
-#include "lightweight_filtering/PropertyHandler.hpp"
 #include "lightweight_filtering/common.hpp"
+#include "lightweight_filtering/PropertyHandler.hpp"
 
 namespace LWF{
 
@@ -37,8 +36,8 @@ class OutlierDetectionBase{
     d_ = 0;
   }
   virtual ~OutlierDetectionBase(){};
-  template<int E,bool useDynamicMatrix>
-  void check(const Eigen::Matrix<double,E,1>& innVector,const LWFMatrix<E,E,useDynamicMatrix>& Py){
+  template<int E>
+  void check(const Eigen::Matrix<double,E,1>& innVector,const Eigen::MatrixXd& Py){
     d_ = ((innVector.block(S_,0,D_,1)).transpose()*Py.block(S_,S_,D_,D_).inverse()*innVector.block(S_,0,D_,1))(0,0);
     outlier_ = d_ > mahalanobisTh_;
     if(outlier_){
@@ -69,8 +68,8 @@ class OutlierDetectionConcat: public OutlierDetectionBase<S,D>{
   using OutlierDetectionBase<S,D>::check;
   using OutlierDetectionBase<S,D>::d_;
   T sub_;
-  template<int dI, int dS,bool useDynamicMatrix>
-  void doOutlierDetection(const Eigen::Matrix<double,dI,1>& innVector,LWFMatrix<dI,dI,useDynamicMatrix>& Py,LWFMatrix<dI,dS,useDynamicMatrix>& H){
+  template<int dI>
+  void doOutlierDetection(const Eigen::Matrix<double,dI,1>& innVector,Eigen::MatrixXd& Py,Eigen::MatrixXd& H){
     static_assert(dI>=S+D,"Outlier detection out of range");
     check(innVector,Py);
     outlier_ = outlier_ & enabled_;
@@ -79,7 +78,7 @@ class OutlierDetectionConcat: public OutlierDetectionBase<S,D>{
       Py.block(0,S_,dI,D_).setZero();
       Py.block(S_,0,D_,dI).setZero();
       Py.block(S_,S_,D_,D_).setIdentity();
-      H.block(S_,0,D_,dS).setZero();
+      H.block(S_,0,D_,H.cols()).setZero();
     }
   }
   void registerToPropertyHandler(PropertyHandler* mpPropertyHandler, const std::string& str, unsigned int i = 0){
@@ -136,8 +135,8 @@ class OutlierDetectionDefault: public OutlierDetectionBase<0,0>{
  public:
   using OutlierDetectionBase<0,0>::mahalanobisTh_;
   using OutlierDetectionBase<0,0>::outlierCount_;
-  template<int dI, int dS,bool useDynamicMatrix>
-  void doOutlierDetection(const Eigen::Matrix<double,dI,1>& innVector,LWFMatrix<dI,dI,useDynamicMatrix>& Py,LWFMatrix<dI,dS,useDynamicMatrix>& H){
+  template<int dI>
+  void doOutlierDetection(const Eigen::Matrix<double,dI,1>& innVector,Eigen::MatrixXd& Py,Eigen::MatrixXd& H){
   }
   void registerToPropertyHandler(PropertyHandler* mpPropertyHandler, const std::string& str, unsigned int i = 0){
   }

@@ -54,7 +54,7 @@ TYPED_TEST(UpdateModelTest, constructors) {
   testUpdate.stateSigmaPointsNoi_.getMean(mean);
   mean.boxMinus(noise,dif);
   ASSERT_NEAR(dif.norm(),0.0,1e-6);
-  typename TestFixture::mtUpdateExample::mtUpdateNoise C;
+  Eigen::MatrixXd C((int)(TestFixture::mtUpdateExample::mtNoise::D_),(int)(TestFixture::mtUpdateExample::mtNoise::D_));
   testUpdate.stateSigmaPointsNoi_.getCovarianceMatrix(C);
   ASSERT_NEAR((testUpdate.updnoiP_-C).norm(),0.0,1e-8);
   typename TestFixture::mtPredictAndUpdateExample testPredictAndUpdate;
@@ -65,12 +65,16 @@ TYPED_TEST(UpdateModelTest, constructors) {
 
 // Test finite difference Jacobians
 TYPED_TEST(UpdateModelTest, FDjacobians) {
-  typename TestFixture::mtUpdateExample::mtJacInput F, F_FD;
-  this->testUpdate_.jacInputFD(F_FD,this->testState_,this->testUpdateMeas_,this->dt_,0.0000001);
-  this->testUpdate_.jacInput(F,this->testState_,this->testUpdateMeas_);
-  typename TestFixture::mtUpdateExample::mtJacNoise H, H_FD;
-  this->testUpdate_.jacNoiseFD(H_FD,this->testState_,this->testUpdateMeas_,this->dt_,0.0000001);
-  this->testUpdate_.jacNoise(H,this->testState_,this->testUpdateMeas_);
+  typename TestFixture::mtUpdateExample::mtNoise n;
+  this->testUpdate_.meas_ = this->testUpdateMeas_;
+  Eigen::MatrixXd F((int)(TestFixture::mtUpdateExample::mtInnovation::D_),(int)(TestFixture::mtUpdateExample::mtState::D_));
+  Eigen::MatrixXd F_FD((int)(TestFixture::mtUpdateExample::mtInnovation::D_),(int)(TestFixture::mtUpdateExample::mtState::D_));
+  this->testUpdate_.template jacInputFD<0>(F_FD,std::forward_as_tuple(this->testState_,n),this->dt_,0.0000001);
+  this->testUpdate_.template jacInput<0>(F,std::forward_as_tuple(this->testState_,n));
+  Eigen::MatrixXd H((int)(TestFixture::mtUpdateExample::mtInnovation::D_),(int)(TestFixture::mtUpdateExample::mtNoise::D_));
+  Eigen::MatrixXd H_FD((int)(TestFixture::mtUpdateExample::mtInnovation::D_),(int)(TestFixture::mtUpdateExample::mtNoise::D_));
+  this->testUpdate_.template jacInputFD<1>(H_FD,std::forward_as_tuple(this->testState_,n),this->dt_,0.0000001);
+  this->testUpdate_.template jacInput<1>(H,std::forward_as_tuple(this->testState_,n));
   switch(TestFixture::id_){
     case 0:
       ASSERT_NEAR((F-F_FD).norm(),0.0,1e-5);
@@ -88,16 +92,17 @@ TYPED_TEST(UpdateModelTest, FDjacobians) {
 
 // Test performUpdateEKF
 TYPED_TEST(UpdateModelTest, performUpdateEKF) {
+  this->testUpdate_.meas_ = this->testUpdateMeas_;
   typename TestFixture::mtUpdateExample::mtFilterState filterState;
   typename TestFixture::mtUpdateExample::mtState::mtCovMat updateCov;
   filterState.cov_.setIdentity();
-  typename TestFixture::mtUpdateExample::mtJacInput H;
-  this->testUpdate_.jacInput(H,this->testState_,this->testUpdateMeas_);
-  typename TestFixture::mtUpdateExample::mtJacNoise Hn;
-  this->testUpdate_.jacNoise(Hn,this->testState_,this->testUpdateMeas_);
+  Eigen::MatrixXd H((int)(TestFixture::mtUpdateExample::mtInnovation::D_),(int)(TestFixture::mtUpdateExample::mtState::D_));
+  this->testUpdate_.jacState(H,this->testState_);
+  Eigen::MatrixXd Hn((int)(TestFixture::mtUpdateExample::mtInnovation::D_),(int)(TestFixture::mtUpdateExample::mtNoise::D_));
+  this->testUpdate_.jacNoise(Hn,this->testState_);
 
   typename TestFixture::mtUpdateExample::mtInnovation y;
-  this->testUpdate_.eval(y,this->testState_,this->testUpdateMeas_);
+  this->testUpdate_.evalInnovationShort(y,this->testState_);
   typename TestFixture::mtUpdateExample::mtInnovation yIdentity;
   yIdentity.setIdentity();
   typename TestFixture::mtUpdateExample::mtInnovation::mtDifVec innVector;
@@ -137,16 +142,17 @@ TYPED_TEST(UpdateModelTest, performUpdateEKF) {
 
 // Test updateEKFWithOutlier
 TYPED_TEST(UpdateModelTest, updateEKFWithOutlier) {
+  this->testUpdate_.meas_ = this->testUpdateMeas_;
   typename TestFixture::mtUpdateExample::mtFilterState filterState;
   typename TestFixture::mtUpdateExample::mtState::mtCovMat updateCov;
   filterState.cov_.setIdentity();
-  typename TestFixture::mtUpdateExample::mtJacInput H;
-  this->testUpdate_.jacInput(H,this->testState_,this->testUpdateMeas_,this->dt_);
-  typename TestFixture::mtUpdateExample::mtJacNoise Hn;
-  this->testUpdate_.jacNoise(Hn,this->testState_,this->testUpdateMeas_,this->dt_);
+  Eigen::MatrixXd H((int)(TestFixture::mtUpdateExample::mtInnovation::D_),(int)(TestFixture::mtUpdateExample::mtState::D_));
+  this->testUpdate_.jacState(H,this->testState_);
+  Eigen::MatrixXd Hn((int)(TestFixture::mtUpdateExample::mtInnovation::D_),(int)(TestFixture::mtUpdateExample::mtNoise::D_));
+  this->testUpdate_.jacNoise(Hn,this->testState_);
 
   typename TestFixture::mtUpdateExample::mtInnovation y;
-  this->testUpdate_.eval(y,this->testState_,this->testUpdateMeas_);
+  this->testUpdate_.evalInnovationShort(y,this->testState_);
   typename TestFixture::mtUpdateExample::mtInnovation yIdentity;
   yIdentity.setIdentity();
   typename TestFixture::mtUpdateExample::mtInnovation::mtDifVec innVector;
@@ -495,6 +501,7 @@ TYPED_TEST(UpdateModelTest, performUpdateLEKF2) {
 
 // Test performUpdateLEKF3 (linearization point <> prediction, general)
 TYPED_TEST(UpdateModelTest, performUpdateLEKF3) {
+  this->testUpdate_.meas_ = this->testUpdateMeas_;
   // Linearization point
   typename TestFixture::mtUpdateExample::mtFilterState filterState;
   filterState.state_ = this->testState_;
@@ -504,9 +511,9 @@ TYPED_TEST(UpdateModelTest, performUpdateLEKF3) {
 
   typename TestFixture::mtUpdateExample::mtState::mtCovMat updateCov;
   filterState.cov_.setIdentity();
-  typename TestFixture::mtUpdateExample::mtJacInput H;
-  this->testUpdate_.jacInput(H,linState,this->testUpdateMeas_,this->dt_);
-  typename TestFixture::mtUpdateExample::mtJacInput Hlin;
+  Eigen::MatrixXd H((int)(TestFixture::mtUpdateExample::mtInnovation::D_),(int)(TestFixture::mtUpdateExample::mtState::D_));
+  this->testUpdate_.jacState(H,linState);
+  Eigen::MatrixXd Hlin((int)(TestFixture::mtUpdateExample::mtInnovation::D_),(int)(TestFixture::mtUpdateExample::mtState::D_));
   if(this->testUpdate_.useImprovedJacobian_){
     typename TestFixture::mtUpdateExample::mtState::mtCovMat boxMinusJac;
     filterState.state_.boxMinusJac(linState,boxMinusJac);
@@ -514,11 +521,11 @@ TYPED_TEST(UpdateModelTest, performUpdateLEKF3) {
   } else {
     Hlin = H;
   }
-  typename TestFixture::mtUpdateExample::mtJacNoise Hn;
-  this->testUpdate_.jacNoise(Hn,linState,this->testUpdateMeas_,this->dt_);
+  Eigen::MatrixXd Hn((int)(TestFixture::mtUpdateExample::mtInnovation::D_),(int)(TestFixture::mtUpdateExample::mtNoise::D_));
+  this->testUpdate_.jacNoise(Hn,linState);
 
   typename TestFixture::mtUpdateExample::mtInnovation y;
-  this->testUpdate_.eval(y,linState,this->testUpdateMeas_);
+  this->testUpdate_.evalInnovationShort(y,linState);
   typename TestFixture::mtUpdateExample::mtInnovation yIdentity;
   yIdentity.setIdentity();
   typename TestFixture::mtUpdateExample::mtInnovation::mtDifVec innVector;
@@ -589,6 +596,7 @@ TYPED_TEST(UpdateModelTest, performUpdateIEKF1) {
 
 // Test performUpdateIEKF2 (general test)
 TYPED_TEST(UpdateModelTest, performUpdateIEKF2) {
+  this->testUpdate_.meas_ = this->testUpdateMeas_;
   typename TestFixture::mtUpdateExample::mtFilterState filterState;
   // Linearization point
   typename TestFixture::mtUpdateExample::mtState linState;
@@ -596,8 +604,8 @@ TYPED_TEST(UpdateModelTest, performUpdateIEKF2) {
 
   typename TestFixture::mtUpdateExample::mtState::mtCovMat updateCov;
   filterState.cov_.setIdentity();
-  typename TestFixture::mtUpdateExample::mtJacInput H;
-  typename TestFixture::mtUpdateExample::mtJacNoise Hn;
+  Eigen::MatrixXd H((int)(TestFixture::mtUpdateExample::mtInnovation::D_),(int)(TestFixture::mtUpdateExample::mtState::D_));
+  Eigen::MatrixXd Hn((int)(TestFixture::mtUpdateExample::mtInnovation::D_),(int)(TestFixture::mtUpdateExample::mtNoise::D_));
 
   typename TestFixture::mtUpdateExample::mtInnovation y;
   typename TestFixture::mtUpdateExample::mtInnovation yIdentity;
@@ -615,10 +623,10 @@ TYPED_TEST(UpdateModelTest, performUpdateIEKF2) {
 
   double updateVecNorm = this->testUpdate_.updateVecNormTermination_;
   for(unsigned int i=0;i<this->testUpdate_.maxNumIteration_ & updateVecNorm>=this->testUpdate_.updateVecNormTermination_;i++){
-    this->testUpdate_.jacInput(H,linState,this->testUpdateMeas_,this->dt_);
-    this->testUpdate_.jacNoise(Hn,linState,this->testUpdateMeas_,this->dt_);
+    this->testUpdate_.jacState(H,linState);
+    this->testUpdate_.jacNoise(Hn,linState);
 
-    this->testUpdate_.eval(y,linState,this->testUpdateMeas_);
+    this->testUpdate_.evalInnovationShort(y,linState);
 
     // Update
     Py = H*filterState.cov_*H.transpose() + Hn*this->testUpdate_.updnoiP_*Hn.transpose();

@@ -8,12 +8,9 @@
 #ifndef LWF_PropertyHandler_HPP_
 #define LWF_PropertyHandler_HPP_
 
-#include <Eigen/Dense>
-#include "kindr/rotations/RotationEigen.hpp"
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/info_parser.hpp>
 #include "lightweight_filtering/common.hpp"
-#include <map>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -163,8 +160,9 @@ class PropertyHandler{
       }
     } catch (boost::property_tree::ptree_error& e){
       std::cout << "An exception occurred. " << e.what() << std::endl;
-      std::cout << "Overriding current info file with valid format." << std::endl;
-      write_info(filename,ptDefault);
+      std::string newFilename = filename + "_new";
+      std::cout << "\033[31mWriting a new info-file to " << newFilename << "\033[0m" << std::endl;
+      write_info(newFilename,ptDefault);
       refreshProperties();
       for(typename std::unordered_map<std::string,PropertyHandler*>::iterator it=subHandlers_.begin(); it != subHandlers_.end(); ++it){
         it->second->refreshProperties();
