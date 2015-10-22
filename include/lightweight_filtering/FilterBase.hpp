@@ -129,13 +129,18 @@ class FilterBase: public PropertyHandler{
     std::get<i>(mUpdates_).outlierDetection_.registerToPropertyHandler(&std::get<i>(mUpdates_),"MahalanobisTh");
   }
   void addPredictionMeas(const typename Prediction::mtMeas& meas, double t){
-    if(t<= safeWarningTime_) std::cout << "Warning: included measurements before safeTime" << std::endl;
+    if(t<= safeWarningTime_) {
+      std::cout << "[FilterBase::addPredictionMeas] Warning: included measurements at time " << t << " before safeTime " << safeWarningTime_ << std::endl;
+    }
+
     if(t<= frontWarningTime_) gotFrontWarning_ = true;
     predictionTimeline_.addMeas(meas,t);
   }
   template<unsigned int i=0, typename std::enable_if<(i<nUpdates_)>::type* = nullptr>
   void addUpdateMeas(const typename std::tuple_element<i,decltype(mUpdates_)>::type::mtMeas& meas, double t){
-    if(t<= safeWarningTime_) std::cout << "Warning: included measurements before safeTime" << std::endl;
+    if(t<= safeWarningTime_) {
+      std::cout << "[FilterBase::addUpdateMeas] Warning: included measurements at time " << t << " before safeTime " << safeWarningTime_ << std::endl;
+    }
     if(t<= frontWarningTime_) gotFrontWarning_ = true;
     std::get<i>(updateTimelineTuple_).addMeas(meas,t);
   }
