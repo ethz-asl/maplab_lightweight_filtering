@@ -66,6 +66,7 @@ TYPED_TEST(UpdateModelTest, constructors) {
 // Test finite difference Jacobians
 TYPED_TEST(UpdateModelTest, FDjacobians) {
   typename TestFixture::mtUpdateExample::mtNoise n;
+  n.setIdentity();
   this->testUpdate_.meas_ = this->testUpdateMeas_;
   Eigen::MatrixXd F((int)(TestFixture::mtUpdateExample::mtInnovation::D_),(int)(TestFixture::mtUpdateExample::mtState::D_));
   Eigen::MatrixXd F_FD((int)(TestFixture::mtUpdateExample::mtInnovation::D_),(int)(TestFixture::mtUpdateExample::mtState::D_));

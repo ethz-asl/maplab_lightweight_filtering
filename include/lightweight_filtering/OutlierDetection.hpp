@@ -68,6 +68,8 @@ class OutlierDetectionConcat: public OutlierDetectionBase<S,D>{
   using OutlierDetectionBase<S,D>::check;
   using OutlierDetectionBase<S,D>::d_;
   T sub_;
+  OutlierDetectionConcat(){};
+  virtual ~OutlierDetectionConcat(){};
   template<int dI>
   void doOutlierDetection(const Eigen::Matrix<double,dI,1>& innVector,Eigen::MatrixXd& Py,Eigen::MatrixXd& H){
     static_assert(dI>=S+D,"Outlier detection out of range");
@@ -135,6 +137,8 @@ class OutlierDetectionDefault: public OutlierDetectionBase<0,0>{
  public:
   using OutlierDetectionBase<0,0>::mahalanobisTh_;
   using OutlierDetectionBase<0,0>::outlierCount_;
+  OutlierDetectionDefault(){};
+  virtual ~OutlierDetectionDefault(){};
   template<int dI>
   void doOutlierDetection(const Eigen::Matrix<double,dI,1>& innVector,Eigen::MatrixXd& Py,Eigen::MatrixXd& H){
   }
@@ -166,19 +170,40 @@ class OutlierDetectionDefault: public OutlierDetectionBase<0,0>{
 };
 
 template<typename... ODEntries>
-class OutlierDetection{};
+class OutlierDetection{
+ public:
+  virtual ~OutlierDetection(){};
+};
 template<unsigned int S, unsigned int D, unsigned int N, typename... ODEntries>
-class OutlierDetection<ODEntry<S,D,N>,ODEntries...>: public OutlierDetectionConcat<S,D,OutlierDetection<ODEntry<S+D,D,N-1>,ODEntries...>>{};
+class OutlierDetection<ODEntry<S,D,N>,ODEntries...>: public OutlierDetectionConcat<S,D,OutlierDetection<ODEntry<S+D,D,N-1>,ODEntries...>>{
+ public:
+  virtual ~OutlierDetection(){};
+};
 template<unsigned int S, unsigned int D, typename... ODEntries>
-class OutlierDetection<ODEntry<S,D,1>,ODEntries...>: public OutlierDetectionConcat<S,D,OutlierDetection<ODEntries...>>{};
+class OutlierDetection<ODEntry<S,D,1>,ODEntries...>: public OutlierDetectionConcat<S,D,OutlierDetection<ODEntries...>>{
+ public:
+  virtual ~OutlierDetection(){};
+};
 template<unsigned int S, unsigned int D, typename... ODEntries>
-class OutlierDetection<ODEntry<S,D,0>,ODEntries...>: public OutlierDetection<ODEntries...>{};
+class OutlierDetection<ODEntry<S,D,0>,ODEntries...>: public OutlierDetection<ODEntries...>{
+ public:
+  virtual ~OutlierDetection(){};
+};
 template<unsigned int S, unsigned int D, unsigned int N>
-class OutlierDetection<ODEntry<S,D,N>>: public OutlierDetectionConcat<S,D,OutlierDetection<ODEntry<S+D,D,N-1>>>{};
+class OutlierDetection<ODEntry<S,D,N>>: public OutlierDetectionConcat<S,D,OutlierDetection<ODEntry<S+D,D,N-1>>>{
+ public:
+  virtual ~OutlierDetection(){};
+};
 template<unsigned int S, unsigned int D>
-class OutlierDetection<ODEntry<S,D,1>>: public OutlierDetectionConcat<S,D,OutlierDetectionDefault>{};
+class OutlierDetection<ODEntry<S,D,1>>: public OutlierDetectionConcat<S,D,OutlierDetectionDefault>{
+ public:
+  virtual ~OutlierDetection(){};
+};
 template<unsigned int S, unsigned int D>
-class OutlierDetection<ODEntry<S,D,0>>: public OutlierDetectionDefault{};
+class OutlierDetection<ODEntry<S,D,0>>: public OutlierDetectionDefault{
+ public:
+  virtual ~OutlierDetection(){};
+};
 
 }
 

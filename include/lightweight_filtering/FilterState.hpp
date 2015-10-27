@@ -54,6 +54,7 @@ class FilterState{
     difVecLin_.setIdentity();
     refreshUKFParameter();
   }
+  virtual ~FilterState(){};
   void refreshUKFParameter(){
     stateSigmaPoints_.computeParameter(alpha_,beta_,kappa_);
     stateSigmaPointsNoi_.computeParameter(alpha_,beta_,kappa_);

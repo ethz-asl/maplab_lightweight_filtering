@@ -30,6 +30,7 @@ class SigmaPoints{
     static_assert(N_+O_<=L_, "Bad dimensions for sigmapoints");
     S_.setZero();
   };
+  virtual ~SigmaPoints(){};
   void getMean(mtState& mean) const{
     typename mtState::mtDifVec vec;
     typename mtState::mtDifVec vecTemp;

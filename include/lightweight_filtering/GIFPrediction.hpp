@@ -58,6 +58,7 @@ class GIFPrediction: public ModelBase<GIFPrediction<FilterState,Innovation,Meas,
     disablePreAndPostProcessingWarning_ = false;
     refreshProperties();
   };
+  virtual ~GIFPrediction(){};
   void refreshProperties(){
     noiPinv_.setIdentity();
 //    noiP_.llt().solveInPlace(noiPinv_); // TODO: fix and improve
@@ -97,7 +98,6 @@ class GIFPrediction: public ModelBase<GIFPrediction<FilterState,Innovation,Meas,
       std::cout << "Warning: postProcessing is not implement!" << std::endl;
     }
   };
-  virtual ~GIFPrediction(){};
   int performPrediction(mtFilterState& filterState, double dt){
     mtMeas meas;
     meas.setIdentity();

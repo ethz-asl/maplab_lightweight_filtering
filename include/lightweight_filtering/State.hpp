@@ -91,6 +91,7 @@ class ScalarElement: public ElementBase<ScalarElement,double,1>{
   ScalarElement(const ScalarElement& other){
     s_ = other.s_;
   }
+  virtual ~ScalarElement(){};
   void boxPlus(const mtDifVec& vecIn, ScalarElement& stateOut) const{
     stateOut.s_ = s_ + vecIn(0);
   }
@@ -141,6 +142,7 @@ class VectorElement: public ElementBase<VectorElement<N>,Eigen::Matrix<double,N,
   VectorElement(const VectorElement<N>& other){
     v_ = other.v_;
   }
+  virtual ~VectorElement(){};
   void boxPlus(const mtDifVec& vecIn, VectorElement<N>& stateOut) const{
     stateOut.v_ = v_ + vecIn;
   }
@@ -188,6 +190,7 @@ class QuaternionElement: public ElementBase<QuaternionElement,QPD,3>{
   QuaternionElement(const QuaternionElement& other){
     q_ = other.q_;
   }
+  virtual ~QuaternionElement(){};
   void boxPlus(const mtDifVec& vecIn, QuaternionElement& stateOut) const{
     stateOut.q_ = q_.boxPlus(vecIn);
   }
@@ -248,6 +251,7 @@ class NormalVectorElement: public ElementBase<NormalVectorElement,NormalVectorEl
   NormalVectorElement(const QPD& q): e_x(1,0,0), e_y(0,1,0), e_z(0,0,1){
     q_ = q;
   }
+  virtual ~NormalVectorElement(){};
   V3D getVec() const{
     return q_.rotate(e_z);
   }
@@ -390,6 +394,7 @@ class ArrayElement: public ElementBase<ArrayElement<Element,M>,typename Element:
       array_[i] = other.array_[i];
     }
   }
+  virtual ~ArrayElement(){};
   void boxPlus(const mtDifVec& vecIn, ArrayElement& stateOut) const{
     if(Element::D_>0){
       for(unsigned int i=0; i<M_;i++){
@@ -504,6 +509,7 @@ class State{
   }
   State(const State<Elements...>& other): mElements_(other.mElements_){
   }
+  virtual ~State(){};
   void boxPlus(const mtDifVec& vecIn, State<Elements...>& stateOut) const{
     boxPlus_(vecIn,stateOut);
   }

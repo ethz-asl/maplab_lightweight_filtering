@@ -36,6 +36,7 @@ class Prediction: public ModelBase<Prediction<FilterState>,typename FilterState:
     disablePreAndPostProcessingWarning_ = false;
     refreshProperties();
   };
+  virtual ~Prediction(){};
   void refreshProperties(){
     prenoiPinv_.setIdentity();
     prenoiP_.llt().solveInPlace(prenoiPinv_);
@@ -70,7 +71,6 @@ class Prediction: public ModelBase<Prediction<FilterState>,typename FilterState:
       std::cout << "Warning: prediction postProcessing is not implemented!" << std::endl;
     }
   };
-  virtual ~Prediction(){};
   int performPrediction(mtFilterState& filterState, const mtMeas& meas, double dt){
     switch(filterState.mode_){
       case ModeEKF:

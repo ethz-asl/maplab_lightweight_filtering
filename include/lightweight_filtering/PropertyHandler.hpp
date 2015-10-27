@@ -23,7 +23,7 @@ class Register{
  public:
   typedef boost::property_tree::ptree ptree;
   Register(){};
-  ~Register(){};
+  virtual ~Register(){};
   std::map<TYPE*,std::string> registerMap_;
   std::unordered_set<TYPE*> zeros_;
   void registerZero(TYPE& var){
@@ -110,7 +110,7 @@ class PropertyHandler{
  public:
   typedef boost::property_tree::ptree ptree;
   PropertyHandler(){};
-  ~PropertyHandler(){};
+  virtual ~PropertyHandler(){};
   Register<bool> boolRegister_;
   Register<int> intRegister_;
   Register<double> doubleRegister_;

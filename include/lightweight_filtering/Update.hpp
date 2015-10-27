@@ -107,6 +107,7 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
     numSequences = 1;
     disablePreAndPostProcessingWarning_ = false;
   };
+  virtual ~Update(){};
   void refreshNoiseSigmaPoints(){
     if(noiP_ != updnoiP_){
       noiP_ = updnoiP_;
@@ -159,7 +160,6 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
       std::cout << "Warning: update postProcessing is not implemented!" << std::endl;
     }
   }
-  virtual ~Update(){}
   int performUpdate(mtFilterState& filterState, const mtMeas& meas){
     bool isFinished = true;
     int r = 0;
