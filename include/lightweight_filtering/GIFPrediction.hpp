@@ -54,6 +54,7 @@ class GIFPrediction: public ModelBase<GIFPrediction<FilterState,Innovation,Meas,
     noiP_.setIdentity();
     noiP_ *= 0.0001;
     mtNoise n;
+    n.setIdentity();
     n.registerCovarianceToPropertyHandler_(noiP_,this,"Noise.");
     disablePreAndPostProcessingWarning_ = false;
     refreshProperties();

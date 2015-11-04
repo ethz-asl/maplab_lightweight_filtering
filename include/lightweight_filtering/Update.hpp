@@ -97,6 +97,7 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
     refreshNoiseSigmaPoints();
     refreshUKFParameter();
     mtNoise n;
+    n.setIdentity();
     n.registerCovarianceToPropertyHandler_(updnoiP_,this,"UpdateNoise.");
     doubleRegister_.registerScalar("alpha",alpha_);
     doubleRegister_.registerScalar("beta",beta_);

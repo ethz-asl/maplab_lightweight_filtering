@@ -16,8 +16,6 @@ namespace rot = kindr::rotations::eigen_impl;
 
 namespace LWF{
 
-// TODO: put string in template
-
 template<typename DERIVED, typename GET, unsigned int D, unsigned int E = D>
 class ElementBase{
  public:

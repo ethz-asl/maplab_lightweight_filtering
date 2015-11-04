@@ -32,6 +32,7 @@ class Prediction: public ModelBase<Prediction<FilterState>,typename FilterState:
     prenoiP_.setIdentity();
     prenoiP_ *= 0.0001;
     mtNoise n;
+    n.setIdentity();
     n.registerCovarianceToPropertyHandler_(prenoiP_,this,"PredictionNoise.");
     disablePreAndPostProcessingWarning_ = false;
     refreshProperties();

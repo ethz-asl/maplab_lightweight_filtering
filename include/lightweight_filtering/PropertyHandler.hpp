@@ -54,14 +54,14 @@ class Register{
     }
   }
   template <typename Derived>
-  void registerDiagonalMatrix(std::string str, const Eigen::MatrixBase<Derived>& var){
+  void registerDiagonalMatrix(std::string str, Eigen::MatrixBase<Derived>& var){
     const int N = var.rows();
     for(unsigned int i=0;i<N;i++){
-      registerScalar(str + "_" + std::to_string(i),const_cast<Eigen::MatrixBase<Derived>&>(var)(i,i));
+      registerScalar(str + "_" + std::to_string(i),var(i,i));
     }
     for(unsigned int i=0;i<N;i++){
       for(unsigned int j=0;j<N;j++){
-        if(i!=j) registerZero(const_cast<Eigen::MatrixBase<Derived>&>(var)(i,j));
+        if(i!=j) registerZero(var(i,j));
       }
     }
   }

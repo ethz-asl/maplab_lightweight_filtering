@@ -83,7 +83,8 @@ class FilterBase: public PropertyHandler{
   MeasurementTimeline<typename mtPrediction::mtMeas> predictionTimeline_;
   std::tuple<MeasurementTimeline<typename Updates::mtMeas>...> updateTimelineTuple_;
   mtPrediction mPrediction_;
-  std::tuple<Updates...> mUpdates_;
+  typedef std::tuple<Updates...> mtUpdates;
+  mtUpdates mUpdates_;
   double safeWarningTime_;
   double frontWarningTime_;
   bool gotFrontWarning_;
