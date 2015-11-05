@@ -375,11 +375,11 @@ class ArrayElement: public ElementBase<ArrayElement<Element,M>,typename Element:
   using typename Base::mtDifVec;
   using typename Base::mtGet;
   using Base::name_;
+  using Base::D_;
   static const unsigned int M_ = M;
   Element array_[M_];
   mutable MXD boxMinusJacMat_;
   ArrayElement(): boxMinusJacMat_((int)Element::D_,(int)Element::D_){
-    static_assert((M>0),"size of array must be larger than 0, please use TH_multiple_elements otherwise");
     for(unsigned int i=0; i<M_;i++){
       array_[i].name_ = "";
     }
@@ -391,30 +391,42 @@ class ArrayElement: public ElementBase<ArrayElement<Element,M>,typename Element:
   }
   virtual ~ArrayElement(){};
   void boxPlus(const mtDifVec& vecIn, ArrayElement& stateOut) const{
-    if(Element::D_>0){
-      for(unsigned int i=0; i<M_;i++){
-        array_[i].boxPlus(vecIn.template block<Element::D_,1>(Element::D_*i,0),stateOut.array_[i]);
-      }
+    boxPlus_(vecIn,stateOut);
+  }
+  template<bool b = (D_>0), typename std::enable_if<b>::type* = nullptr>
+  void boxPlus_(const mtDifVec& vecIn, ArrayElement& stateOut) const{
+    for(unsigned int i=0; i<M_;i++){
+      array_[i].boxPlus(vecIn.template block<Element::D_,1>(Element::D_*i,0),stateOut.array_[i]);
     }
   }
+  template<bool b = (D_>0), typename std::enable_if<!b>::type* = nullptr>
+  void boxPlus_(const mtDifVec& vecIn, ArrayElement& stateOut) const{}
   void boxMinus(const ArrayElement& stateIn, mtDifVec& vecOut) const{
-    if(Element::D_>0){
-      typename Element::mtDifVec difVec;
-      for(unsigned int i=0; i<M_;i++){
-        array_[i].boxMinus(stateIn.array_[i],difVec);
-        vecOut.template block<Element::D_,1>(Element::D_*i,0) = difVec;
-      }
+    boxMinus_(stateIn,vecOut);
+  }
+  template<bool b = (D_>0), typename std::enable_if<b>::type* = nullptr>
+  void boxMinus_(const ArrayElement& stateIn, mtDifVec& vecOut) const{
+    typename Element::mtDifVec difVec;
+    for(unsigned int i=0; i<M_;i++){
+      array_[i].boxMinus(stateIn.array_[i],difVec);
+      vecOut.template block<Element::D_,1>(Element::D_*i,0) = difVec;
     }
   }
+  template<bool b = (D_>0), typename std::enable_if<!b>::type* = nullptr>
+  void boxMinus_(const ArrayElement& stateIn, mtDifVec& vecOut) const{}
   void boxMinusJac(const ArrayElement& stateIn, MXD& matOut) const{
+    boxMinusJac_(stateIn,matOut);
+  }
+  template<bool b = (D_>0), typename std::enable_if<b>::type* = nullptr>
+  void boxMinusJac_(const ArrayElement& stateIn, MXD& matOut) const{
     matOut.setZero();
-    if(Element::D_>0){
-      for(unsigned int i=0; i<M_;i++){
-        array_[i].boxMinusJac(stateIn.array_[i],boxMinusJacMat_);
-        matOut.template block<Element::D_,Element::D_>(Element::D_*i,Element::D_*i) = boxMinusJacMat_;
-      }
+    for(unsigned int i=0; i<M_;i++){
+      array_[i].boxMinusJac(stateIn.array_[i],boxMinusJacMat_);
+      matOut.template block<Element::D_,Element::D_>(Element::D_*i,Element::D_*i) = boxMinusJacMat_;
     }
   }
+  template<bool b = (D_>0), typename std::enable_if<!b>::type* = nullptr>
+  void boxMinusJac_(const ArrayElement& stateIn, MXD& matOut) const{}
   void print() const{
     for(unsigned int i=0; i<M_;i++){
       array_[i].print();
