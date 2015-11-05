@@ -45,7 +45,7 @@ TYPED_TEST_CASE(PredictionModelTest, TestClasses);
 // Test constructors
 TYPED_TEST(PredictionModelTest, constructors) {
   typename TestFixture::mtPredictionExample testPrediction;
-  ASSERT_EQ((testPrediction.prenoiP_-TestFixture::mtPredictionExample::mtNoise::mtCovMat::Identity()*0.0001).norm(),0.0);
+  ASSERT_EQ((testPrediction.prenoiP_-Eigen::Matrix<double,TestFixture::mtState::D_,TestFixture::mtState::D_>::Identity()*0.0001).norm(),0.0);
 }
 
 // Test finite difference Jacobians
@@ -111,7 +111,8 @@ TYPED_TEST(PredictionModelTest, performPredictionEKF) {
 TYPED_TEST(PredictionModelTest, comparePredict) {
   typename TestFixture::mtPredictionExample::mtFilterState filterState1;
   typename TestFixture::mtPredictionExample::mtFilterState filterState2;
-  filterState1.cov_ = TestFixture::mtPredictionExample::mtState::mtCovMat::Identity()*0.000001;
+  filterState1.cov_.setIdentity();
+  filterState1.cov_ = filterState1.cov_*0.000001;
   filterState2.cov_ = filterState1.cov_;
   filterState1.state_ = this->testState_;
   filterState2.state_ = this->testState_;

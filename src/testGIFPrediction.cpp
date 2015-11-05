@@ -64,7 +64,7 @@ TYPED_TEST(GIFPredictionModelTest, constructors) {
   double dt = 0.1;
   this->GIFpredictionExample_.performPrediction(filterState,this->testPredictionMeas_,dt);
   typename TestFixture::mtGIFPredictionExample testPrediction;
-  ASSERT_EQ((testPrediction.noiP_-TestFixture::mtGIFPredictionExample::mtNoise::mtCovMat::Identity()*0.0001).norm(),0.0);
+  ASSERT_EQ((testPrediction.noiP_-Eigen::Matrix<double,TestFixture::mtState::D_,TestFixture::mtState::D_>::Identity()*0.0001).norm(),0.0);
   ASSERT_TRUE(this->GIFpredictionExample_.testPredictionJacs(1e-8,1e-5,0.1));
   ASSERT_TRUE(this->GIFpredictionExampleWithUpdate_.testPredictionJacs(1e-8,1e-5,0.1));
 }
@@ -73,7 +73,8 @@ TYPED_TEST(GIFPredictionModelTest, constructors) {
 TYPED_TEST(GIFPredictionModelTest, comparePredict) {
   typename TestFixture::mtFilterState filterState1;
   typename TestFixture::mtFilterState filterState2;
-  filterState1.cov_ = TestFixture::mtPredictionExample::mtState::mtCovMat::Identity()*0.01;
+  filterState1.cov_.setIdentity();
+  filterState1.cov_ = filterState1.cov_*0.01;
   filterState2.cov_ = filterState1.cov_.inverse();
   filterState1.state_ = this->testState_;
   filterState2.state_ = this->testState_;
@@ -100,7 +101,8 @@ TYPED_TEST(GIFPredictionModelTest, comparePredict) {
 TYPED_TEST(GIFPredictionModelTest, comparePredictWithUpdate) {
   typename TestFixture::mtFilterState filterState1;
   typename TestFixture::mtFilterState filterState2;
-  filterState1.cov_ = TestFixture::mtPredictionExample::mtState::mtCovMat::Identity()*0.01;
+  filterState1.cov_.setIdentity();
+  filterState1.cov_ = filterState1.cov_*0.01;
   filterState2.cov_ = filterState1.cov_.inverse();
   filterState1.state_ = this->testState_;
   filterState2.state_ = this->testState_;
