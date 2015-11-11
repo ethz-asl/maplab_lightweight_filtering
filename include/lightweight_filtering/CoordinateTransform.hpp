@@ -23,9 +23,11 @@ class CoordinateTransform: public ModelBase<CoordinateTransform<Input,Output>,Ou
   Eigen::MatrixXd J_;
   Eigen::MatrixXd inverseProblem_C_;
   typename mtInput::mtDifVec inputDiff_;
+  typename Eigen::LDLT<MXD> inputLdlt_;
   typename mtInput::mtDifVec correction_;
   typename mtInput::mtDifVec lastCorrection_;
   typename mtOutput::mtDifVec outputDiff_;
+  typename Eigen::LDLT<MXD> outputLdlt_;
   mtOutput output_;
   CoordinateTransform(): J_((int)(mtOutput::D_),(int)(mtInput::D_)),inverseProblem_C_((int)(mtOutput::D_),(int)(mtOutput::D_)){
   };
@@ -76,16 +78,22 @@ class CoordinateTransform: public ModelBase<CoordinateTransform<Input,Output>,Ou
       inputRef.boxMinus(input,inputDiff_);
       transformState(input,output_);
       outputRef.boxMinus(output_,outputDiff_);
-      if(count==0) startError = (outputDiff_.transpose()*outputCov.inverse()*outputDiff_ + inputDiff_.transpose()*inputCov.inverse()*inputDiff_)(0);
+      if(count==0){
+        inputLdlt_.compute(inputCov);
+        outputLdlt_.compute(outputCov);
+        startError = outputDiff_.dot(outputLdlt_.solve(outputDiff_)) + inputDiff_.dot(inputLdlt_.solve(inputDiff_));
+      }
       inverseProblem_C_ = J_*inputCov*J_.transpose()+outputCov;
-      correction_ = inputCov*J_.transpose()*inverseProblem_C_.inverse()*(outputDiff_-J_*inputDiff_);
-//      std::cout << "    Output error: " << outputDiff_.transpose()*outputCov.inverse()*outputDiff_ << ", Input error: " << inputDiff_.transpose()*inputCov.inverse()*inputDiff_ << ", Correction norm: " << correction_.norm() << std::endl;
+      outputLdlt_.compute(inverseProblem_C_);
+      correction_ = inputCov*J_.transpose()*outputLdlt_.solve(outputDiff_-J_*inputDiff_);
       inputRef.boxPlus(correction_,input);
       if((lastCorrection_-correction_).norm() < tolerance){
         inputRef.boxMinus(input,inputDiff_);
         transformState(input,output_);
         outputRef.boxMinus(output_,outputDiff_);
-        const double endError = (outputDiff_.transpose()*outputCov.inverse()*outputDiff_ + inputDiff_.transpose()*inputCov.inverse()*inputDiff_)(0);
+        inputLdlt_.compute(inputCov);
+        outputLdlt_.compute(outputCov);
+        const double endError = outputDiff_.dot(outputLdlt_.solve(outputDiff_)) + inputDiff_.dot(inputLdlt_.solve(inputDiff_));
         if(startError > endError){
           return true;
         } else {
