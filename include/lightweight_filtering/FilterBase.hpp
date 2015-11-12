@@ -88,6 +88,7 @@ class FilterBase: public PropertyHandler{
   double safeWarningTime_;
   double frontWarningTime_;
   bool gotFrontWarning_;
+  bool updateToUpdateMeasOnly_;
   unsigned int logCountMerPre_;
   unsigned int logCountRegPre_;
   unsigned int logCountBadPre_;
@@ -106,6 +107,7 @@ class FilterBase: public PropertyHandler{
     registerUpdates();
     reset();
     logCountDiagnostics_ = false;
+    updateToUpdateMeasOnly_ = false;
   };
   virtual ~FilterBase(){
   };
@@ -175,8 +177,8 @@ class FilterBase: public PropertyHandler{
       safe_ = front_;
     }
     update(safe_,nextSafeTime);
-    clean(nextSafeTime);
-    safeWarningTime_ = nextSafeTime;
+    clean(safe_.t_);
+    safeWarningTime_ = safe_.t_;
     if(logCountDiagnostics_){
       std::cout << "Performed safe Update with RegPre: " << logCountRegPre_ << ", MerPre: " << logCountMerPre_ << ", BadPre: " << logCountBadPre_ << ", RegUpd: " << logCountRegUpd_ << ", ComUpd: " << logCountComUpd_ << std::endl;
     }
@@ -187,7 +189,7 @@ class FilterBase: public PropertyHandler{
       front_ = safe_;
     }
     update(front_,tEnd);
-    frontWarningTime_ = tEnd;
+    frontWarningTime_ = front_.t_;
     gotFrontWarning_ = false;
   }
   void update(mtFilterState& filterState,const double& tEnd){
@@ -199,7 +201,9 @@ class FilterBase: public PropertyHandler{
     logCountRegUpd_ = 0;
     while(filterState.t_<tEnd){
       tNext = tEnd;
-      getNextUpdate(filterState.t_,tNext);
+      if(!getNextUpdate(filterState.t_,tNext) && updateToUpdateMeasOnly_){
+        break; // Don't go further if there is no update available
+      }
       int r = 0;
       if(filterState.usePredictionMerge_){
         r = mPrediction_.predictMerged(filterState,tNext,predictionTimeline_.measMap_);
@@ -221,13 +225,18 @@ class FilterBase: public PropertyHandler{
     }
   }
   template<int i=0, typename std::enable_if<(i<nUpdates_)>::type* = nullptr>
-  void getNextUpdate(double actualTime, double& nextTime){
+  bool getNextUpdate(double actualTime, double& nextTime){
     double tNextUpdate;
-    if(std::get<i>(updateTimelineTuple_).getNextTime(actualTime,tNextUpdate) && tNextUpdate < nextTime) nextTime = tNextUpdate;
-    getNextUpdate<i+1>(actualTime, nextTime);
+    bool gotMatchingUpdate = false;
+    if(std::get<i>(updateTimelineTuple_).getNextTime(actualTime,tNextUpdate) && tNextUpdate < nextTime){
+      gotMatchingUpdate = true;
+      nextTime = tNextUpdate;
+    }
+    return gotMatchingUpdate | getNextUpdate<i+1>(actualTime, nextTime);
   }
   template<int i=0, typename std::enable_if<(i>=nUpdates_)>::type* = nullptr>
-  void getNextUpdate(double actualTime, double& nextTime){
+  bool getNextUpdate(double actualTime, double& nextTime){
+    return false;
   }
   template<int i=0, typename std::enable_if<(i<nUpdates_)>::type* = nullptr>
   void doAvailableUpdates(mtFilterState& filterState, double tNext){
