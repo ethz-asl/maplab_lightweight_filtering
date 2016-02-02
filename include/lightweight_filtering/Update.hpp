@@ -34,6 +34,9 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
   static const bool coupledToPrediction_ = isCoupled;
   bool useSpecialLinearizationPoint_;
   bool useImprovedJacobian_;
+  bool hasConverged_;
+  bool successfulUpdate_;
+  mutable bool cancelIteration_;
   Eigen::MatrixXd H_;
   Eigen::MatrixXd Hlin_;
   Eigen::MatrixXd boxMinusJac_;
@@ -155,6 +158,9 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
       std::cout << "Warning: update preProcessing is not implemented!" << std::endl;
     }
   }
+  virtual bool extraOutlierCheck(const mtState& state) const{
+    return true;
+  }
   virtual void postProcess(mtFilterState& filterState, const mtMeas& meas, const mtOutlierDetection& outlierDetection, bool& isFinished){
     isFinished = true;
     if(!disablePreAndPostProcessingWarning_){
@@ -239,12 +245,14 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
   }
   int performUpdateIEKF(mtFilterState& filterState, const mtMeas& meas){
     meas_ = meas;
-    mtState linState = filterState.state_;
-    updateVecNorm_ = updateVecNormTermination_;
-    for(unsigned int i=0;i<maxNumIteration_ & updateVecNorm_>=updateVecNormTermination_;i++){
-      this->jacState(H_,linState);
-      this->jacNoise(Hn_,linState);
-      this->evalInnovationShort(y_,linState);
+    linState_ = filterState.state_;
+    hasConverged_ = false;
+    successfulUpdate_ = false;
+    cancelIteration_ = false;
+    for(unsigned int i=0;i<maxNumIteration_ && !hasConverged_ && !cancelIteration_;i++){
+      this->jacState(H_,linState_);
+      this->jacNoise(Hn_,linState_);
+      this->evalInnovationShort(y_,linState_);
 
       if(isCoupled){
         C_ = filterState.G_*preupdnoiP_*Hn_.transpose();
@@ -265,13 +273,17 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
       } else {
         K_ = filterState.cov_*H_.transpose()*Pyinv_;
       }
-      linState.boxMinus(filterState.state_,filterState.difVecLin_);
-      updateVec_ = -K_*(innVector_-H_*filterState.difVecLin_); // includes correction for offseted linearization point
-      filterState.state_.boxPlus(updateVec_,linState);
+      filterState.state_.boxMinus(linState_,difVecLinInv_);
+      updateVec_ = -K_*(innVector_+H_*difVecLinInv_)+difVecLinInv_; // includes correction for offseted linearization point, dif must be recomputed (a-b != (-(b-a)))
+      linState_.boxPlus(updateVec_,linState_);
       updateVecNorm_ = updateVec_.norm();
+      hasConverged_ = updateVecNorm_<=updateVecNormTermination_;
     }
-    filterState.state_ = linState;
-    filterState.cov_ = filterState.cov_ - K_*Py_*K_.transpose();
+    if(extraOutlierCheck(linState_)){
+      successfulUpdate_ = true;
+      filterState.state_ = linState_;
+      filterState.cov_ = filterState.cov_ - K_*Py_*K_.transpose();
+    }
     return 0;
   }
   int performUpdateUKF(mtFilterState& filterState, const mtMeas& meas){
