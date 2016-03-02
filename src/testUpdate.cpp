@@ -644,9 +644,9 @@ TYPED_TEST(UpdateModelTest, performUpdateIEKF2) {
 
     // Kalman Update
     K = filterState.cov_*H.transpose()*Pyinv;
-    linState.boxMinus(filterState.state_,difVecLin);
-    updateVec = -K*(innVector-H*difVecLin);
-    filterState.state_.boxPlus(updateVec,linState);
+    filterState.state_.boxMinus(linState,difVecLin);
+    updateVec = -K*(innVector+H*difVecLin)+difVecLin;
+    linState.boxPlus(updateVec,linState);
     updateVecNorm = updateVec.norm();
   }
   stateUpdated = linState;

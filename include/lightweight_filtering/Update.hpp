@@ -13,6 +13,7 @@
 #include "lightweight_filtering/PropertyHandler.hpp"
 #include "lightweight_filtering/SigmaPoints.hpp"
 #include "lightweight_filtering/OutlierDetection.hpp"
+#include <list>
 
 namespace LWF{
 
