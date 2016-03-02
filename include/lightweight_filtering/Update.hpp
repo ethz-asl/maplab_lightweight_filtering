@@ -37,7 +37,8 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
   bool hasConverged_;
   bool successfulUpdate_;
   mutable bool cancelIteration_;
-  Eigen::MatrixXd H_;
+  mutable int candidateCounter_;
+  mutable Eigen::MatrixXd H_;
   Eigen::MatrixXd Hlin_;
   Eigen::MatrixXd boxMinusJac_;
   Eigen::MatrixXd Hn_;
@@ -46,7 +47,7 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
   Eigen::MatrixXd preupdnoiP_;
   Eigen::MatrixXd C_;
   mtInnovation y_;
-  Eigen::MatrixXd Py_;
+  mutable Eigen::MatrixXd Py_;
   Eigen::MatrixXd Pyinv_;
   typename mtInnovation::mtDifVec innVector_;
   mtInnovation yIdentity_;
@@ -55,7 +56,7 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
   double updateVecNorm_;
   Eigen::MatrixXd K_;
   Eigen::MatrixXd Pyx_;
-  typename mtState::mtDifVec difVecLinInv_;
+  mutable typename mtState::mtDifVec difVecLinInv_;
 
   SigmaPoints<mtState,2*mtState::D_+1,2*(mtState::D_+mtNoise::D_)+1,0> stateSigmaPoints_;
   SigmaPoints<mtNoise,2*mtNoise::D_+1,2*(mtState::D_+mtNoise::D_)+1,2*mtState::D_> stateSigmaPointsNoi_;
@@ -69,6 +70,7 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
   double kappa_;
   double updateVecNormTermination_;
   int maxNumIteration_;
+  int iterationNum_;
   mtOutlierDetection outlierDetection_;
   unsigned int numSequences;
   bool disablePreAndPostProcessingWarning_;
@@ -159,7 +161,15 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
     }
   }
   virtual bool extraOutlierCheck(const mtState& state) const{
-    return true;
+    return hasConverged_;
+  }
+  virtual bool generateCandidates(const mtFilterState& filterState, mtState& candidate) const{
+    candidate = filterState.state_;
+    candidateCounter_++;
+    if(candidateCounter_<=1)
+      return true;
+    else
+      return false;
   }
   virtual void postProcess(mtFilterState& filterState, const mtMeas& meas, const mtOutlierDetection& outlierDetection, bool& isFinished){
     isFinished = true;
@@ -245,44 +255,81 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
   }
   int performUpdateIEKF(mtFilterState& filterState, const mtMeas& meas){
     meas_ = meas;
-    linState_ = filterState.state_;
-    hasConverged_ = false;
     successfulUpdate_ = false;
-    cancelIteration_ = false;
-    for(unsigned int i=0;i<maxNumIteration_ && !hasConverged_ && !cancelIteration_;i++){
-      this->jacState(H_,linState_);
-      this->jacNoise(Hn_,linState_);
-      this->evalInnovationShort(y_,linState_);
+    candidateCounter_ = 0;
 
-      if(isCoupled){
-        C_ = filterState.G_*preupdnoiP_*Hn_.transpose();
-        Py_ = H_*filterState.cov_*H_.transpose() + Hn_*updnoiP_*Hn_.transpose() + H_*C_ + C_.transpose()*H_.transpose();
-      } else {
-        Py_ = H_*filterState.cov_*H_.transpose() + Hn_*updnoiP_*Hn_.transpose();
+    std::list<double> scores;
+    std::list<mtState> states;
+    double bestScore = -1.0;
+    mtState bestState;
+    MXD bestCov;
+
+    while(generateCandidates(filterState,linState_)){
+      cancelIteration_ = false;
+      hasConverged_ = false;
+      for(iterationNum_=0;iterationNum_<maxNumIteration_ && !hasConverged_ && !cancelIteration_;iterationNum_++){
+        this->jacState(H_,linState_);
+        this->jacNoise(Hn_,linState_);
+        this->evalInnovationShort(y_,linState_);
+
+        if(isCoupled){
+          C_ = filterState.G_*preupdnoiP_*Hn_.transpose();
+          Py_ = H_*filterState.cov_*H_.transpose() + Hn_*updnoiP_*Hn_.transpose() + H_*C_ + C_.transpose()*H_.transpose();
+        } else {
+          Py_ = H_*filterState.cov_*H_.transpose() + Hn_*updnoiP_*Hn_.transpose();
+        }
+        y_.boxMinus(yIdentity_,innVector_);
+
+        // Outlier detection
+        outlierDetection_.doOutlierDetection(innVector_,Py_,H_);
+        Pyinv_.setIdentity();
+        Py_.llt().solveInPlace(Pyinv_);
+
+        // Kalman Update
+        if(isCoupled){
+          K_ = (filterState.cov_*H_.transpose()+C_)*Pyinv_;
+        } else {
+          K_ = filterState.cov_*H_.transpose()*Pyinv_;
+        }
+        filterState.state_.boxMinus(linState_,difVecLinInv_);
+        updateVec_ = -K_*(innVector_+H_*difVecLinInv_)+difVecLinInv_; // includes correction for offseted linearization point, dif must be recomputed (a-b != (-(b-a)))
+        linState_.boxPlus(updateVec_,linState_);
+        updateVecNorm_ = updateVec_.norm();
+        hasConverged_ = updateVecNorm_<=updateVecNormTermination_;
       }
-      y_.boxMinus(yIdentity_,innVector_);
-
-      // Outlier detection
-      outlierDetection_.doOutlierDetection(innVector_,Py_,H_);
-      Pyinv_.setIdentity();
-      Py_.llt().solveInPlace(Pyinv_);
-
-      // Kalman Update
-      if(isCoupled){
-        K_ = (filterState.cov_*H_.transpose()+C_)*Pyinv_;
-      } else {
-        K_ = filterState.cov_*H_.transpose()*Pyinv_;
+      if(extraOutlierCheck(linState_)){
+        successfulUpdate_ = true;
+        double score = (innVector_.transpose()*Pyinv_*innVector_)(0);
+        scores.push_back(score);
+        states.push_back(linState_);
+        if(bestScore == -1.0 || score < bestScore){
+          bestScore = score;
+          bestState = linState_;
+          bestCov = filterState.cov_ - K_*Py_*K_.transpose();
+        }
       }
-      filterState.state_.boxMinus(linState_,difVecLinInv_);
-      updateVec_ = -K_*(innVector_+H_*difVecLinInv_)+difVecLinInv_; // includes correction for offseted linearization point, dif must be recomputed (a-b != (-(b-a)))
-      linState_.boxPlus(updateVec_,linState_);
-      updateVecNorm_ = updateVec_.norm();
-      hasConverged_ = updateVecNorm_<=updateVecNormTermination_;
     }
-    if(extraOutlierCheck(linState_)){
-      successfulUpdate_ = true;
-      filterState.state_ = linState_;
-      filterState.cov_ = filterState.cov_ - K_*Py_*K_.transpose();
+
+    if(successfulUpdate_){
+      if(scores.size() == 1){
+        filterState.state_ = bestState;
+        filterState.cov_ = bestCov;
+      } else {
+        bool foundOtherMin = false;
+        for(auto it = states.begin();it!=states.end();it++){
+          bestState.boxMinus(*it,difVecLinInv_);
+          if(difVecLinInv_.norm()>2*updateVecNormTermination_){
+            foundOtherMin = true;
+            break;
+          }
+        }
+        if(!foundOtherMin){
+          filterState.state_ = bestState;
+          filterState.cov_ = bestCov;
+        } else {
+          successfulUpdate_ = false;
+        }
+      }
     }
     return 0;
   }
