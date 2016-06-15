@@ -10,19 +10,19 @@
 
 #include <Eigen/Dense>
 #include <iostream>
-#include "kindr/rotations/RotationEigen.hpp"
+#include "kindr/Core"
 #include "lightweight_filtering/PropertyHandler.hpp"
 #include <type_traits>
 #include <tuple>
 
-namespace rot = kindr::rotations::eigen_impl;
+namespace rot = kindr;
 
 typedef rot::RotationQuaternionPD QPD;
 typedef rot::RotationMatrixPD MPD;
 typedef Eigen::Vector3d V3D;
 typedef Eigen::Matrix3d M3D;
 static M3D gSM(const V3D& vec){
-  return kindr::linear_algebra::getSkewMatrixFromVector(vec);
+  return kindr::getSkewMatrixFromVector(vec);
 }
 
 template<int nRow, int nCol, bool isDynamic = false>
@@ -70,7 +70,7 @@ static M3D Lmat (V3D a) {
   M3D G_k;
 
   // Get sqew matrices
-  ak = kindr::linear_algebra::getSkewMatrixFromVector(a);
+  ak = kindr::getSkewMatrixFromVector(a);
   ak2 = ak*ak;
 
   // Compute factors

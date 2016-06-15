@@ -9,7 +9,7 @@
 #define LWF_PropertyHandler_HPP_
 
 #include <Eigen/Dense>
-#include "kindr/rotations/RotationEigen.hpp"
+#include "kindr/Core"
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/info_parser.hpp>
 #include "lightweight_filtering/common.hpp"
@@ -17,7 +17,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
-namespace rot = kindr::rotations::eigen_impl;
+namespace rot = kindr;
 
 namespace LWF{
 
@@ -42,7 +42,7 @@ class Register{
     registerScalar(str + "_y",var(1));
     registerScalar(str + "_z",var(2));
   }
-  void registerQuaternion(std::string str, rot::RotationQuaternion<TYPE, kindr::rotations::RotationUsage::PASSIVE>& var){
+  void registerQuaternion(std::string str, rot::RotationQuaternion<TYPE>& var){
     registerScalar(str + "_w",var.toImplementation().w());
     registerScalar(str + "_x",var.toImplementation().x());
     registerScalar(str + "_y",var.toImplementation().y());

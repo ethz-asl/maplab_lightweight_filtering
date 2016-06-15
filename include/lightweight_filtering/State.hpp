@@ -10,13 +10,13 @@
 
 #include <Eigen/Dense>
 #include <iostream>
-#include "kindr/rotations/RotationEigen.hpp"
+#include "kindr/Core"
 #include "lightweight_filtering/PropertyHandler.hpp"
 #include "lightweight_filtering/common.hpp"
 #include <type_traits>
 #include <tuple>
 
-namespace rot = kindr::rotations::eigen_impl;
+namespace rot = kindr;
 
 namespace LWF{
 

@@ -10,7 +10,7 @@
 
 #include <Eigen/Dense>
 #include <iostream>
-#include "kindr/rotations/RotationEigen.hpp"
+#include "kindr/Core"
 #include "lightweight_filtering/ModelBase.hpp"
 #include "lightweight_filtering/SigmaPoints.hpp"
 #include "lightweight_filtering/State.hpp"
