@@ -45,17 +45,21 @@ TYPED_TEST_CASE(PredictionModelTest, TestClasses);
 // Test constructors
 TYPED_TEST(PredictionModelTest, constructors) {
   typename TestFixture::mtPredictionExample testPrediction;
-  ASSERT_EQ((testPrediction.prenoiP_-TestFixture::mtPredictionExample::mtNoise::mtCovMat::Identity()*0.0001).norm(),0.0);
+  ASSERT_EQ((testPrediction.prenoiP_-Eigen::Matrix<double,TestFixture::mtState::D_,TestFixture::mtState::D_>::Identity()*0.0001).norm(),0.0);
 }
 
 // Test finite difference Jacobians
 TYPED_TEST(PredictionModelTest, FDjacobians) {
-  typename TestFixture::mtPredictionExample::mtJacInput F,F_FD;
-  this->testPrediction_.jacInputFD(F,this->testState_,this->testPredictionMeas_,this->dt_,0.0000001);
-  this->testPrediction_.jacInput(F_FD,this->testState_,this->testPredictionMeas_,this->dt_);
-  typename TestFixture::mtPredictionExample::mtJacNoise Fn,Fn_FD;
-  this->testPrediction_.jacNoiseFD(Fn,this->testState_,this->testPredictionMeas_,this->dt_,0.0000001);
-  this->testPrediction_.jacNoise(Fn_FD,this->testState_,this->testPredictionMeas_,this->dt_);
+  Eigen::MatrixXd F((int)(TestFixture::mtPredictionExample::mtState::D_),(int)(TestFixture::mtPredictionExample::mtState::D_));
+  Eigen::MatrixXd F_FD((int)(TestFixture::mtPredictionExample::mtState::D_),(int)(TestFixture::mtPredictionExample::mtState::D_));
+  typename TestFixture::mtPredictionNoise n;
+  this->testPrediction_.meas_ = this->testPredictionMeas_;
+  this->testPrediction_.template jacInputFD<0>(F_FD,std::forward_as_tuple(this->testState_,n),this->dt_,0.0000001);
+  this->testPrediction_.template jacInput<0>(F,std::forward_as_tuple(this->testState_,n),this->dt_);
+  Eigen::MatrixXd Fn((int)(TestFixture::mtPredictionExample::mtState::D_),(int)(TestFixture::mtPredictionExample::mtNoise::D_));
+  Eigen::MatrixXd Fn_FD((int)(TestFixture::mtPredictionExample::mtState::D_),(int)(TestFixture::mtPredictionExample::mtNoise::D_));
+  this->testPrediction_.template jacInputFD<1>(Fn_FD,std::forward_as_tuple(this->testState_,n),this->dt_,0.0000001);
+  this->testPrediction_.template jacInput<1>(Fn,std::forward_as_tuple(this->testState_,n),this->dt_);
   switch(TestFixture::id_){
     case 0:
       ASSERT_NEAR((F-F_FD).norm(),0.0,1e-5);
@@ -75,17 +79,18 @@ TYPED_TEST(PredictionModelTest, FDjacobians) {
 TYPED_TEST(PredictionModelTest, performPredictionEKF) {
   typename TestFixture::mtPredictionExample::mtFilterState filterState;
   filterState.cov_.setIdentity();
-  typename TestFixture::mtPredictionExample::mtJacInput F;
-  this->testPrediction_.jacInput(F,this->testState_,this->testPredictionMeas_,this->dt_);
-  typename TestFixture::mtPredictionExample::mtJacNoise Fn;
-  this->testPrediction_.jacNoise(Fn,this->testState_,this->testPredictionMeas_,this->dt_);
-  typename TestFixture::mtPredictionExample::mtState::mtCovMat predictedCov = F*filterState.cov_*F.transpose() + Fn*this->testPrediction_.prenoiP_*Fn.transpose();
+  Eigen::MatrixXd F((int)(TestFixture::mtPredictionExample::mtState::D_),(int)(TestFixture::mtPredictionExample::mtState::D_));
+  this->testPrediction_.meas_ = this->testPredictionMeas_;
+  this->testPrediction_.jacPreviousState(F,this->testState_,this->dt_);
+  Eigen::MatrixXd Fn((int)(TestFixture::mtPredictionExample::mtState::D_),(int)(TestFixture::mtPredictionExample::mtNoise::D_));
+  this->testPrediction_.jacNoise(Fn,this->testState_,this->dt_);
+  Eigen::MatrixXd predictedCov = F*filterState.cov_*F.transpose() + Fn*this->testPrediction_.prenoiP_*Fn.transpose();
   typename TestFixture::mtPredictionExample::mtState state;
   filterState.state_ = this->testState_;
   this->testPrediction_.performPredictionEKF(filterState,this->testPredictionMeas_,this->dt_);
   typename TestFixture::mtPredictionExample::mtState::mtDifVec dif;
   typename TestFixture::mtPredictionExample::mtState evalState;
-  this->testPrediction_.eval(evalState,this->testState_,this->testPredictionMeas_,this->dt_);
+  this->testPrediction_.evalPredictionShort(evalState,this->testState_,this->dt_);
   filterState.state_.boxMinus(evalState,dif);
   switch(TestFixture::id_){
     case 0:
@@ -106,7 +111,8 @@ TYPED_TEST(PredictionModelTest, performPredictionEKF) {
 TYPED_TEST(PredictionModelTest, comparePredict) {
   typename TestFixture::mtPredictionExample::mtFilterState filterState1;
   typename TestFixture::mtPredictionExample::mtFilterState filterState2;
-  filterState1.cov_ = TestFixture::mtPredictionExample::mtState::mtCovMat::Identity()*0.000001;
+  filterState1.cov_.setIdentity();
+  filterState1.cov_ = filterState1.cov_*0.000001;
   filterState2.cov_ = filterState1.cov_;
   filterState1.state_ = this->testState_;
   filterState2.state_ = this->testState_;
@@ -148,16 +154,18 @@ TYPED_TEST(PredictionModelTest, predictMergedEKF) {
   vec = vec/this->measMap_.size();
   this->measMap_.begin()->second.boxPlus(vec,meanMeas);
 
-  typename TestFixture::mtPredictionExample::mtJacInput F;
-  this->testPrediction_.jacInput(F,this->testState_,meanMeas,dt);
-  typename TestFixture::mtPredictionExample::mtJacNoise Fn;
-  this->testPrediction_.jacNoise(Fn,this->testState_,meanMeas,dt);
-  typename TestFixture::mtPredictionExample::mtState::mtCovMat predictedCov = F*filterState1.cov_*F.transpose() + Fn*this->testPrediction_.prenoiP_*Fn.transpose();
+  Eigen::MatrixXd F((int)(TestFixture::mtPredictionExample::mtState::D_),(int)(TestFixture::mtPredictionExample::mtState::D_));
+  this->testPrediction_.meas_ = meanMeas;
+  this->testPrediction_.jacPreviousState(F,this->testState_,dt);
+  Eigen::MatrixXd Fn((int)(TestFixture::mtPredictionExample::mtState::D_),(int)(TestFixture::mtPredictionExample::mtNoise::D_));
+  this->testPrediction_.jacNoise(Fn,this->testState_,dt);
+  Eigen::MatrixXd predictedCov = F*filterState1.cov_*F.transpose() + Fn*this->testPrediction_.prenoiP_*Fn.transpose();
   filterState1.state_ = this->testState_;
   this->testPrediction_.predictMergedEKF(filterState1,this->measMap_.rbegin()->first,this->measMap_);
   filterState2.state_ = this->testState_;
   for(typename std::map<double,typename TestFixture::mtPredictionExample::mtMeas>::iterator it = this->measMap_.begin();it != this->measMap_.end();it++){
-    this->testPrediction_.eval(filterState2.state_,filterState2.state_,it->second,it->first-t);
+    this->testPrediction_.meas_ = it->second;
+    this->testPrediction_.evalPredictionShort(filterState2.state_,filterState2.state_,it->first-t);
     t = it->first;
   }
   typename TestFixture::mtPredictionExample::mtState::mtDifVec dif;
@@ -201,7 +209,8 @@ TYPED_TEST(PredictionModelTest, predictMergedUKF) {
 
   filterState1.stateSigmaPoints_.computeFromGaussian(filterState1.state_,filterState1.cov_);
   for(unsigned int i=0;i<filterState1.stateSigmaPoints_.L_;i++){
-    this->testPrediction_.eval(filterState1.stateSigmaPointsPre_(i),filterState1.stateSigmaPoints_(i),meanMeas,filterState1.stateSigmaPointsNoi_(i),dt);
+    this->testPrediction_.meas_ = meanMeas;
+    this->testPrediction_.evalPrediction(filterState1.stateSigmaPointsPre_(i),filterState1.stateSigmaPoints_(i),filterState1.stateSigmaPointsNoi_(i),dt);
   }
   filterState1.stateSigmaPointsPre_.getMean(filterState1.state_);
   filterState1.stateSigmaPointsPre_.getCovarianceMatrix(filterState1.state_,filterState1.cov_);

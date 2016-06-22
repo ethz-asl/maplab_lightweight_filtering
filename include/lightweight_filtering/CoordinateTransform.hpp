@@ -8,48 +8,53 @@
 #ifndef LWF_CoordinateTransform_HPP_
 #define LWF_CoordinateTransform_HPP_
 
-#include <Eigen/Dense>
-#include "lightweight_filtering/ModelBase.hpp"
-#include "lightweight_filtering/State.hpp"
 #include "lightweight_filtering/common.hpp"
+#include "lightweight_filtering/ModelBase.hpp"
 
 namespace LWF{
 
-template<typename Input, typename Output, bool useDynamicMatrix = false>
-class CoordinateTransform: public ModelBase<Input,Output,Input,Input,useDynamicMatrix>{
+template<typename Input, typename Output>
+class CoordinateTransform: public ModelBase<CoordinateTransform<Input,Output>,Output,Input>{
  public:
-  typedef ModelBase<Input,Output,Input,Input,useDynamicMatrix> Base;
-  using Base::eval;
-  using Base::jacInput;
+  typedef ModelBase<CoordinateTransform<Input,Output>,Output,Input> mtModelBase;
+  typedef typename mtModelBase::mtInputTuple mtInputTuple;
   typedef Input mtInput;
-  typedef LWFMatrix<mtInput::D_,mtInput::D_,useDynamicMatrix> mtInputCovMat;
   typedef Output mtOutput;
-  typedef LWFMatrix<mtOutput::D_,mtOutput::D_,useDynamicMatrix> mtOutputCovMat;
-  typedef typename Base::mtJacInput mtJacInput;
-  mtJacInput J_;
-  LWFMatrix<mtOutput::D_,mtOutput::D_,useDynamicMatrix> inverseProblem_C_;
+  Eigen::MatrixXd J_;
+  Eigen::MatrixXd inverseProblem_C_;
   typename mtInput::mtDifVec inputDiff_;
+  typename Eigen::LDLT<MXD> inputLdlt_;
   typename mtInput::mtDifVec correction_;
   typename mtInput::mtDifVec lastCorrection_;
   typename mtOutput::mtDifVec outputDiff_;
+  typename Eigen::LDLT<MXD> outputLdlt_;
   mtOutput output_;
-  CoordinateTransform(){
+  CoordinateTransform(): J_((int)(mtOutput::D_),(int)(mtInput::D_)),inverseProblem_C_((int)(mtOutput::D_),(int)(mtOutput::D_)){
   };
   virtual ~CoordinateTransform(){};
-  void transformState(const mtInput& input, mtOutput& output) const{
-    eval(output, input, input);
+  void eval_(mtOutput& x, const mtInputTuple& inputs, double dt) const{
+    evalTransform(x,std::get<0>(inputs));
   }
-  void transformCovMat(const mtInput& input,const mtInputCovMat& inputCov,mtOutputCovMat& outputCov){
-    jacInput(J_,input,input);
+  template<int i,typename std::enable_if<i==0>::type* = nullptr>
+  void jacInput_(Eigen::MatrixXd& F, const mtInputTuple& inputs, double dt) const{
+    jacTransform(F,std::get<0>(inputs));
+  }
+  virtual void evalTransform(mtOutput& output, const mtInput& input) const = 0;
+  virtual void jacTransform(Eigen::MatrixXd& F, const mtInput& input) const = 0;
+  void transformState(const mtInput& input, mtOutput& output) const{
+    evalTransform(output, input);
+  }
+  void transformCovMat(const mtInput& input,const Eigen::MatrixXd& inputCov,Eigen::MatrixXd& outputCov){
+    jacTransform(J_,input);
     outputCov = J_*inputCov*J_.transpose();
     postProcess(outputCov,input);
   }
-  virtual void postProcess(mtOutputCovMat& cov,const mtInput& input){}
-  bool solveInverseProblem(mtInput& input,const mtInputCovMat& inputCov, const mtOutput& outputRef, const double tolerance = 1e-6, const int max_iter = 10){
+  virtual void postProcess(Eigen::MatrixXd& cov,const mtInput& input){}
+  bool solveInverseProblem(mtInput& input,const Eigen::MatrixXd& inputCov, const mtOutput& outputRef, const double tolerance = 1e-6, const int max_iter = 10){
     const mtInput inputRef = input;
     int count = 0;
     while(count < max_iter){
-      jacInput(J_,input,input);
+      jacTransform(J_,input);
       inputRef.boxMinus(input,inputDiff_);
       transformState(input,output_);
       outputRef.boxMinus(output_,outputDiff_);
@@ -63,26 +68,32 @@ class CoordinateTransform: public ModelBase<Input,Output,Input,Input,useDynamicM
     }
     return false;
   }
-  bool solveInverseProblemRelaxed(mtInput& input,const mtInputCovMat& inputCov, const mtOutput& outputRef,const mtOutputCovMat& outputCov, const double tolerance = 1e-6, const int max_iter = 10){
+  bool solveInverseProblemRelaxed(mtInput& input,const Eigen::MatrixXd& inputCov, const mtOutput& outputRef,const Eigen::MatrixXd& outputCov, const double tolerance = 1e-6, const int max_iter = 10){
     const mtInput inputRef = input; // TODO: correct all for boxminus Jacobian
     int count = 0;
     double startError;
     lastCorrection_.setZero();
     while(count < max_iter){
-      jacInput(J_,input,input);
+      jacTransform(J_,input);
       inputRef.boxMinus(input,inputDiff_);
       transformState(input,output_);
       outputRef.boxMinus(output_,outputDiff_);
-      if(count==0) startError = (outputDiff_.transpose()*outputCov.inverse()*outputDiff_ + inputDiff_.transpose()*inputCov.inverse()*inputDiff_)(0);
+      if(count==0){
+        inputLdlt_.compute(inputCov);
+        outputLdlt_.compute(outputCov);
+        startError = outputDiff_.dot(outputLdlt_.solve(outputDiff_)) + inputDiff_.dot(inputLdlt_.solve(inputDiff_));
+      }
       inverseProblem_C_ = J_*inputCov*J_.transpose()+outputCov;
-      correction_ = inputCov*J_.transpose()*inverseProblem_C_.inverse()*(outputDiff_-J_*inputDiff_);
-//      std::cout << "    Output error: " << outputDiff_.transpose()*outputCov.inverse()*outputDiff_ << ", Input error: " << inputDiff_.transpose()*inputCov.inverse()*inputDiff_ << ", Correction norm: " << correction_.norm() << std::endl;
+      outputLdlt_.compute(inverseProblem_C_);
+      correction_ = inputCov*J_.transpose()*outputLdlt_.solve(outputDiff_-J_*inputDiff_);
       inputRef.boxPlus(correction_,input);
       if((lastCorrection_-correction_).norm() < tolerance){
         inputRef.boxMinus(input,inputDiff_);
         transformState(input,output_);
         outputRef.boxMinus(output_,outputDiff_);
-        const double endError = (outputDiff_.transpose()*outputCov.inverse()*outputDiff_ + inputDiff_.transpose()*inputCov.inverse()*inputDiff_)(0);
+        inputLdlt_.compute(inputCov);
+        outputLdlt_.compute(outputCov);
+        const double endError = outputDiff_.dot(outputLdlt_.solve(outputDiff_)) + inputDiff_.dot(inputLdlt_.solve(inputDiff_));
         if(startError > endError){
           return true;
         } else {
@@ -93,6 +104,17 @@ class CoordinateTransform: public ModelBase<Input,Output,Input,Input,useDynamicM
       count++;
     }
     return false;
+  }
+  bool testTransformJac(double d = 1e-6,double th = 1e-6){
+    mtInputTuple inputs;
+    unsigned int s = 1;
+    const double dt = 0.1;
+    this->setRandomInputs(inputs,s);
+    return this->testJacs(inputs,d,th,dt);
+  }
+  bool testTransformJac(const mtInput& input, double d = 1e-6,double th = 1e-6){
+    const double dt = 0.1;
+    return this->testJacs(std::forward_as_tuple(input),d,th,dt);
   }
 };
 

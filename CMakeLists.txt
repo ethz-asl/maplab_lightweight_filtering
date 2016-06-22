@@ -22,8 +22,7 @@ include_directories(include)
 if(DEFINED CATKIN_DEVEL_PREFIX)
   find_package(catkin REQUIRED)
 	catkin_package(
-	   INCLUDE_DIRS include
-	   CATKIN_DEPENDS 
+	   INCLUDE_DIRS include ${kindr_INCLUDE_DIRS} ${EIGEN3_INCLUDE_DIR}
 	)
 endif()
 
@@ -51,6 +50,9 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/gtest/" AND (NOT DEFINED CATKIN_DEVEL_PRE
 	add_executable(testFilterBase src/testFilterBase.cpp)
 	target_link_libraries(testFilterBase gtest_main gtest pthread )
 	add_test(testFilterBase testFilterBase)
+	add_executable(testGIFPrediction src/testGIFPrediction.cpp)
+	target_link_libraries(testGIFPrediction gtest_main gtest pthread )
+	add_test(testGIFPrediction testGIFPrediction)
 endif()
 
 # Generate FindLWF.cmake file

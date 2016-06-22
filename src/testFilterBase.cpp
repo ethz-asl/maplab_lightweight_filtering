@@ -168,7 +168,6 @@ class FilterBaseTest : public ::testing::Test, public TestClass {
   LWF::FilterBase<mtPredictionExample,mtUpdateExample,mtPredictAndUpdateExample> testFilter_;
   LWF::FilterBase<mtPredictionExample,mtUpdateExample,mtPredictAndUpdateExample> testFilter2_;
   mtFilterState testFilterState_;
-  typename TestClass::mtState::mtCovMat testCov_;
   typename TestClass::mtState::mtDifVec difVec_;
   mtUpdateMeas testUpdateMeas_;
   mtPredictionMeas testPredictionMeas_;
@@ -185,17 +184,17 @@ TYPED_TEST(FilterBaseTest, constructors) {
 // Test propertyHandler
 TYPED_TEST(FilterBaseTest, propertyHandler) {
   // Generate parameters
-  typename TestFixture::mtPredictionExample::mtNoise::mtCovMat prenoiP;
+  MXD prenoiP((int)TestFixture::mtPredictionExample::mtNoise::D_,(int)TestFixture::mtPredictionExample::mtNoise::D_);
   prenoiP.setZero();
   for(unsigned int i=0;i<TestFixture::mtPredictionExample::mtNoise::D_;i++){
     prenoiP(i,i) = 0.1*i*i+3.4*i+1.2;
   }
-  typename TestFixture::mtUpdateExample::mtNoise::mtCovMat updnoiP;
+  MXD updnoiP((int)TestFixture::mtUpdateExample::mtNoise::D_,(int)TestFixture::mtUpdateExample::mtNoise::D_);
   updnoiP.setZero();
   for(unsigned int i=0;i<TestFixture::mtUpdateExample::mtNoise::D_;i++){
     updnoiP(i,i) = -0.1*i*i+3.2*i+1.1;
   }
-  typename TestFixture::mtPredictAndUpdateExample::mtNoise::mtCovMat updnoiP2;
+  MXD updnoiP2((int)TestFixture::mtPredictAndUpdateExample::mtNoise::D_,(int)TestFixture::mtPredictAndUpdateExample::mtNoise::D_);
   updnoiP2.setZero();
   for(unsigned int i=0;i<TestFixture::mtPredictAndUpdateExample::mtNoise::D_;i++){
     updnoiP2(i,i) = -0.2*i*i+1.2*i+0.1;
@@ -207,7 +206,7 @@ TYPED_TEST(FilterBaseTest, propertyHandler) {
       preupdnoiP(i,j) = 0.3*i*i+0.2*i+3.1;
     }
   }
-  typename TestFixture::mtState::mtCovMat initP;
+  MXD initP((int)TestFixture::mtState::D_,(int)TestFixture::mtState::D_);
   initP.setZero();
   for(unsigned int i=0;i<TestFixture::mtState::D_;i++){
     initP(i,i) = 0.5*i*i+3.1*i+3.2;
