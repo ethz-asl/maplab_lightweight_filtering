@@ -57,8 +57,8 @@ class ModelExample: public LWF::ModelBase<ModelExample,Output,Input,Meas,Noise>{
     J.setZero();
     J.block<3,3>(Output::getId<Output::v0>(),Input::getId<Input::v0>()) = -M3D::Identity();
     J.block<3,3>(Output::getId<Output::v0>(),Input::getId<Input::v1>()) = MPD(input.get<Input::q0>().inverted()*input.get<Input::q1>()).matrix();
-    J.block<3,3>(Output::getId<Output::v0>(),Input::getId<Input::q0>()) = -gSM((input.get<Input::q0>().inverted()*input.get<Input::q1>()).rotate(input.get<Input::v1>()))*MPD(input.get<Input::q0>().inverted()).matrix();
-    J.block<3,3>(Output::getId<Output::v0>(),Input::getId<Input::q1>()) = gSM((input.get<Input::q0>().inverted()*input.get<Input::q1>()).rotate(input.get<Input::v1>()))*MPD(input.get<Input::q0>().inverted()).matrix();
+    J.block<3,3>(Output::getId<Output::v0>(),Input::getId<Input::q0>()) = gSM((input.get<Input::q0>().inverted()*input.get<Input::q1>()).rotate(input.get<Input::v1>()))*MPD(input.get<Input::q0>().inverted()).matrix();
+    J.block<3,3>(Output::getId<Output::v0>(),Input::getId<Input::q1>()) = -gSM((input.get<Input::q0>().inverted()*input.get<Input::q1>()).rotate(input.get<Input::v1>()))*MPD(input.get<Input::q0>().inverted()).matrix();
     J.block<3,3>(Output::getId<Output::q0>(),Input::getId<Input::q0>()) = MPD(meas.get<Meas::q0>().inverted()*dQ*input.get<Input::q1>().inverted()).matrix();
     J.block<3,3>(Output::getId<Output::q0>(),Input::getId<Input::q1>()) = -MPD(meas.get<Meas::q0>().inverted()*dQ*input.get<Input::q1>().inverted()).matrix();
   }

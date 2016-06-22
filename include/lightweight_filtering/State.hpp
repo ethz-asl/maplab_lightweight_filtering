@@ -267,18 +267,18 @@ class NormalVectorElement: public ElementBase<NormalVectorElement,NormalVectorEl
     const double angle = std::acos(c);
     if(crossNorm<1e-6){
       if(c>0){
-        return -cross;
+        return cross;
       } else {
         return a_perp*M_PI;
       }
     } else {
-      return -cross*(angle/crossNorm);
+      return cross*(angle/crossNorm);
     }
   }
   static V3D getRotationFromTwoNormals(const NormalVectorElement& a, const NormalVectorElement& b){
     return getRotationFromTwoNormals(a.getVec(),b.getVec(),a.getPerp1());
   }
-  static M3D getRotationFromTwoNormalsJac(const V3D& a, const V3D& b){ // TODO: test
+  static M3D getRotationFromTwoNormalsJac(const V3D& a, const V3D& b){
     const V3D cross = a.cross(b);
     const double crossNorm = cross.norm();
     V3D crossNormalized = cross/crossNorm;
@@ -287,12 +287,12 @@ class NormalVectorElement: public ElementBase<NormalVectorElement,NormalVectorEl
     const double angle = std::acos(c);
     if(crossNorm<1e-6){
       if(c>0){
-        return gSM(b);
+        return -gSM(b);
       } else {
         return M3D::Zero();
       }
     } else {
-      return 1/crossNorm*(crossNormalized*b.transpose()-(crossNormalizedSqew*crossNormalizedSqew*gSM(b)*angle));
+      return -1/crossNorm*(crossNormalized*b.transpose()-(crossNormalizedSqew*crossNormalizedSqew*gSM(b)*angle));
     }
   }
   static M3D getRotationFromTwoNormalsJac(const NormalVectorElement& a, const NormalVectorElement& b){
@@ -356,8 +356,8 @@ class NormalVectorElement: public ElementBase<NormalVectorElement,NormalVectorEl
   }
   Eigen::Matrix<double,3,2> getM() const {
     Eigen::Matrix<double,3,2> M;
-    M.col(0) = getPerp2();
-    M.col(1) = -getPerp1();
+    M.col(0) = -getPerp2();
+    M.col(1) = getPerp1();
     return M;
   }
   Eigen::Matrix<double,3,2> getN() const {

@@ -221,7 +221,7 @@ TEST_F(QuaternionElementTest, DerivativeOfRotation) {
     b_disturbed = attDisturbed.q_.rotate(a);
     J.col(i) = (b_disturbed-b)/d;
   }
-  ASSERT_NEAR((J-gSM(b)).norm(),0.0,1e-5);
+  ASSERT_NEAR((J+gSM(b)).norm(),0.0,1e-5);
 }
 
 // The fixture for testing class NormalVectorElementTest
@@ -276,7 +276,7 @@ TEST_F(NormalVectorElementTest, minusJac) {
     testElement3_.boxMinus(testElement1_,difVecOut2_);
     difVecOut2_ -= difVecOut1_;
     difVecOut2_ = difVecOut2_/d;
-    ASSERT_NEAR((covMat_.col(i)-difVecOut2_).norm(),0.0,1e-5);
+    ASSERT_NEAR((covMat_.col(i)-difVecOut2_).norm(),0.0,1e-4);
   }
 }
 
@@ -339,6 +339,24 @@ TEST_F(NormalVectorElementTest, getRotationFromTwoNormals) {
   ASSERT_NEAR((LWF::NormalVectorElement::getRotationFromTwoNormals(testElement1_,testElement2_)+LWF::NormalVectorElement::getRotationFromTwoNormals(testElement2_,testElement1_)).norm(),0.0,1e-6);
 }
 
+// Test getRotationFromTwoNormalsJac
+TEST_F(NormalVectorElementTest, getRotationFromTwoNormalsJac) {
+  V3D testVec1 = testElement1_.getVec();
+  V3D testVec2 = testElement2_.getVec();
+  V3D perp = testElement1_.getPerp1();
+  V3D theta = LWF::NormalVectorElement::getRotationFromTwoNormals(testVec1,testVec2,perp);
+  covMat_ = LWF::NormalVectorElement::getRotationFromTwoNormalsJac(testVec1,testVec2);
+
+  double d = 0.00001;
+  for(unsigned int i=0;i<3;i++){
+    V3D testVec3 = testVec1;
+    testVec3(i) += d;
+    V3D theta2 = LWF::NormalVectorElement::getRotationFromTwoNormals(testVec3,testVec2,perp);
+    V3D diff = (theta2-theta)/d;
+    ASSERT_NEAR((covMat_.col(i)-diff).norm(),0.0,1e-4);
+  }
+}
+
 // Test derivative of boxminus (includes test of derivative of getRotationFromTwoNormals)
 TEST_F(NormalVectorElementTest, derivativeBoxMinus) {
   const double d  = 1e-6;
@@ -358,7 +376,7 @@ TEST_F(NormalVectorElementTest, derivativeBoxMinus) {
   testElement2_.boxPlus(perturbation,testElement2_perturbed);
   testElement2_perturbed.boxMinus(testElement1_,out_perturbed);
   J.col(1) = (out_perturbed-out)/d;
-  ASSERT_NEAR((testElement1_.getN().transpose()*-LWF::NormalVectorElement::getRotationFromTwoNormalsJac(testElement2_,testElement1_)*testElement2_.getM()-J).norm(),0.0,1e-6);
+  ASSERT_NEAR((testElement1_.getN().transpose()*-LWF::NormalVectorElement::getRotationFromTwoNormalsJac(testElement2_,testElement1_)*testElement2_.getM()-J).norm(),0.0,1e-5);
 }
 
 // The fixture for testing class ArrayElementTest

@@ -8,13 +8,13 @@
 #ifndef LWF_COMMON_HPP_
 #define LWF_COMMON_HPP_
 
+#include <map>
+#include <type_traits>
+#include <tuple>
 #include <Eigen/Dense>
 #include <iostream>
 #include "kindr/Core"
 #include "lightweight_filtering/PropertyHandler.hpp"
-#include <type_traits>
-#include <tuple>
-#include <map>
 
 typedef kindr::RotationQuaternionPD QPD;
 typedef kindr::RotationMatrixPD MPD;
@@ -31,20 +31,7 @@ static void enforceSymmetry(MXD& mat){
 }
 
 inline M3D Lmat (const V3D& a) {
-  double aNorm = a.norm();
-  double factor1 = 1.0/2.0;
-  double factor2 = 1.0/6.0;
-  // Get sqew matrices
-  M3D ak(kindr::linear_algebra::getSkewMatrixFromVector(a));
-  M3D ak2(ak*ak);
-
-  // Compute factors
-  if(aNorm >= 1e-10){
-    factor1 = (1.0 - cos(aNorm))/pow(aNorm,2);
-    factor2 = (aNorm-sin(aNorm))/pow(aNorm,3);
-  }
-
-  return M3D::Identity()-factor1*ak+factor2*ak2;
+  return kindr::getJacobianOfExponentialMap(a);
 }
 
 namespace LWF{
