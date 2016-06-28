@@ -46,7 +46,7 @@ TYPED_TEST(UpdateModelTest, constructors) {
   typename TestFixture::mtUpdateExample testUpdate;
   bool coupledToPrediction = testUpdate.coupledToPrediction_;
   ASSERT_EQ(coupledToPrediction,false);
-  ASSERT_EQ((testUpdate.updnoiP_-TestFixture::mtUpdateExample::mtNoise::mtCovMat::Identity()*0.0001).norm(),0.0);
+  ASSERT_EQ((testUpdate.updnoiP_-Eigen::Matrix<double,TestFixture::mtUpdateNoise::D_,TestFixture::mtUpdateNoise::D_>::Identity()*0.0001).norm(),0.0);
   typename TestFixture::mtUpdateExample::mtNoise::mtDifVec dif;
   typename TestFixture::mtUpdateExample::mtNoise noise;
   noise.setIdentity();
@@ -54,23 +54,28 @@ TYPED_TEST(UpdateModelTest, constructors) {
   testUpdate.stateSigmaPointsNoi_.getMean(mean);
   mean.boxMinus(noise,dif);
   ASSERT_NEAR(dif.norm(),0.0,1e-6);
-  typename TestFixture::mtUpdateExample::mtUpdateNoise C;
+  Eigen::MatrixXd C((int)(TestFixture::mtUpdateExample::mtNoise::D_),(int)(TestFixture::mtUpdateExample::mtNoise::D_));
   testUpdate.stateSigmaPointsNoi_.getCovarianceMatrix(C);
   ASSERT_NEAR((testUpdate.updnoiP_-C).norm(),0.0,1e-8);
   typename TestFixture::mtPredictAndUpdateExample testPredictAndUpdate;
   coupledToPrediction = testPredictAndUpdate.coupledToPrediction_;
   ASSERT_EQ(coupledToPrediction,true);
-  ASSERT_EQ((testPredictAndUpdate.updnoiP_-TestFixture::mtPredictAndUpdateExample::mtNoise::mtCovMat::Identity()*0.0001).norm(),0.0);
+  ASSERT_EQ((testPredictAndUpdate.updnoiP_-Eigen::Matrix<double,TestFixture::mtPredictAndUpdateExample::mtNoise::D_,TestFixture::mtPredictAndUpdateExample::mtNoise::D_>::Identity()*0.0001).norm(),0.0);
 }
 
 // Test finite difference Jacobians
 TYPED_TEST(UpdateModelTest, FDjacobians) {
-  typename TestFixture::mtUpdateExample::mtJacInput F, F_FD;
-  this->testUpdate_.jacInputFD(F_FD,this->testState_,this->testUpdateMeas_,this->dt_,0.0000001);
-  this->testUpdate_.jacInput(F,this->testState_,this->testUpdateMeas_);
-  typename TestFixture::mtUpdateExample::mtJacNoise H, H_FD;
-  this->testUpdate_.jacNoiseFD(H_FD,this->testState_,this->testUpdateMeas_,this->dt_,0.0000001);
-  this->testUpdate_.jacNoise(H,this->testState_,this->testUpdateMeas_);
+  typename TestFixture::mtUpdateExample::mtNoise n;
+  n.setIdentity();
+  this->testUpdate_.meas_ = this->testUpdateMeas_;
+  Eigen::MatrixXd F((int)(TestFixture::mtUpdateExample::mtInnovation::D_),(int)(TestFixture::mtUpdateExample::mtState::D_));
+  Eigen::MatrixXd F_FD((int)(TestFixture::mtUpdateExample::mtInnovation::D_),(int)(TestFixture::mtUpdateExample::mtState::D_));
+  this->testUpdate_.template jacInputFD<0>(F_FD,std::forward_as_tuple(this->testState_,n),this->dt_,0.0000001);
+  this->testUpdate_.template jacInput<0>(F,std::forward_as_tuple(this->testState_,n));
+  Eigen::MatrixXd H((int)(TestFixture::mtUpdateExample::mtInnovation::D_),(int)(TestFixture::mtUpdateExample::mtNoise::D_));
+  Eigen::MatrixXd H_FD((int)(TestFixture::mtUpdateExample::mtInnovation::D_),(int)(TestFixture::mtUpdateExample::mtNoise::D_));
+  this->testUpdate_.template jacInputFD<1>(H_FD,std::forward_as_tuple(this->testState_,n),this->dt_,0.0000001);
+  this->testUpdate_.template jacInput<1>(H,std::forward_as_tuple(this->testState_,n));
   switch(TestFixture::id_){
     case 0:
       ASSERT_NEAR((F-F_FD).norm(),0.0,1e-5);
@@ -88,16 +93,16 @@ TYPED_TEST(UpdateModelTest, FDjacobians) {
 
 // Test performUpdateEKF
 TYPED_TEST(UpdateModelTest, performUpdateEKF) {
+  this->testUpdate_.meas_ = this->testUpdateMeas_;
   typename TestFixture::mtUpdateExample::mtFilterState filterState;
-  typename TestFixture::mtUpdateExample::mtState::mtCovMat updateCov;
   filterState.cov_.setIdentity();
-  typename TestFixture::mtUpdateExample::mtJacInput H;
-  this->testUpdate_.jacInput(H,this->testState_,this->testUpdateMeas_);
-  typename TestFixture::mtUpdateExample::mtJacNoise Hn;
-  this->testUpdate_.jacNoise(Hn,this->testState_,this->testUpdateMeas_);
+  Eigen::MatrixXd H((int)(TestFixture::mtUpdateExample::mtInnovation::D_),(int)(TestFixture::mtUpdateExample::mtState::D_));
+  this->testUpdate_.jacState(H,this->testState_);
+  Eigen::MatrixXd Hn((int)(TestFixture::mtUpdateExample::mtInnovation::D_),(int)(TestFixture::mtUpdateExample::mtNoise::D_));
+  this->testUpdate_.jacNoise(Hn,this->testState_);
 
   typename TestFixture::mtUpdateExample::mtInnovation y;
-  this->testUpdate_.eval(y,this->testState_,this->testUpdateMeas_);
+  this->testUpdate_.evalInnovationShort(y,this->testState_);
   typename TestFixture::mtUpdateExample::mtInnovation yIdentity;
   yIdentity.setIdentity();
   typename TestFixture::mtUpdateExample::mtInnovation::mtDifVec innVector;
@@ -106,13 +111,13 @@ TYPED_TEST(UpdateModelTest, performUpdateEKF) {
   filterState.state_ = this->testState_;
 
   // Update
-  typename TestFixture::mtUpdateExample::mtInnovation::mtCovMat Py = H*filterState.cov_*H.transpose() + Hn*this->testUpdate_.updnoiP_*Hn.transpose();
+  MXD Py = H*filterState.cov_*H.transpose() + Hn*this->testUpdate_.updnoiP_*Hn.transpose();
   y.boxMinus(yIdentity,innVector);
-  typename TestFixture::mtUpdateExample::mtInnovation::mtCovMat Pyinv = typename TestFixture::mtUpdateExample::mtInnovation::mtCovMat::Base(Py.inverse());
+  MXD Pyinv = Py.inverse();
 
   // Kalman Update
   Eigen::Matrix<double,TestFixture::mtUpdateExample::mtState::D_,TestFixture::mtUpdateExample::mtInnovation::D_> K = filterState.cov_*H.transpose()*Pyinv;
-  updateCov = filterState.cov_ - K*Py*K.transpose();
+  MXD updateCov = filterState.cov_ - K*Py*K.transpose();
   typename TestFixture::mtUpdateExample::mtState::mtDifVec updateVec;
   updateVec = -K*innVector;
   filterState.state_.boxPlus(updateVec,stateUpdated);
@@ -137,16 +142,16 @@ TYPED_TEST(UpdateModelTest, performUpdateEKF) {
 
 // Test updateEKFWithOutlier
 TYPED_TEST(UpdateModelTest, updateEKFWithOutlier) {
+  this->testUpdate_.meas_ = this->testUpdateMeas_;
   typename TestFixture::mtUpdateExample::mtFilterState filterState;
-  typename TestFixture::mtUpdateExample::mtState::mtCovMat updateCov;
   filterState.cov_.setIdentity();
-  typename TestFixture::mtUpdateExample::mtJacInput H;
-  this->testUpdate_.jacInput(H,this->testState_,this->testUpdateMeas_,this->dt_);
-  typename TestFixture::mtUpdateExample::mtJacNoise Hn;
-  this->testUpdate_.jacNoise(Hn,this->testState_,this->testUpdateMeas_,this->dt_);
+  Eigen::MatrixXd H((int)(TestFixture::mtUpdateExample::mtInnovation::D_),(int)(TestFixture::mtUpdateExample::mtState::D_));
+  this->testUpdate_.jacState(H,this->testState_);
+  Eigen::MatrixXd Hn((int)(TestFixture::mtUpdateExample::mtInnovation::D_),(int)(TestFixture::mtUpdateExample::mtNoise::D_));
+  this->testUpdate_.jacNoise(Hn,this->testState_);
 
   typename TestFixture::mtUpdateExample::mtInnovation y;
-  this->testUpdate_.eval(y,this->testState_,this->testUpdateMeas_);
+  this->testUpdate_.evalInnovationShort(y,this->testState_);
   typename TestFixture::mtUpdateExample::mtInnovation yIdentity;
   yIdentity.setIdentity();
   typename TestFixture::mtUpdateExample::mtInnovation::mtDifVec innVector;
@@ -155,17 +160,17 @@ TYPED_TEST(UpdateModelTest, updateEKFWithOutlier) {
   filterState.state_ = this->testState_;
 
   // Update
-  typename TestFixture::mtUpdateExample::mtInnovation::mtCovMat Py = H*filterState.cov_*H.transpose() + Hn*this->testUpdate_.updnoiP_*Hn.transpose();
+  MXD Py = H*filterState.cov_*H.transpose() + Hn*this->testUpdate_.updnoiP_*Hn.transpose();
   y.boxMinus(yIdentity,innVector);
   Py.block(0,0,TestFixture::mtUpdateExample::mtInnovation::D_,3).setZero();
   Py.block(0,0,3,TestFixture::mtUpdateExample::mtInnovation::D_).setZero();
   Py.block(0,0,3,3).setIdentity();
   H.block(0,0,3,TestFixture::mtUpdateExample::mtState::D_).setZero();
-  typename TestFixture::mtUpdateExample::mtInnovation::mtCovMat Pyinv = typename TestFixture::mtUpdateExample::mtInnovation::mtCovMat::Base(Py.inverse());
+  MXD Pyinv = Py.inverse();
 
   // Kalman Update
   Eigen::Matrix<double,TestFixture::mtUpdateExample::mtState::D_,TestFixture::mtUpdateExample::mtInnovation::D_> K = filterState.cov_*H.transpose()*Pyinv;
-  updateCov = filterState.cov_ - K*Py*K.transpose();
+  MXD updateCov = filterState.cov_ - K*Py*K.transpose();
   typename TestFixture::mtUpdateExample::mtState::mtDifVec updateVec;
   updateVec = -K*innVector;
   filterState.state_.boxPlus(updateVec,stateUpdated);
@@ -193,8 +198,9 @@ TYPED_TEST(UpdateModelTest, updateEKFWithOutlier) {
 TYPED_TEST(UpdateModelTest, compareUpdate) {
   typename TestFixture::mtUpdateExample::mtFilterState filterState1;
   typename TestFixture::mtUpdateExample::mtFilterState filterState2;
-  filterState1.cov_ = TestFixture::mtUpdateExample::mtState::mtCovMat::Identity()*0.000001;
-  filterState2.cov_ = TestFixture::mtUpdateExample::mtState::mtCovMat::Identity()*0.000001;
+  filterState1.cov_.setIdentity();
+  filterState1.cov_ = filterState1.cov_*0.000001;
+  filterState2.cov_ = filterState1.cov_;
   filterState1.state_ = this->testState_;
   filterState2.state_ = this->testState_;
   this->testUpdate_.performUpdateEKF(filterState1,this->testUpdateMeas_);
@@ -216,8 +222,9 @@ TYPED_TEST(UpdateModelTest, compareUpdate) {
   }
 
   // Test with outlier detection
-  filterState1.cov_ = TestFixture::mtUpdateExample::mtState::mtCovMat::Identity()*0.000001;
-  filterState2.cov_ = TestFixture::mtUpdateExample::mtState::mtCovMat::Identity()*0.000001;
+  filterState1.cov_.setIdentity();
+  filterState1.cov_ = filterState1.cov_*0.000001;
+  filterState2.cov_ = filterState1.cov_;
   filterState1.state_ = this->testState_;
   filterState2.state_ = this->testState_;
   this->testUpdate_.outlierDetection_.setEnabledAll(true);
@@ -243,7 +250,8 @@ TYPED_TEST(UpdateModelTest, compareUpdate) {
 TYPED_TEST(UpdateModelTest, performPredictionAndUpdateEKF) { // Only tested without cross-correlation
   typename TestFixture::mtUpdateExample::mtFilterState filterState1;
   typename TestFixture::mtUpdateExample::mtFilterState filterState2;
-  filterState1.cov_ = TestFixture::mtUpdateExample::mtState::mtCovMat::Identity()*0.000001;
+  filterState1.cov_.setIdentity();
+  filterState1.cov_ = filterState1.cov_*0.000001;
   filterState2.cov_ = filterState1.cov_;
   filterState1.state_ = this->testState_;
   filterState2.state_ = this->testState_;
@@ -268,7 +276,8 @@ TYPED_TEST(UpdateModelTest, performPredictionAndUpdateEKF) { // Only tested with
   }
 
   // With outlier
-  filterState1.cov_ = TestFixture::mtUpdateExample::mtState::mtCovMat::Identity()*0.000001;
+  filterState1.cov_.setIdentity();
+  filterState1.cov_ = filterState1.cov_*0.000001;
   filterState2.cov_ = filterState1.cov_;
   filterState1.state_ = this->testState_;
   filterState2.state_ = this->testState_;
@@ -298,7 +307,8 @@ TYPED_TEST(UpdateModelTest, performPredictionAndUpdateEKF) { // Only tested with
 TYPED_TEST(UpdateModelTest, performPredictionAndUpdateUKF) {
   typename TestFixture::mtUpdateExample::mtFilterState filterState1;
   typename TestFixture::mtUpdateExample::mtFilterState filterState2;
-  filterState1.cov_ = TestFixture::mtUpdateExample::mtState::mtCovMat::Identity()*0.000001;
+  filterState1.cov_.setIdentity();
+  filterState1.cov_ = filterState1.cov_*0.000001;
   filterState2.cov_ = filterState1.cov_;
   filterState1.state_ = this->testState_;
   filterState2.state_ = this->testState_;
@@ -323,7 +333,8 @@ TYPED_TEST(UpdateModelTest, performPredictionAndUpdateUKF) {
   }
 
   // With outlier
-  filterState1.cov_ = TestFixture::mtUpdateExample::mtState::mtCovMat::Identity()*0.000001;
+  filterState1.cov_.setIdentity();
+  filterState1.cov_ = filterState1.cov_*0.000001;
   filterState2.cov_ = filterState1.cov_;
   filterState1.state_ = this->testState_;
   filterState2.state_ = this->testState_;
@@ -353,7 +364,8 @@ TYPED_TEST(UpdateModelTest, performPredictionAndUpdateUKF) {
 TYPED_TEST(UpdateModelTest, comparePredictAndUpdate) {
   typename TestFixture::mtUpdateExample::mtFilterState filterState1;
   typename TestFixture::mtUpdateExample::mtFilterState filterState2;
-  filterState1.cov_ = TestFixture::mtUpdateExample::mtState::mtCovMat::Identity()*0.0001;
+  filterState1.cov_.setIdentity();
+  filterState1.cov_ = filterState1.cov_*0.0001;
   filterState2.cov_ = filterState1.cov_;
   filterState1.state_ = this->testState_;
   filterState2.state_ = this->testState_;
@@ -366,7 +378,7 @@ TYPED_TEST(UpdateModelTest, comparePredictAndUpdate) {
   switch(TestFixture::id_){
     case 0:
       ASSERT_NEAR(dif.norm(),0.0,2e-2);
-      ASSERT_NEAR((filterState1.cov_-filterState2.cov_).norm(),0.0,8e-5);
+      ASSERT_NEAR((filterState1.cov_-filterState2.cov_).norm(),0.0,2e-4);
       break;
     case 1:
       ASSERT_NEAR(dif.norm(),0.0,1e-9);
@@ -378,7 +390,8 @@ TYPED_TEST(UpdateModelTest, comparePredictAndUpdate) {
   }
 
   // Negativ Control (Based on above)
-  filterState1.cov_ = TestFixture::mtUpdateExample::mtState::mtCovMat::Identity()*0.0001;
+  filterState1.cov_.setIdentity();
+  filterState1.cov_ = filterState1.cov_*0.0001;
   filterState2.cov_ = filterState1.cov_;
   filterState1.state_ = this->testState_;
   filterState2.state_ = this->testState_;
@@ -402,7 +415,8 @@ TYPED_TEST(UpdateModelTest, comparePredictAndUpdate) {
       ASSERT_TRUE((filterState1.cov_-filterState2.cov_).norm()>7e-5);
   }
 
-  filterState1.cov_ = TestFixture::mtUpdateExample::mtState::mtCovMat::Identity()*0.0001;
+  filterState1.cov_.setIdentity();
+  filterState1.cov_ = filterState1.cov_*0.0001;
   filterState2.cov_ = filterState1.cov_;
   filterState1.state_ = this->testState_;
   filterState2.state_ = this->testState_;
@@ -414,7 +428,7 @@ TYPED_TEST(UpdateModelTest, comparePredictAndUpdate) {
   switch(TestFixture::id_){
     case 0:
       ASSERT_NEAR(dif.norm(),0.0,2e-2);
-      ASSERT_NEAR((filterState1.cov_-filterState2.cov_).norm(),0.0,8e-5);
+      ASSERT_NEAR((filterState1.cov_-filterState2.cov_).norm(),0.0,2e-4);
       break;
     case 1:
       ASSERT_NEAR(dif.norm(),0.0,1e-9);
@@ -434,7 +448,8 @@ TYPED_TEST(UpdateModelTest, performUpdateLEKF1) {
   typename TestFixture::mtUpdateExample::mtState linState;
   linState = this->testState_;
 
-  filterState1.cov_ = TestFixture::mtUpdateExample::mtState::mtCovMat::Identity()*0.0001;
+  filterState1.cov_.setIdentity();
+  filterState1.cov_ = filterState1.cov_*0.0001;
   filterState2.cov_ = filterState1.cov_;
   filterState1.state_ = this->testState_;
   filterState2.state_ = this->testState_;
@@ -468,7 +483,8 @@ TYPED_TEST(UpdateModelTest, performUpdateLEKF2) {
   typename TestFixture::mtUpdateExample::mtState linState;
   linState = this->testState_;
 
-  filterState1.cov_ = TestFixture::mtUpdateExample::mtState::mtCovMat::Identity()*0.0001;
+  filterState1.cov_.setIdentity();
+  filterState1.cov_ = filterState1.cov_*0.0001;
   filterState2.cov_ = filterState1.cov_;
   filterState1.state_ = this->testState_;
   filterState2.state_ = this->testState_;
@@ -495,6 +511,7 @@ TYPED_TEST(UpdateModelTest, performUpdateLEKF2) {
 
 // Test performUpdateLEKF3 (linearization point <> prediction, general)
 TYPED_TEST(UpdateModelTest, performUpdateLEKF3) {
+  this->testUpdate_.meas_ = this->testUpdateMeas_;
   // Linearization point
   typename TestFixture::mtUpdateExample::mtFilterState filterState;
   filterState.state_ = this->testState_;
@@ -502,23 +519,22 @@ TYPED_TEST(UpdateModelTest, performUpdateLEKF3) {
   unsigned int s = 2;
   linState.setRandom(s);
 
-  typename TestFixture::mtUpdateExample::mtState::mtCovMat updateCov;
   filterState.cov_.setIdentity();
-  typename TestFixture::mtUpdateExample::mtJacInput H;
-  this->testUpdate_.jacInput(H,linState,this->testUpdateMeas_,this->dt_);
-  typename TestFixture::mtUpdateExample::mtJacInput Hlin;
+  Eigen::MatrixXd H((int)(TestFixture::mtUpdateExample::mtInnovation::D_),(int)(TestFixture::mtUpdateExample::mtState::D_));
+  this->testUpdate_.jacState(H,linState);
+  Eigen::MatrixXd Hlin((int)(TestFixture::mtUpdateExample::mtInnovation::D_),(int)(TestFixture::mtUpdateExample::mtState::D_));
   if(this->testUpdate_.useImprovedJacobian_){
-    typename TestFixture::mtUpdateExample::mtState::mtCovMat boxMinusJac;
+    MXD boxMinusJac((int)TestFixture::mtState::D_,(int)TestFixture::mtState::D_);
     filterState.state_.boxMinusJac(linState,boxMinusJac);
     Hlin = H*boxMinusJac;
   } else {
     Hlin = H;
   }
-  typename TestFixture::mtUpdateExample::mtJacNoise Hn;
-  this->testUpdate_.jacNoise(Hn,linState,this->testUpdateMeas_,this->dt_);
+  Eigen::MatrixXd Hn((int)(TestFixture::mtUpdateExample::mtInnovation::D_),(int)(TestFixture::mtUpdateExample::mtNoise::D_));
+  this->testUpdate_.jacNoise(Hn,linState);
 
   typename TestFixture::mtUpdateExample::mtInnovation y;
-  this->testUpdate_.eval(y,linState,this->testUpdateMeas_);
+  this->testUpdate_.evalInnovationShort(y,linState);
   typename TestFixture::mtUpdateExample::mtInnovation yIdentity;
   yIdentity.setIdentity();
   typename TestFixture::mtUpdateExample::mtInnovation::mtDifVec innVector;
@@ -526,13 +542,13 @@ TYPED_TEST(UpdateModelTest, performUpdateLEKF3) {
   typename TestFixture::mtUpdateExample::mtState stateUpdated;
 
   // Update
-  typename TestFixture::mtUpdateExample::mtInnovation::mtCovMat Py = Hlin*filterState.cov_*Hlin.transpose() + Hn*this->testUpdate_.updnoiP_*Hn.transpose();
+  MXD Py = Hlin*filterState.cov_*Hlin.transpose() + Hn*this->testUpdate_.updnoiP_*Hn.transpose();
   y.boxMinus(yIdentity,innVector);
-  typename TestFixture::mtUpdateExample::mtInnovation::mtCovMat Pyinv = typename TestFixture::mtUpdateExample::mtInnovation::mtCovMat::Base(Py.inverse());
+  MXD Pyinv = Py.inverse();
 
   // Kalman Update
   Eigen::Matrix<double,TestFixture::mtUpdateExample::mtState::D_,TestFixture::mtUpdateExample::mtInnovation::D_> K = filterState.cov_*Hlin.transpose()*Pyinv;
-  updateCov = filterState.cov_ - K*Py*K.transpose();
+  MXD updateCov = filterState.cov_ - K*Py*K.transpose();
   typename TestFixture::mtUpdateExample::mtState::mtDifVec updateVec;
   typename TestFixture::mtUpdateExample::mtState::mtDifVec difVecLin;
   linState.boxMinus(filterState.state_,difVecLin);
@@ -565,7 +581,8 @@ TYPED_TEST(UpdateModelTest, performUpdateLEKF3) {
 TYPED_TEST(UpdateModelTest, performUpdateIEKF1) {
   typename TestFixture::mtUpdateExample::mtFilterState filterState1;
   typename TestFixture::mtUpdateExample::mtFilterState filterState2;
-  filterState1.cov_ = TestFixture::mtUpdateExample::mtState::mtCovMat::Identity()*0.0001;
+  filterState1.cov_.setIdentity();
+  filterState1.cov_ = filterState1.cov_*0.0001;
   filterState2.cov_ = filterState1.cov_;
   filterState1.state_ = this->testState_;
   filterState2.state_ = this->testState_;
@@ -589,15 +606,15 @@ TYPED_TEST(UpdateModelTest, performUpdateIEKF1) {
 
 // Test performUpdateIEKF2 (general test)
 TYPED_TEST(UpdateModelTest, performUpdateIEKF2) {
+  this->testUpdate_.meas_ = this->testUpdateMeas_;
   typename TestFixture::mtUpdateExample::mtFilterState filterState;
   // Linearization point
   typename TestFixture::mtUpdateExample::mtState linState;
   linState = this->testState_;
 
-  typename TestFixture::mtUpdateExample::mtState::mtCovMat updateCov;
   filterState.cov_.setIdentity();
-  typename TestFixture::mtUpdateExample::mtJacInput H;
-  typename TestFixture::mtUpdateExample::mtJacNoise Hn;
+  Eigen::MatrixXd H((int)(TestFixture::mtUpdateExample::mtInnovation::D_),(int)(TestFixture::mtUpdateExample::mtState::D_));
+  Eigen::MatrixXd Hn((int)(TestFixture::mtUpdateExample::mtInnovation::D_),(int)(TestFixture::mtUpdateExample::mtNoise::D_));
 
   typename TestFixture::mtUpdateExample::mtInnovation y;
   typename TestFixture::mtUpdateExample::mtInnovation yIdentity;
@@ -607,33 +624,33 @@ TYPED_TEST(UpdateModelTest, performUpdateIEKF2) {
   typename TestFixture::mtUpdateExample::mtState stateUpdated;
   filterState.state_ = this->testState_;
 
-  typename TestFixture::mtUpdateExample::mtInnovation::mtCovMat Py;
-  typename TestFixture::mtUpdateExample::mtInnovation::mtCovMat Pyinv;
+  MXD Py;
+  MXD Pyinv;
   Eigen::Matrix<double,TestFixture::mtUpdateExample::mtState::D_,TestFixture::mtUpdateExample::mtInnovation::D_> K;
   typename TestFixture::mtUpdateExample::mtState::mtDifVec updateVec;
   typename TestFixture::mtUpdateExample::mtState::mtDifVec difVecLin;
 
   double updateVecNorm = this->testUpdate_.updateVecNormTermination_;
   for(unsigned int i=0;i<this->testUpdate_.maxNumIteration_ & updateVecNorm>=this->testUpdate_.updateVecNormTermination_;i++){
-    this->testUpdate_.jacInput(H,linState,this->testUpdateMeas_,this->dt_);
-    this->testUpdate_.jacNoise(Hn,linState,this->testUpdateMeas_,this->dt_);
+    this->testUpdate_.jacState(H,linState);
+    this->testUpdate_.jacNoise(Hn,linState);
 
-    this->testUpdate_.eval(y,linState,this->testUpdateMeas_);
+    this->testUpdate_.evalInnovationShort(y,linState);
 
     // Update
     Py = H*filterState.cov_*H.transpose() + Hn*this->testUpdate_.updnoiP_*Hn.transpose();
     y.boxMinus(yIdentity,innVector);
-    Pyinv = typename TestFixture::mtUpdateExample::mtInnovation::mtCovMat::Base(Py.inverse());
+    Pyinv = Py.inverse();
 
     // Kalman Update
     K = filterState.cov_*H.transpose()*Pyinv;
-    linState.boxMinus(filterState.state_,difVecLin);
-    updateVec = -K*(innVector-H*difVecLin);
-    filterState.state_.boxPlus(updateVec,linState);
+    filterState.state_.boxMinus(linState,difVecLin);
+    updateVec = -K*(innVector+H*difVecLin)+difVecLin;
+    linState.boxPlus(updateVec,linState);
     updateVecNorm = updateVec.norm();
   }
   stateUpdated = linState;
-  updateCov = filterState.cov_ - K*Py*K.transpose();
+  MXD updateCov = filterState.cov_ - K*Py*K.transpose();
 
   this->testUpdate_.performUpdateIEKF(filterState,this->testUpdateMeas_);
   typename TestFixture::mtUpdateExample::mtState::mtDifVec dif;

@@ -6,7 +6,7 @@
 // The fixture for testing class ScalarState
 class ScalarElementTest : public virtual ::testing::Test {
  protected:
-  ScalarElementTest() {
+  ScalarElementTest():covMat_(1,1) {
     unsigned int s = 1;
     testElement1_.setRandom(s);
     testElement2_.setRandom(s);
@@ -16,7 +16,7 @@ class ScalarElementTest : public virtual ::testing::Test {
   LWF::ScalarElement testElement1_;
   LWF::ScalarElement testElement2_;
   LWF::ScalarElement::mtDifVec difVec_;
-  LWF::ScalarElement::mtCovMat covMat_;
+  MXD covMat_;
 };
 
 // Test constructors
@@ -43,7 +43,7 @@ TEST_F(ScalarElementTest, plusAndMinus) {
 // Test minus Jacobian
 TEST_F(ScalarElementTest, minusJac) {
   testElement2_.boxMinusJac(testElement1_,covMat_);
-  ASSERT_NEAR((covMat_-LWF::ScalarElement::mtCovMat::Identity()).norm(),0.0,1e-6);
+  ASSERT_NEAR((covMat_-Eigen::Matrix<double,1,1>::Identity()).norm(),0.0,1e-6);
 }
 
 // Test getValue
@@ -60,7 +60,7 @@ TEST_F(ScalarElementTest, operatorEQ) {
 // The fixture for testing class VectorState
 class VectorElementTest : public virtual ::testing::Test {
  protected:
-  VectorElementTest() {
+  VectorElementTest():covMat_((int)N_,(int)N_) {
     unsigned int s = 1;
     testElement1_.setRandom(s);
     testElement2_.setRandom(s);
@@ -71,7 +71,7 @@ class VectorElementTest : public virtual ::testing::Test {
   LWF::VectorElement<N_> testElement1_;
   LWF::VectorElement<N_> testElement2_;
   LWF::VectorElement<N_>::mtDifVec difVec_;
-  LWF::VectorElement<N_>::mtCovMat covMat_;
+  MXD covMat_;
 };
 
 // Test constructors
@@ -98,7 +98,7 @@ TEST_F(VectorElementTest, plusAndMinus) {
 // Test minus Jacobian
 TEST_F(VectorElementTest, minusJac) {
   testElement2_.boxMinusJac(testElement1_,covMat_);
-  ASSERT_NEAR((covMat_-LWF::VectorElement<N_>::mtCovMat::Identity()).norm(),0.0,1e-6);
+  ASSERT_NEAR((covMat_-Eigen::Matrix<double,N_,N_>::Identity()).norm(),0.0,1e-6);
 }
 
 // Test getValue
@@ -115,7 +115,7 @@ TEST_F(VectorElementTest, operatorEQ) {
 // The fixture for testing class QuaternionElementTest
 class QuaternionElementTest : public virtual ::testing::Test {
  protected:
-  QuaternionElementTest() {
+  QuaternionElementTest():covMat_(3,3) {
     unsigned int s = 1;
     testElement1_.setRandom(s);
     testElement2_.setRandom(s);
@@ -129,7 +129,7 @@ class QuaternionElementTest : public virtual ::testing::Test {
   LWF::QuaternionElement::mtDifVec difVecIn_;
   LWF::QuaternionElement::mtDifVec difVecOut1_;
   LWF::QuaternionElement::mtDifVec difVecOut2_;
-  LWF::QuaternionElement::mtCovMat covMat_;
+  MXD covMat_;
 };
 
 // Test constructors
@@ -221,13 +221,13 @@ TEST_F(QuaternionElementTest, DerivativeOfRotation) {
     b_disturbed = attDisturbed.q_.rotate(a);
     J.col(i) = (b_disturbed-b)/d;
   }
-  ASSERT_NEAR((J-gSM(b)).norm(),0.0,1e-5);
+  ASSERT_NEAR((J+gSM(b)).norm(),0.0,1e-5);
 }
 
 // The fixture for testing class NormalVectorElementTest
 class NormalVectorElementTest : public virtual ::testing::Test {
  protected:
-  NormalVectorElementTest() {
+  NormalVectorElementTest():covMat_(2,2) {
     unsigned int s = 1;
     testElement1_.setRandom(s);
     testElement2_.setRandom(s);
@@ -241,7 +241,7 @@ class NormalVectorElementTest : public virtual ::testing::Test {
   LWF::NormalVectorElement::mtDifVec difVecIn_;
   LWF::NormalVectorElement::mtDifVec difVecOut1_;
   LWF::NormalVectorElement::mtDifVec difVecOut2_;
-  LWF::NormalVectorElement::mtCovMat covMat_;
+  MXD covMat_;
 };
 
 // Test constructors
@@ -276,7 +276,7 @@ TEST_F(NormalVectorElementTest, minusJac) {
     testElement3_.boxMinus(testElement1_,difVecOut2_);
     difVecOut2_ -= difVecOut1_;
     difVecOut2_ = difVecOut2_/d;
-    ASSERT_NEAR((covMat_.col(i)-difVecOut2_).norm(),0.0,1e-5);
+    ASSERT_NEAR((covMat_.col(i)-difVecOut2_).norm(),0.0,1e-4);
   }
 }
 
@@ -339,6 +339,24 @@ TEST_F(NormalVectorElementTest, getRotationFromTwoNormals) {
   ASSERT_NEAR((LWF::NormalVectorElement::getRotationFromTwoNormals(testElement1_,testElement2_)+LWF::NormalVectorElement::getRotationFromTwoNormals(testElement2_,testElement1_)).norm(),0.0,1e-6);
 }
 
+// Test getRotationFromTwoNormalsJac
+TEST_F(NormalVectorElementTest, getRotationFromTwoNormalsJac) {
+  V3D testVec1 = testElement1_.getVec();
+  V3D testVec2 = testElement2_.getVec();
+  V3D perp = testElement1_.getPerp1();
+  V3D theta = LWF::NormalVectorElement::getRotationFromTwoNormals(testVec1,testVec2,perp);
+  covMat_ = LWF::NormalVectorElement::getRotationFromTwoNormalsJac(testVec1,testVec2);
+
+  double d = 0.00001;
+  for(unsigned int i=0;i<3;i++){
+    V3D testVec3 = testVec1;
+    testVec3(i) += d;
+    V3D theta2 = LWF::NormalVectorElement::getRotationFromTwoNormals(testVec3,testVec2,perp);
+    V3D diff = (theta2-theta)/d;
+    ASSERT_NEAR((covMat_.col(i)-diff).norm(),0.0,1e-4);
+  }
+}
+
 // Test derivative of boxminus (includes test of derivative of getRotationFromTwoNormals)
 TEST_F(NormalVectorElementTest, derivativeBoxMinus) {
   const double d  = 1e-6;
@@ -358,13 +376,13 @@ TEST_F(NormalVectorElementTest, derivativeBoxMinus) {
   testElement2_.boxPlus(perturbation,testElement2_perturbed);
   testElement2_perturbed.boxMinus(testElement1_,out_perturbed);
   J.col(1) = (out_perturbed-out)/d;
-  ASSERT_NEAR((testElement1_.getN().transpose()*-LWF::NormalVectorElement::getRotationFromTwoNormalsJac(testElement2_,testElement1_)*testElement2_.getM()-J).norm(),0.0,1e-6);
+  ASSERT_NEAR((testElement1_.getN().transpose()*-LWF::NormalVectorElement::getRotationFromTwoNormalsJac(testElement2_,testElement1_)*testElement2_.getM()-J).norm(),0.0,1e-5);
 }
 
 // The fixture for testing class ArrayElementTest
 class ArrayElementTest : public virtual ::testing::Test {
  protected:
-  ArrayElementTest() {
+  ArrayElementTest():covMat_((int)N_*3,(int)N_*3) {
     unsigned int s = 1;
     testElement1_.setRandom(s);
     testElement2_.setRandom(s);
@@ -379,7 +397,7 @@ class ArrayElementTest : public virtual ::testing::Test {
   LWF::ArrayElement<LWF::QuaternionElement,N_>::mtDifVec difVecIn_;
   LWF::ArrayElement<LWF::QuaternionElement,N_>::mtDifVec difVecOut1_;
   LWF::ArrayElement<LWF::QuaternionElement,N_>::mtDifVec difVecOut2_;
-  LWF::ArrayElement<LWF::QuaternionElement,N_>::mtCovMat covMat_;
+  MXD covMat_;
 };
 
 // Test constructors
@@ -459,7 +477,7 @@ class StateTesting : public virtual ::testing::Test {
   static const unsigned int _qua0 = _vec3+1;
   static const unsigned int _qua1 = _qua0+1;
   static const unsigned int _aux = _qua1+1;
-  StateTesting() {
+  StateTesting():covMat_((int)mtState::D_,(int)mtState::D_) {
     testScalar1_ = 4.5;
     testScalar2_ = -17.34;
     testVector1_[0] << 2.1, -0.2, -1.9;
@@ -509,7 +527,7 @@ class StateTesting : public virtual ::testing::Test {
   mtState::mtDifVec difVecIn_;
   mtState::mtDifVec difVecOut1_;
   mtState::mtDifVec difVecOut2_;
-  mtState::mtCovMat covMat_;
+  MXD covMat_;
   double testScalar1_;
   double testScalar2_;
   V3D testVector1_[4];

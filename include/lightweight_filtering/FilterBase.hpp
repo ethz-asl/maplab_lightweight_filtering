@@ -8,12 +8,8 @@
 #ifndef LWF_FilterBase_HPP_
 #define LWF_FilterBase_HPP_
 
-#include <Eigen/Dense>
-#include <iostream>
-#include "lightweight_filtering/PropertyHandler.hpp"
 #include "lightweight_filtering/common.hpp"
-#include <map>
-#include <tuple>
+#include "lightweight_filtering/PropertyHandler.hpp"
 
 namespace LWF{
 
@@ -32,6 +28,10 @@ class MeasurementTimeline{
   virtual ~MeasurementTimeline(){};
   void addMeas(const mtMeas& meas, const double& t){
     measMap_[t] = meas;
+  }
+  void clear()
+  {
+    measMap_.clear();
   }
   void clean(double t){
     while(measMap_.size() > 1 && measMap_.begin()->first<=t){
@@ -75,7 +75,7 @@ class FilterBase: public PropertyHandler{
   typedef Prediction mtPrediction;
   typedef typename mtPrediction::mtState mtState;
   static const unsigned int D_ = mtState::D_;
-  static const unsigned int nUpdates_ = sizeof...(Updates);
+  static const int nUpdates_ = sizeof...(Updates);
   typedef typename mtPrediction::mtFilterState mtFilterState;
   mtFilterState safe_;
   mtFilterState front_;
@@ -83,10 +83,12 @@ class FilterBase: public PropertyHandler{
   MeasurementTimeline<typename mtPrediction::mtMeas> predictionTimeline_;
   std::tuple<MeasurementTimeline<typename Updates::mtMeas>...> updateTimelineTuple_;
   mtPrediction mPrediction_;
-  std::tuple<Updates...> mUpdates_;
+  typedef std::tuple<Updates...> mtUpdates;
+  mtUpdates mUpdates_;
   double safeWarningTime_;
   double frontWarningTime_;
   bool gotFrontWarning_;
+  bool updateToUpdateMeasOnly_;
   unsigned int logCountMerPre_;
   unsigned int logCountRegPre_;
   unsigned int logCountBadPre_;
@@ -105,6 +107,7 @@ class FilterBase: public PropertyHandler{
     registerUpdates();
     reset();
     logCountDiagnostics_ = false;
+    updateToUpdateMeasOnly_ = false;
   };
   virtual ~FilterBase(){
   };
@@ -117,16 +120,14 @@ class FilterBase: public PropertyHandler{
     frontWarningTime_ = t;
     gotFrontWarning_ = false;
   }
-  template<unsigned int i=0, typename std::enable_if<(i<nUpdates_-1)>::type* = nullptr>
+  template<int i=0, typename std::enable_if<(i<nUpdates_)>::type* = nullptr>
   void registerUpdates(){
     registerSubHandler("Update" + std::to_string(i),std::get<i>(mUpdates_));
     std::get<i>(mUpdates_).outlierDetection_.registerToPropertyHandler(&std::get<i>(mUpdates_),"MahalanobisTh");
     registerUpdates<i+1>();
   }
-  template<unsigned int i=0, typename std::enable_if<(i==nUpdates_-1)>::type* = nullptr>
+  template<int i=0, typename std::enable_if<(i>=nUpdates_)>::type* = nullptr>
   void registerUpdates(){
-    registerSubHandler("Update" + std::to_string(i),std::get<i>(mUpdates_));
-    std::get<i>(mUpdates_).outlierDetection_.registerToPropertyHandler(&std::get<i>(mUpdates_),"MahalanobisTh");
   }
   void addPredictionMeas(const typename Prediction::mtMeas& meas, double t){
     if(t<= safeWarningTime_) {
@@ -136,7 +137,7 @@ class FilterBase: public PropertyHandler{
     if(t<= frontWarningTime_) gotFrontWarning_ = true;
     predictionTimeline_.addMeas(meas,t);
   }
-  template<unsigned int i=0, typename std::enable_if<(i<nUpdates_)>::type* = nullptr>
+  template<int i>
   void addUpdateMeas(const typename std::tuple_element<i,decltype(mUpdates_)>::type::mtMeas& meas, double t){
     if(t<= safeWarningTime_) {
       std::cout << "[FilterBase::addUpdateMeas] Warning: included measurements at time " << t << " before safeTime " << safeWarningTime_ << std::endl;
@@ -159,14 +160,13 @@ class FilterBase: public PropertyHandler{
     }
     return true;
   }
-  template<unsigned int i=0, typename std::enable_if<(i<nUpdates_-1)>::type* = nullptr>
+  template<int i=0, typename std::enable_if<(i<nUpdates_)>::type* = nullptr>
   void checkUpdateWaitTime(double actualTime,double& time){
     std::get<i>(updateTimelineTuple_).waitTime(actualTime,time);
     checkUpdateWaitTime<i+1>(actualTime,time);
   }
-  template<unsigned int i=0, typename std::enable_if<(i==nUpdates_-1)>::type* = nullptr>
+  template<int i=0, typename std::enable_if<(i>=nUpdates_)>::type* = nullptr>
   void checkUpdateWaitTime(double actualTime,double& time){
-    std::get<i>(updateTimelineTuple_).waitTime(actualTime,time);
   }
   void updateSafe(const double* maxTime = nullptr){
     double nextSafeTime;
@@ -182,8 +182,8 @@ class FilterBase: public PropertyHandler{
       safe_ = front_;
     }
     update(safe_,nextSafeTime);
-    clean(nextSafeTime);
-    safeWarningTime_ = nextSafeTime;
+    clean(safe_.t_);
+    safeWarningTime_ = safe_.t_;
     if(logCountDiagnostics_){
       std::cout << "Performed safe Update with RegPre: " << logCountRegPre_ << ", MerPre: " << logCountMerPre_ << ", BadPre: " << logCountBadPre_ << ", RegUpd: " << logCountRegUpd_ << ", ComUpd: " << logCountComUpd_ << std::endl;
     }
@@ -194,7 +194,7 @@ class FilterBase: public PropertyHandler{
       front_ = safe_;
     }
     update(front_,tEnd);
-    frontWarningTime_ = tEnd;
+    frontWarningTime_ = front_.t_;
     gotFrontWarning_ = false;
   }
   void update(mtFilterState& filterState,const double& tEnd){
@@ -206,7 +206,9 @@ class FilterBase: public PropertyHandler{
     logCountRegUpd_ = 0;
     while(filterState.t_<tEnd){
       tNext = tEnd;
-      getNextUpdate(filterState.t_,tNext);
+      if(!getNextUpdate(filterState.t_,tNext) && updateToUpdateMeasOnly_){
+        break; // Don't go further if there is no update available
+      }
       int r = 0;
       if(filterState.usePredictionMerge_){
         r = mPrediction_.predictMerged(filterState,tNext,predictionTimeline_.measMap_);
@@ -227,18 +229,21 @@ class FilterBase: public PropertyHandler{
       doAvailableUpdates(filterState,tNext);
     }
   }
-  template<unsigned int i=0, typename std::enable_if<(i<nUpdates_-1)>::type* = nullptr>
-  void getNextUpdate(double actualTime, double& nextTime){
+  template<int i=0, typename std::enable_if<(i<nUpdates_)>::type* = nullptr>
+  bool getNextUpdate(double actualTime, double& nextTime){
     double tNextUpdate;
-    if(std::get<i>(updateTimelineTuple_).getNextTime(actualTime,tNextUpdate) && tNextUpdate < nextTime) nextTime = tNextUpdate;
-    getNextUpdate<i+1>(actualTime, nextTime);
+    bool gotMatchingUpdate = false;
+    if(std::get<i>(updateTimelineTuple_).getNextTime(actualTime,tNextUpdate) && tNextUpdate < nextTime){
+      gotMatchingUpdate = true;
+      nextTime = tNextUpdate;
+    }
+    return gotMatchingUpdate | getNextUpdate<i+1>(actualTime, nextTime);
   }
-  template<unsigned int i=0, typename std::enable_if<(i==nUpdates_-1)>::type* = nullptr>
-  void getNextUpdate(double actualTime, double& nextTime){
-    double tNextUpdate;
-    if(std::get<i>(updateTimelineTuple_).getNextTime(actualTime,tNextUpdate) && tNextUpdate < nextTime) nextTime = tNextUpdate;
+  template<int i=0, typename std::enable_if<(i>=nUpdates_)>::type* = nullptr>
+  bool getNextUpdate(double actualTime, double& nextTime){
+    return false;
   }
-  template<unsigned int i=0, typename std::enable_if<(i<nUpdates_)>::type* = nullptr>
+  template<int i=0, typename std::enable_if<(i<nUpdates_)>::type* = nullptr>
   void doAvailableUpdates(mtFilterState& filterState, double tNext){
     if(std::get<i>(updateTimelineTuple_).hasMeasurementAt(tNext)){
           int r = std::get<i>(mUpdates_).performUpdate(filterState,std::get<i>(updateTimelineTuple_).measMap_[tNext]);
@@ -247,21 +252,20 @@ class FilterBase: public PropertyHandler{
     }
     doAvailableUpdates<i+1>(filterState,tNext);
   }
-  template<unsigned int i=0, typename std::enable_if<(i>=nUpdates_)>::type* = nullptr>
+  template<int i=0, typename std::enable_if<(i>=nUpdates_)>::type* = nullptr>
   void doAvailableUpdates(mtFilterState& filterState, double tNext){
   }
   void clean(const double& t){
     predictionTimeline_.clean(t);
     cleanUpdateTimeline(t);
   }
-  template<unsigned int i=0, typename std::enable_if<(i<nUpdates_-1)>::type* = nullptr>
+  template<int i=0, typename std::enable_if<(i<nUpdates_)>::type* = nullptr>
   void cleanUpdateTimeline(const double& t){
     std::get<i>(updateTimelineTuple_).clean(t);
     cleanUpdateTimeline<i+1>(t);
   }
-  template<unsigned int i=0, typename std::enable_if<(i==nUpdates_-1)>::type* = nullptr>
+  template<int i=0, typename std::enable_if<(i>=nUpdates_)>::type* = nullptr>
   void cleanUpdateTimeline(const double& t){
-    std::get<i>(updateTimelineTuple_).clean(t);
   }
 };
 

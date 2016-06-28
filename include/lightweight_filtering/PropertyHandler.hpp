@@ -8,16 +8,13 @@
 #ifndef LWF_PropertyHandler_HPP_
 #define LWF_PropertyHandler_HPP_
 
-#include <Eigen/Dense>
-#include "kindr/rotations/RotationEigen.hpp"
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/info_parser.hpp>
 #include "lightweight_filtering/common.hpp"
-#include <map>
 #include <unordered_map>
 #include <unordered_set>
 
-namespace rot = kindr::rotations::eigen_impl;
+namespace rot = kindr;
 
 namespace LWF{
 
@@ -26,7 +23,7 @@ class Register{
  public:
   typedef boost::property_tree::ptree ptree;
   Register(){};
-  ~Register(){};
+  virtual ~Register(){};
   std::map<TYPE*,std::string> registerMap_;
   std::unordered_set<TYPE*> zeros_;
   void registerZero(TYPE& var){
@@ -42,7 +39,7 @@ class Register{
     registerScalar(str + "_y",var(1));
     registerScalar(str + "_z",var(2));
   }
-  void registerQuaternion(std::string str, rot::RotationQuaternion<TYPE, kindr::rotations::RotationUsage::PASSIVE>& var){
+  void registerQuaternion(std::string str, rot::RotationQuaternion<TYPE>& var){
     registerScalar(str + "_w",var.toImplementation().w());
     registerScalar(str + "_x",var.toImplementation().x());
     registerScalar(str + "_y",var.toImplementation().y());
@@ -57,14 +54,14 @@ class Register{
     }
   }
   template <typename Derived>
-  void registerDiagonalMatrix(std::string str, const Eigen::MatrixBase<Derived>& var){
+  void registerDiagonalMatrix(std::string str, Eigen::MatrixBase<Derived>& var){
     const int N = var.rows();
     for(unsigned int i=0;i<N;i++){
-      registerScalar(str + "_" + std::to_string(i),const_cast<Eigen::MatrixBase<Derived>&>(var)(i,i));
+      registerScalar(str + "_" + std::to_string(i),var(i,i));
     }
     for(unsigned int i=0;i<N;i++){
       for(unsigned int j=0;j<N;j++){
-        if(i!=j) registerZero(const_cast<Eigen::MatrixBase<Derived>&>(var)(i,j));
+        if(i!=j) registerZero(var(i,j));
       }
     }
   }
@@ -113,7 +110,7 @@ class PropertyHandler{
  public:
   typedef boost::property_tree::ptree ptree;
   PropertyHandler(){};
-  ~PropertyHandler(){};
+  virtual ~PropertyHandler(){};
   Register<bool> boolRegister_;
   Register<int> intRegister_;
   Register<double> doubleRegister_;
@@ -163,8 +160,9 @@ class PropertyHandler{
       }
     } catch (boost::property_tree::ptree_error& e){
       std::cout << "An exception occurred. " << e.what() << std::endl;
-      std::cout << "Overriding current info file with valid format." << std::endl;
-      write_info(filename,ptDefault);
+      std::string newFilename = filename + "_new";
+      std::cout << "\033[31mWriting a new info-file to " << newFilename << "\033[0m" << std::endl;
+      write_info(newFilename,ptDefault);
       refreshProperties();
       for(typename std::unordered_map<std::string,PropertyHandler*>::iterator it=subHandlers_.begin(); it != subHandlers_.end(); ++it){
         it->second->refreshProperties();

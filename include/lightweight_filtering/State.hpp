@@ -8,15 +8,11 @@
 #ifndef LWF_STATE_HPP_
 #define LWF_STATE_HPP_
 
-#include <Eigen/Dense>
-#include <iostream>
-#include "kindr/rotations/RotationEigen.hpp"
-#include "lightweight_filtering/PropertyHandler.hpp"
 #include "lightweight_filtering/common.hpp"
-#include <type_traits>
-#include <tuple>
+#include "lightweight_filtering/PropertyHandler.hpp"
+#include <random>
 
-namespace rot = kindr::rotations::eigen_impl;
+namespace rot = kindr;
 
 namespace LWF{
 
@@ -28,12 +24,11 @@ class ElementBase{
   static const unsigned int D_ = D;
   static const unsigned int E_ = E;
   typedef Eigen::Matrix<double,D_,1> mtDifVec;
-  typedef Eigen::Matrix<double,D_,D_> mtCovMat;
   typedef GET mtGet;
   std::string name_;
   virtual void boxPlus(const mtDifVec& vecIn, DERIVED& stateOut) const = 0;
   virtual void boxMinus(const DERIVED& stateIn, mtDifVec& vecOut) const = 0;
-  virtual void boxMinusJac(const DERIVED& stateIn, mtCovMat& matOut) const = 0;
+  virtual void boxMinusJac(const DERIVED& stateIn, MXD& matOut) const = 0;
   virtual void print() const = 0;
   virtual void setIdentity() = 0;
   virtual void setRandom(unsigned int& s) = 0;
@@ -50,9 +45,8 @@ class ElementBase{
   virtual mtGet& get(unsigned int i) = 0;
   virtual const mtGet& get(unsigned int i) const = 0;
   virtual void registerElementToPropertyHandler(PropertyHandler* mpPropertyHandler, const std::string& str) = 0;
-  template<int N,int j,bool useDynamicMatrix>
-  void registerCovarianceToPropertyHandler(LWFMatrix<N,N,useDynamicMatrix>& cov, PropertyHandler* mpPropertyHandler, const std::string& str){
-    assert(j+D_<=N);
+  void registerCovarianceToPropertyHandler(Eigen::MatrixXd& cov, PropertyHandler* mpPropertyHandler, const std::string& str, int j){
+    assert(j+D_<=cov.cols());
     for(unsigned int i=0;i<DERIVED::D_;i++){
       mpPropertyHandler->doubleRegister_.registerScalar(str + name_ + "_" + std::to_string(i), cov(j+i,j+i));
     }
@@ -64,7 +58,6 @@ class AuxiliaryBase: public ElementBase<AuxiliaryBase<DERIVED>,DERIVED,0>{
  public:
   typedef ElementBase<AuxiliaryBase<DERIVED>,DERIVED,0> Base;
   using typename Base::mtDifVec;
-  using typename Base::mtCovMat;
   using typename Base::mtGet;
   AuxiliaryBase(){}
   AuxiliaryBase(const AuxiliaryBase& other){}
@@ -73,7 +66,7 @@ class AuxiliaryBase: public ElementBase<AuxiliaryBase<DERIVED>,DERIVED,0>{
     static_cast<DERIVED&>(stateOut) = static_cast<const DERIVED&>(*this);
   }
   virtual void boxMinus(const AuxiliaryBase& stateIn, mtDifVec& vecOut) const{}
-  virtual void boxMinusJac(const AuxiliaryBase& stateIn, mtCovMat& matOut) const{}
+  virtual void boxMinusJac(const AuxiliaryBase& stateIn, MXD& matOut) const{}
   virtual void print() const{}
   virtual void setIdentity(){}
   virtual void setRandom(unsigned int& s){}
@@ -94,13 +87,14 @@ class ScalarElement: public ElementBase<ScalarElement,double,1>{
   ScalarElement(const ScalarElement& other){
     s_ = other.s_;
   }
+  virtual ~ScalarElement(){};
   void boxPlus(const mtDifVec& vecIn, ScalarElement& stateOut) const{
     stateOut.s_ = s_ + vecIn(0);
   }
   void boxMinus(const ScalarElement& stateIn, mtDifVec& vecOut) const{
     vecOut(0) = s_ - stateIn.s_;
   }
-  void boxMinusJac(const ScalarElement& stateIn, mtCovMat& matOut) const{
+  void boxMinusJac(const ScalarElement& stateIn, MXD& matOut) const{
     matOut.setIdentity();
   }
   void print() const{
@@ -135,7 +129,6 @@ class VectorElement: public ElementBase<VectorElement<N>,Eigen::Matrix<double,N,
  public:
   typedef ElementBase<VectorElement<N>,Eigen::Matrix<double,N,1>,N> Base;
   using typename Base::mtDifVec;
-  using typename Base::mtCovMat;
   using typename Base::mtGet;
   using Base::name_;
   static const unsigned int N_ = N;
@@ -144,13 +137,14 @@ class VectorElement: public ElementBase<VectorElement<N>,Eigen::Matrix<double,N,
   VectorElement(const VectorElement<N>& other){
     v_ = other.v_;
   }
+  virtual ~VectorElement(){};
   void boxPlus(const mtDifVec& vecIn, VectorElement<N>& stateOut) const{
     stateOut.v_ = v_ + vecIn;
   }
   void boxMinus(const VectorElement<N>& stateIn, mtDifVec& vecOut) const{
     vecOut = v_ - stateIn.v_;
   }
-  void boxMinusJac(const VectorElement<N>& stateIn, mtCovMat& matOut) const{
+  void boxMinusJac(const VectorElement<N>& stateIn, MXD& matOut) const{
     matOut.setIdentity();
   }
   void print() const{
@@ -191,13 +185,14 @@ class QuaternionElement: public ElementBase<QuaternionElement,QPD,3>{
   QuaternionElement(const QuaternionElement& other){
     q_ = other.q_;
   }
+  virtual ~QuaternionElement(){};
   void boxPlus(const mtDifVec& vecIn, QuaternionElement& stateOut) const{
     stateOut.q_ = q_.boxPlus(vecIn);
   }
   void boxMinus(const QuaternionElement& stateIn, mtDifVec& vecOut) const{
     vecOut = q_.boxMinus(stateIn.q_);
   }
-  void boxMinusJac(const QuaternionElement& stateIn, mtCovMat& matOut) const{
+  void boxMinusJac(const QuaternionElement& stateIn, MXD& matOut) const{
     mtDifVec diff;
     boxMinus(stateIn,diff);
     matOut = Lmat(diff).inverse();
@@ -236,6 +231,7 @@ class QuaternionElement: public ElementBase<QuaternionElement,QPD,3>{
 
 class NormalVectorElement: public ElementBase<NormalVectorElement,NormalVectorElement,2>{
  public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   QPD q_;
   const V3D e_x;
   const V3D e_y;
@@ -250,6 +246,7 @@ class NormalVectorElement: public ElementBase<NormalVectorElement,NormalVectorEl
   NormalVectorElement(const QPD& q): e_x(1,0,0), e_y(0,1,0), e_z(0,0,1){
     q_ = q;
   }
+  virtual ~NormalVectorElement(){};
   V3D getVec() const{
     return q_.rotate(e_z);
   }
@@ -270,18 +267,18 @@ class NormalVectorElement: public ElementBase<NormalVectorElement,NormalVectorEl
     const double angle = std::acos(c);
     if(crossNorm<1e-6){
       if(c>0){
-        return -cross;
+        return cross;
       } else {
         return a_perp*M_PI;
       }
     } else {
-      return -cross*(angle/crossNorm);
+      return cross*(angle/crossNorm);
     }
   }
   static V3D getRotationFromTwoNormals(const NormalVectorElement& a, const NormalVectorElement& b){
     return getRotationFromTwoNormals(a.getVec(),b.getVec(),a.getPerp1());
   }
-  static M3D getRotationFromTwoNormalsJac(const V3D& a, const V3D& b){ // TODO: test
+  static M3D getRotationFromTwoNormalsJac(const V3D& a, const V3D& b){
     const V3D cross = a.cross(b);
     const double crossNorm = cross.norm();
     V3D crossNormalized = cross/crossNorm;
@@ -290,21 +287,25 @@ class NormalVectorElement: public ElementBase<NormalVectorElement,NormalVectorEl
     const double angle = std::acos(c);
     if(crossNorm<1e-6){
       if(c>0){
-        return gSM(b);
+        return -gSM(b);
       } else {
         return M3D::Zero();
       }
     } else {
-      return 1/crossNorm*(crossNormalized*b.transpose()-(crossNormalizedSqew*crossNormalizedSqew*gSM(b)*angle));
+      return -1/crossNorm*(crossNormalized*b.transpose()-(crossNormalizedSqew*crossNormalizedSqew*gSM(b)*angle));
     }
   }
   static M3D getRotationFromTwoNormalsJac(const NormalVectorElement& a, const NormalVectorElement& b){
     return getRotationFromTwoNormalsJac(a.getVec(),b.getVec());
   }
   void setFromVector(V3D vec){
-    assert(vec.norm() != 0.0);
-    vec.normalize();
-    q_ = q_.exponentialMap(getRotationFromTwoNormals(e_z,vec,e_x));
+    const double d = vec.norm();
+    if(d > 1e-6){
+      vec = vec/d;
+      q_ = q_.exponentialMap(getRotationFromTwoNormals(e_z,vec,e_x));
+    } else {
+      q_.setIdentity();
+    }
   }
   NormalVectorElement rotated(const QPD& q) const{
     return NormalVectorElement(q*q_);
@@ -320,7 +321,7 @@ class NormalVectorElement: public ElementBase<NormalVectorElement,NormalVectorEl
   void boxMinus(const NormalVectorElement& stateIn, mtDifVec& vecOut) const{
     vecOut = stateIn.getN().transpose()*getRotationFromTwoNormals(stateIn,*this);
   }
-  void boxMinusJac(const NormalVectorElement& stateIn, mtCovMat& matOut) const{
+  void boxMinusJac(const NormalVectorElement& stateIn, MXD& matOut) const{
     matOut = -stateIn.getN().transpose()*getRotationFromTwoNormalsJac(*this,stateIn)*this->getM();
   }
   void print() const{
@@ -339,7 +340,9 @@ class NormalVectorElement: public ElementBase<NormalVectorElement,NormalVectorEl
     q_.fix();
     s++;
   }
-  void fix(){}
+  void fix(){
+    q_.fix();
+  }
   mtGet& get(unsigned int i = 0){
     assert(i==0);
     return *this;
@@ -353,8 +356,8 @@ class NormalVectorElement: public ElementBase<NormalVectorElement,NormalVectorEl
   }
   Eigen::Matrix<double,3,2> getM() const {
     Eigen::Matrix<double,3,2> M;
-    M.col(0) = getPerp2();
-    M.col(1) = -getPerp1();
+    M.col(0) = -getPerp2();
+    M.col(1) = getPerp1();
     return M;
   }
   Eigen::Matrix<double,3,2> getN() const {
@@ -370,48 +373,60 @@ class ArrayElement: public ElementBase<ArrayElement<Element,M>,typename Element:
  public:
   typedef ElementBase<ArrayElement<Element,M>,typename Element::mtGet,M*Element::D_,Element::D_> Base;
   using typename Base::mtDifVec;
-  using typename Base::mtCovMat;
   using typename Base::mtGet;
   using Base::name_;
+  using Base::D_;
   static const unsigned int M_ = M;
   Element array_[M_];
-  ArrayElement(){
-    static_assert((M>0),"size of array must be larger than 0, please use TH_multiple_elements otherwise");
+  mutable MXD boxMinusJacMat_;
+  ArrayElement(): boxMinusJacMat_((int)Element::D_,(int)Element::D_){
     for(unsigned int i=0; i<M_;i++){
       array_[i].name_ = "";
     }
   }
-  ArrayElement(const ArrayElement& other){
+  ArrayElement(const ArrayElement& other): boxMinusJacMat_((int)Element::D_,(int)Element::D_){
     for(unsigned int i=0; i<M_;i++){
       array_[i] = other.array_[i];
     }
   }
+  virtual ~ArrayElement(){};
   void boxPlus(const mtDifVec& vecIn, ArrayElement& stateOut) const{
-    if(Element::D_>0){
-      for(unsigned int i=0; i<M_;i++){
-        array_[i].boxPlus(vecIn.template block<Element::D_,1>(Element::D_*i,0),stateOut.array_[i]);
-      }
+    boxPlus_(vecIn,stateOut);
+  }
+  template<bool b = (D_>0), typename std::enable_if<b>::type* = nullptr>
+  void boxPlus_(const mtDifVec& vecIn, ArrayElement& stateOut) const{
+    for(unsigned int i=0; i<M_;i++){
+      array_[i].boxPlus(vecIn.template block<Element::D_,1>(Element::D_*i,0),stateOut.array_[i]);
     }
   }
+  template<bool b = (D_>0), typename std::enable_if<!b>::type* = nullptr>
+  void boxPlus_(const mtDifVec& vecIn, ArrayElement& stateOut) const{}
   void boxMinus(const ArrayElement& stateIn, mtDifVec& vecOut) const{
-    if(Element::D_>0){
-      typename Element::mtDifVec difVec;
-      for(unsigned int i=0; i<M_;i++){
-        array_[i].boxMinus(stateIn.array_[i],difVec);
-        vecOut.template block<Element::D_,1>(Element::D_*i,0) = difVec;
-      }
+    boxMinus_(stateIn,vecOut);
+  }
+  template<bool b = (D_>0), typename std::enable_if<b>::type* = nullptr>
+  void boxMinus_(const ArrayElement& stateIn, mtDifVec& vecOut) const{
+    typename Element::mtDifVec difVec;
+    for(unsigned int i=0; i<M_;i++){
+      array_[i].boxMinus(stateIn.array_[i],difVec);
+      vecOut.template block<Element::D_,1>(Element::D_*i,0) = difVec;
     }
   }
-  void boxMinusJac(const ArrayElement& stateIn, mtCovMat& matOut) const{
+  template<bool b = (D_>0), typename std::enable_if<!b>::type* = nullptr>
+  void boxMinus_(const ArrayElement& stateIn, mtDifVec& vecOut) const{}
+  void boxMinusJac(const ArrayElement& stateIn, MXD& matOut) const{
+    boxMinusJac_(stateIn,matOut);
+  }
+  template<bool b = (D_>0), typename std::enable_if<b>::type* = nullptr>
+  void boxMinusJac_(const ArrayElement& stateIn, MXD& matOut) const{
     matOut.setZero();
-    if(Element::D_>0){
-      typename Element::mtCovMat mat;
-      for(unsigned int i=0; i<M_;i++){
-        array_[i].boxMinusJac(stateIn.array_[i],mat);
-        matOut.template block<Element::D_,Element::D_>(Element::D_*i,Element::D_*i) = mat;
-      }
+    for(unsigned int i=0; i<M_;i++){
+      array_[i].boxMinusJac(stateIn.array_[i],boxMinusJacMat_);
+      matOut.template block<Element::D_,Element::D_>(Element::D_*i,Element::D_*i) = boxMinusJacMat_;
     }
   }
+  template<bool b = (D_>0), typename std::enable_if<!b>::type* = nullptr>
+  void boxMinusJac_(const ArrayElement& stateIn, MXD& matOut) const{}
   void print() const{
     for(unsigned int i=0; i<M_;i++){
       array_[i].print();
@@ -493,13 +508,13 @@ class State{
   static const unsigned int D_ = TH_getDimension<t>::D_;
   static const unsigned int E_ = std::tuple_size<t>::value;
   typedef Eigen::Matrix<double,D_,1> mtDifVec;
-  typedef Eigen::Matrix<double,D_,D_> mtCovMat;
   t mElements_;
   State(){
     createDefaultNames();
   }
   State(const State<Elements...>& other): mElements_(other.mElements_){
   }
+  virtual ~State(){};
   void boxPlus(const mtDifVec& vecIn, State<Elements...>& stateOut) const{
     boxPlus_(vecIn,stateOut);
   }
@@ -529,22 +544,21 @@ class State{
   }
   template<unsigned int i=0,unsigned int j=0,typename std::enable_if<(i>=E_)>::type* = nullptr>
   inline void boxMinus_(const State<Elements...>& stateIn, mtDifVec& vecOut) const{}
-  template<typename Derived>
-  void boxMinusJac(const State<Elements...>& stateIn, Eigen::MatrixBase<Derived>& matOut) const{
+  void boxMinusJac(const State<Elements...>& stateIn, MXD& matOut) const{
     matOut.setZero();
     boxMinusJac_(stateIn,matOut);
   }
-  template<typename Derived,unsigned int i=0,unsigned int j=0,typename std::enable_if<(i<E_)>::type* = nullptr>
-  inline void boxMinusJac_(const State<Elements...>& stateIn, Eigen::MatrixBase<Derived>& matOut) const{
+  template<unsigned int i=0,unsigned int j=0,typename std::enable_if<(i<E_)>::type* = nullptr>
+  inline void boxMinusJac_(const State<Elements...>& stateIn, MXD& matOut) const{
     if(std::tuple_element<i,decltype(mElements_)>::type::D_>0){
-      typename std::tuple_element<i,decltype(mElements_)>::type::mtCovMat mat;
+      MXD mat((int)std::tuple_element<i,decltype(mElements_)>::type::D_,(int)std::tuple_element<i,decltype(mElements_)>::type::D_);
       std::get<i>(mElements_).boxMinusJac(std::get<i>(stateIn.mElements_),mat);
       matOut.template block<std::tuple_element<i,decltype(mElements_)>::type::D_,std::tuple_element<i,decltype(mElements_)>::type::D_>(j,j) = mat;
     }
-    boxMinusJac_<Derived,i+1,j+std::tuple_element<i,decltype(mElements_)>::type::D_>(stateIn,matOut);
+    boxMinusJac_<i+1,j+std::tuple_element<i,decltype(mElements_)>::type::D_>(stateIn,matOut);
   }
-  template<typename Derived,unsigned int i=0,unsigned int j=0,typename std::enable_if<(i>=E_)>::type* = nullptr>
-  inline void boxMinusJac_(const State<Elements...>& stateIn, Eigen::MatrixBase<Derived>& matOut) const{}
+  template<unsigned int i=0,unsigned int j=0,typename std::enable_if<(i>=E_)>::type* = nullptr>
+  inline void boxMinusJac_(const State<Elements...>& stateIn, MXD& matOut) const{}
   void print() const{
     print_();
   }
@@ -595,18 +609,20 @@ class State{
   }
   template<unsigned int i=0,typename std::enable_if<(i>=E_)>::type* = nullptr>
   inline void registerElementsToPropertyHandler_(PropertyHandler* mtPropertyHandler, const std::string& str){}
-  template<bool useDynamicMatrix>
-  void registerCovarianceToPropertyHandler(LWFMatrix<D_,D_,useDynamicMatrix>& cov, PropertyHandler* mpPropertyHandler, const std::string& str){
-    registerCovarianceToPropertyHandler_<useDynamicMatrix>(cov,mpPropertyHandler,str);
+  void registerCovarianceToPropertyHandler(Eigen::MatrixXd& cov, PropertyHandler* mpPropertyHandler, const std::string& str){
+    registerCovarianceToPropertyHandler_(cov,mpPropertyHandler,str);
   }
-  template<bool useDynamicMatrix, unsigned int i=0,unsigned int j=0,typename std::enable_if<(i<E_)>::type* = nullptr>
-  inline void registerCovarianceToPropertyHandler_(LWFMatrix<D_,D_,useDynamicMatrix>& cov, PropertyHandler* mpPropertyHandler, const std::string& str){
-    std::get<i>(mElements_).template registerCovarianceToPropertyHandler<D_,j,useDynamicMatrix>(cov,mpPropertyHandler,str);
-    registerCovarianceToPropertyHandler_<useDynamicMatrix,i+1,j+std::tuple_element<i,decltype(mElements_)>::type::D_>(cov,mpPropertyHandler,str);
+  template<unsigned int i=0,typename std::enable_if<(i<E_)>::type* = nullptr>
+  inline void registerCovarianceToPropertyHandler_(Eigen::MatrixXd& cov, PropertyHandler* mpPropertyHandler, const std::string& str, int j=0){
+    std::get<i>(mElements_).template registerCovarianceToPropertyHandler(cov,mpPropertyHandler,str,j);
+    registerCovarianceToPropertyHandler_<i+1>(cov,mpPropertyHandler,str,j+std::tuple_element<i,decltype(mElements_)>::type::D_);
   }
-  template<bool useDynamicMatrix, unsigned int i=0,unsigned int j=0,typename std::enable_if<(i>=E_)>::type* = nullptr>
-  inline void registerCovarianceToPropertyHandler_(LWFMatrix<D_,D_,useDynamicMatrix>& cov, PropertyHandler* mpPropertyHandler, const std::string& str){}
-  void createDefaultNames(const std::string& str = "def"){
+  template<unsigned int i=0,typename std::enable_if<(i>=E_)>::type* = nullptr>
+  inline void registerCovarianceToPropertyHandler_(Eigen::MatrixXd& cov, PropertyHandler* mpPropertyHandler, const std::string& str, int j=0){}
+  void createDefaultNames(){
+    createDefaultNames_("def");
+  }
+  void createDefaultNames(const std::string& str){
     createDefaultNames_(str);
   }
   template<unsigned int i=0,typename std::enable_if<(i<E_)>::type* = nullptr>
@@ -621,7 +637,7 @@ class State{
     return std::get<i>(mElements_).get(j);
   };
   template<unsigned int i>
-  inline const auto get(unsigned int j = 0) const -> decltype (std::get<i>(mElements_).get(j))& {
+  inline auto get(unsigned int j = 0) const -> decltype (std::get<i>(mElements_).get(j))& {
     return std::get<i>(mElements_).get(j);
   };
   template<unsigned int i,unsigned int D=0,typename std::enable_if<(i==0)>::type* = nullptr>
