@@ -378,7 +378,7 @@ TYPED_TEST(UpdateModelTest, comparePredictAndUpdate) {
   switch(TestFixture::id_){
     case 0:
       ASSERT_NEAR(dif.norm(),0.0,2e-2);
-      ASSERT_NEAR((filterState1.cov_-filterState2.cov_).norm(),0.0,8e-5);
+      ASSERT_NEAR((filterState1.cov_-filterState2.cov_).norm(),0.0,2e-4);
       break;
     case 1:
       ASSERT_NEAR(dif.norm(),0.0,1e-9);
@@ -428,7 +428,7 @@ TYPED_TEST(UpdateModelTest, comparePredictAndUpdate) {
   switch(TestFixture::id_){
     case 0:
       ASSERT_NEAR(dif.norm(),0.0,2e-2);
-      ASSERT_NEAR((filterState1.cov_-filterState2.cov_).norm(),0.0,8e-5);
+      ASSERT_NEAR((filterState1.cov_-filterState2.cov_).norm(),0.0,2e-4);
       break;
     case 1:
       ASSERT_NEAR(dif.norm(),0.0,1e-9);

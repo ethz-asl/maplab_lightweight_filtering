@@ -123,7 +123,7 @@ TYPED_TEST(PredictionModelTest, comparePredict) {
   switch(TestFixture::id_){
     case 0:
       ASSERT_NEAR(dif.norm(),0.0,1e-5);
-      ASSERT_NEAR((filterState1.cov_-filterState2.cov_).norm(),0.0,1e-6);
+      ASSERT_NEAR((filterState1.cov_-filterState2.cov_).norm(),0.0,1e-5);
       break;
     case 1:
       ASSERT_NEAR(dif.norm(),0.0,1e-9);

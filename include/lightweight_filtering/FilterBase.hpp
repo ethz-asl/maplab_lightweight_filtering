@@ -130,13 +130,18 @@ class FilterBase: public PropertyHandler{
   void registerUpdates(){
   }
   void addPredictionMeas(const typename Prediction::mtMeas& meas, double t){
-    if(t<= safeWarningTime_) std::cout << "Warning: included prediction measurements before safeTime" << std::endl;
+    if(t<= safeWarningTime_) {
+      std::cout << "[FilterBase::addPredictionMeas] Warning: included measurements at time " << t << " before safeTime " << safeWarningTime_ << std::endl;
+    }
+
     if(t<= frontWarningTime_) gotFrontWarning_ = true;
     predictionTimeline_.addMeas(meas,t);
   }
   template<int i>
   void addUpdateMeas(const typename std::tuple_element<i,decltype(mUpdates_)>::type::mtMeas& meas, double t){
-    if(t<= safeWarningTime_) std::cout << "Warning: included update measurements before safeTime" << std::endl;
+    if(t<= safeWarningTime_) {
+      std::cout << "[FilterBase::addUpdateMeas] Warning: included measurements at time " << t << " before safeTime " << safeWarningTime_ << std::endl;
+    }
     if(t<= frontWarningTime_) gotFrontWarning_ = true;
     std::get<i>(updateTimelineTuple_).addMeas(meas,t);
   }
