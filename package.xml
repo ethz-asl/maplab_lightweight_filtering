@@ -5,7 +5,7 @@
   <url>https://bitbucket.org/ethz-asl-lr/lightweight_filtering</url>
   <author>Michael Bloesch</author>
   <maintainer email="bloeschm@ethz.ch">Michael Bloesch</maintainer>
-  <license>Proprietary</license>
+  <license>BSD</license>
   <version>0.0.9</version>
   <buildtool_depend>catkin</buildtool_depend>
   <depend>kindr</depend>
