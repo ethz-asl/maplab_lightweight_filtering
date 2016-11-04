@@ -16,6 +16,7 @@ namespace LWF{
 template<typename State, unsigned int N, unsigned int L, unsigned int O>
 class SigmaPoints{
  public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   typedef State mtState;
   static const unsigned int N_ = N;
   static const unsigned int L_ = L;

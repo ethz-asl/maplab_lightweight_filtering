@@ -17,6 +17,7 @@ namespace LWF{
 template<typename FilterState>
 class Prediction: public ModelBase<Prediction<FilterState>,typename FilterState::mtState,typename FilterState::mtState,typename FilterState::mtPredictionNoise>, public PropertyHandler{
  public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   typedef ModelBase<Prediction<FilterState>,typename FilterState::mtState,typename FilterState::mtState,typename FilterState::mtPredictionNoise> mtModelBase;
   typedef FilterState mtFilterState;
   typedef typename mtFilterState::mtState mtState;

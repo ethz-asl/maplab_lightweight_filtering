@@ -17,6 +17,7 @@ namespace LWF{
 template<typename FilterState,typename Innovation,typename Meas,typename Noise>
 class GIFPrediction: public ModelBase<GIFPrediction<FilterState,Innovation,Meas,Noise>,Innovation,typename FilterState::mtState,typename FilterState::mtState,Noise>, public PropertyHandler{
  public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   typedef ModelBase<GIFPrediction<FilterState,Innovation,Meas,Noise>,Innovation,typename FilterState::mtState,typename FilterState::mtState,Noise> mtModelBase;
   typedef FilterState mtFilterState;
   typedef Innovation mtInnovation;

@@ -16,6 +16,7 @@ namespace LWF{
 template<typename Input, typename Output>
 class CoordinateTransform: public ModelBase<CoordinateTransform<Input,Output>,Output,Input>{
  public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   typedef ModelBase<CoordinateTransform<Input,Output>,Output,Input> mtModelBase;
   typedef typename mtModelBase::mtInputTuple mtInputTuple;
   typedef Input mtInput;

@@ -19,6 +19,7 @@ namespace LWF{
 template<typename DERIVED, typename GET, unsigned int D, unsigned int E = D>
 class ElementBase{
  public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   ElementBase(){};
   virtual ~ElementBase(){};
   static const unsigned int D_ = D;
@@ -127,6 +128,7 @@ class ScalarElement: public ElementBase<ScalarElement,double,1>{
 template<unsigned int N>
 class VectorElement: public ElementBase<VectorElement<N>,Eigen::Matrix<double,N,1>,N>{
  public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   typedef ElementBase<VectorElement<N>,Eigen::Matrix<double,N,1>,N> Base;
   using typename Base::mtDifVec;
   using typename Base::mtGet;
