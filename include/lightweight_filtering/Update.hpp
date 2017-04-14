@@ -14,6 +14,7 @@
 #include "lightweight_filtering/SigmaPoints.hpp"
 #include "lightweight_filtering/OutlierDetection.hpp"
 #include <list>
+#include <Eigen/StdVector>
 
 namespace LWF{
 
@@ -260,8 +261,8 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
     successfulUpdate_ = false;
     candidateCounter_ = 0;
 
-    std::list<double> scores;
-    std::list<mtState> states;
+    std::vector<double> scores;
+    std::vector<mtState, Eigen::aligned_allocator<mtState>> states;
     double bestScore = -1.0;
     mtState bestState;
     MXD bestCov;
