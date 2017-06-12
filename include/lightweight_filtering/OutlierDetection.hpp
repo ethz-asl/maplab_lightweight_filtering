@@ -38,7 +38,7 @@ class OutlierDetectionBase{
   virtual ~OutlierDetectionBase(){};
   template<int E>
   void check(const Eigen::Matrix<double,E,1>& innVector,const Eigen::MatrixXd& Py){
-    d_ = ((innVector.block(S_,0,D_,1)).transpose()*Py.block(S_,S_,D_,D_).inverse()*innVector.block(S_,0,D_,1))(0,0);
+    d_ = ((innVector.template block<D_, 1>(S_,0)).transpose()*Py.template block<D_,D_>(S_,S_).inverse()*innVector.template block<D_,1>(S_,0))(0,0);
     outlier_ = d_ > mahalanobisTh_;
     if(outlier_){
       outlierCount_++;
