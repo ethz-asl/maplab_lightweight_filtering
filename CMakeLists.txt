@@ -3,6 +3,7 @@ project(lightweight_filtering)
 add_definitions(-std=c++11)
 
 ##################### Find, include, and compile library #####################
+set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
 # Attempt to find catkinized kindr
 find_package(kindr QUIET)
@@ -12,17 +13,16 @@ if(NOT kindr_FOUND)
   pkg_check_modules(kindr kindr REQUIRED)
 endif()
 
-find_package(Eigen3 REQUIRED)
+find_package(Eigen REQUIRED)
 
 include_directories(${kindr_INCLUDE_DIRS})
-include_directories(${EIGEN3_INCLUDE_DIR})
+include_directories(${EIGEN_INCLUDE_DIR})
 include_directories(include)
-
 
 if(DEFINED CATKIN_DEVEL_PREFIX)
   find_package(catkin REQUIRED)
 	catkin_package(
-	   INCLUDE_DIRS include ${kindr_INCLUDE_DIRS} ${EIGEN3_INCLUDE_DIR}
+	   INCLUDE_DIRS include ${kindr_INCLUDE_DIRS} ${EIGEN_INCLUDE_DIR}
 	)
 endif()
 
