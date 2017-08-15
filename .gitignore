@@ -3,5 +3,4 @@
 .settings
 build/
 gtest/
-cmake/
 *~
