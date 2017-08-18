@@ -96,7 +96,7 @@ class Register{
       pt.put(it->second, *(it->first));
     }
   }
-  void readPropertyTree(ptree& pt){
+  void readPropertyTree(const ptree& pt){
     for(typename std::map<TYPE*,std::string>::iterator it=registerMap_.begin(); it != registerMap_.end(); ++it){
       *(it->first) = pt.get<TYPE>(it->second);
     }
@@ -127,7 +127,7 @@ class PropertyHandler{
       pt.add_child(it->first,ptsub);
     }
   }
-  void readPropertyTree(ptree& pt){
+  void readPropertyTree(const ptree& pt){
     boolRegister_.readPropertyTree(pt);
     intRegister_.readPropertyTree(pt);
     doubleRegister_.readPropertyTree(pt);
@@ -147,6 +147,29 @@ class PropertyHandler{
     buildPropertyTree(pt);
     write_info(filename,pt);
   }
+
+  void readFromPropertyTree(const ptree &propertyTree) {
+    ptree ptDefault;
+    buildPropertyTree(ptDefault);
+    try {
+      readPropertyTree(propertyTree);
+      refreshProperties();
+      for (typename std::unordered_map<std::string, PropertyHandler *>::iterator
+               it = subHandlers_.begin();
+           it != subHandlers_.end(); ++it) {
+        it->second->refreshProperties();
+      }
+    } catch (boost::property_tree::ptree_error &e) {
+      std::cout << "An exception occurred. " << e.what() << std::endl;
+      refreshProperties();
+      for (typename std::unordered_map<std::string, PropertyHandler *>::iterator
+               it = subHandlers_.begin();
+           it != subHandlers_.end(); ++it) {
+        it->second->refreshProperties();
+      }
+    }
+  }
+
   void readFromInfo(const std::string &filename){
     ptree ptDefault;
     buildPropertyTree(ptDefault);
