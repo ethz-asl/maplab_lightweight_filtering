@@ -57,6 +57,8 @@ class ElementBase{
 template<typename DERIVED>
 class AuxiliaryBase: public ElementBase<AuxiliaryBase<DERIVED>,DERIVED,0>{
  public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
   typedef ElementBase<AuxiliaryBase<DERIVED>,DERIVED,0> Base;
   using typename Base::mtDifVec;
   using typename Base::mtGet;
@@ -83,6 +85,8 @@ class AuxiliaryBase: public ElementBase<AuxiliaryBase<DERIVED>,DERIVED,0>{
 
 class ScalarElement: public ElementBase<ScalarElement,double,1>{
  public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
   double s_;
   ScalarElement(){}
   ScalarElement(const ScalarElement& other){
@@ -182,6 +186,8 @@ class VectorElement: public ElementBase<VectorElement<N>,Eigen::Matrix<double,N,
 
 class QuaternionElement: public ElementBase<QuaternionElement,QPD,3>{
  public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
   QPD q_;
   QuaternionElement(){}
   QuaternionElement(const QuaternionElement& other){
@@ -373,6 +379,8 @@ class NormalVectorElement: public ElementBase<NormalVectorElement,NormalVectorEl
 template<typename Element, unsigned int M>
 class ArrayElement: public ElementBase<ArrayElement<Element,M>,typename Element::mtGet,M*Element::D_,Element::D_>{
  public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
   typedef ElementBase<ArrayElement<Element,M>,typename Element::mtGet,M*Element::D_,Element::D_> Base;
   using typename Base::mtDifVec;
   using typename Base::mtGet;
@@ -506,6 +514,8 @@ class TH_getDimension<std::tuple<Element, Elements...>>{
 template<typename... Elements>
 class State{
  public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
   typedef decltype(std::tuple_cat(typename TH_convert<Elements>::t()...)) t;
   static const unsigned int D_ = TH_getDimension<t>::D_;
   static const unsigned int E_ = std::tuple_size<t>::value;

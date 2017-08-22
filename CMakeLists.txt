@@ -2,6 +2,8 @@ cmake_minimum_required (VERSION 2.8)
 project(lightweight_filtering)
 add_definitions(-std=c++11)
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -march=native")
+
 ##################### Find, include, and compile library #####################
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 

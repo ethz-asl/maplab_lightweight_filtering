@@ -17,6 +17,7 @@ template<typename State, typename PredictionMeas, typename PredictionNoise, unsi
 class FilterState{
  public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
   typedef State mtState;
   typedef PredictionMeas mtPredictionMeas;
   typedef PredictionNoise mtPredictionNoise;

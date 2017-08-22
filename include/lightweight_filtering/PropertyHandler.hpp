@@ -21,6 +21,8 @@ namespace LWF{
 template<typename TYPE>
 class Register{
  public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
   typedef boost::property_tree::ptree ptree;
   Register(){};
   virtual ~Register(){};
@@ -108,6 +110,8 @@ class Register{
 
 class PropertyHandler{
  public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
   typedef boost::property_tree::ptree ptree;
   PropertyHandler(){};
   virtual ~PropertyHandler(){};
