@@ -8,6 +8,8 @@
 #ifndef LWF_OUTLIERDETECTION_HPP_
 #define LWF_OUTLIERDETECTION_HPP_
 
+#include <glog/logging.h>
+
 #include "lightweight_filtering/common.hpp"
 #include "lightweight_filtering/PropertyHandler.hpp"
 
@@ -42,6 +44,9 @@ class OutlierDetectionBase{
     outlier_ = d_ > mahalanobisTh_;
     if(outlier_){
       outlierCount_++;
+      VLOG(2) << "Detected outlier - mahalanobis (d / threshold):"  << d_
+              << " > " << mahalanobisTh_ << " - count : " << outlierCount_
+              << ".";
     } else {
       outlierCount_ = 0;
     }

@@ -130,21 +130,26 @@ class FilterBase: public PropertyHandler{
   template<int i=0, typename std::enable_if<(i>=nUpdates_)>::type* = nullptr>
   void registerUpdates(){
   }
-  void addPredictionMeas(const typename Prediction::mtMeas& meas, double t){
+  bool addPredictionMeas(const typename Prediction::mtMeas& meas, double t){
+    bool measurement_too_late = false;
     if(t<= safeWarningTime_) {
       std::cout << "[FilterBase::addPredictionMeas] Warning: included measurements at time " << t << " before safeTime " << safeWarningTime_ << std::endl;
+      measurement_too_late = true;
     }
-
     if(t<= frontWarningTime_) gotFrontWarning_ = true;
     predictionTimeline_.addMeas(meas,t);
+    return !measurement_too_late;
   }
   template<int i>
-  void addUpdateMeas(const typename std::tuple_element<i,decltype(mUpdates_)>::type::mtMeas& meas, double t){
+  bool addUpdateMeas(const typename std::tuple_element<i,decltype(mUpdates_)>::type::mtMeas& meas, double t){
+    bool measurement_too_late = false;
     if(t<= safeWarningTime_) {
       std::cout << "[FilterBase::addUpdateMeas] Warning: included measurements at time " << t << " before safeTime " << safeWarningTime_ << std::endl;
+      measurement_too_late = true;
     }
     if(t<= frontWarningTime_) gotFrontWarning_ = true;
     std::get<i>(updateTimelineTuple_).addMeas(meas,t);
+    return !measurement_too_late;
   }
   bool getSafeTime(double& safeTime){
     double maxPredictionTime;
