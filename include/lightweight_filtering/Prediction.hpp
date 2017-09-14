@@ -149,7 +149,7 @@ class Prediction: public ModelBase<Prediction<FilterState>,typename FilterState:
     vec.setZero();
     double t = itMeasStart->first;
     for(typename std::map<double,mtMeas>::const_iterator itMeas=next(itMeasStart);itMeas!=itMeasEnd;itMeas++){
-      itMeasStart->second.boxMinus(itMeas->second,difVec);
+      itMeas->second.boxMinus(itMeasStart->second,difVec);
       vec = vec + difVec*(std::min(itMeas->first,tTarget)-t);
       t = std::min(itMeas->first,tTarget);
     }
