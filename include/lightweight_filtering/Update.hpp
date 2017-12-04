@@ -238,7 +238,11 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
     // Outlier detection // TODO: adapt for special linearization point
     outlierDetection_.doOutlierDetection(innVector_,Py_,Hlin_);
     Pyinv_.setIdentity();
-    Py_.llt().solveInPlace(Pyinv_);
+
+    Eigen::LLT<Eigen::MatrixXd> llt_py(Py_);
+    LOG_IF(WARNING, llt_py.info() != Eigen::Success) << "LLT failed.";
+    Pyinv_.setIdentity();
+    llt_py.solveInPlace(Pyinv_);
 
     // Kalman Update
     if(isCoupled){
@@ -285,8 +289,11 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
 
         // Outlier detection
         outlierDetection_.doOutlierDetection(innVector_,Py_,H_);
+
+        Eigen::LLT<Eigen::MatrixXd> llt_py(Py_);
+        LOG_IF(WARNING, llt_py.info() != Eigen::Success) << "LLT failed.";
         Pyinv_.setIdentity();
-        Py_.llt().solveInPlace(Pyinv_);
+        llt_py.solveInPlace(Pyinv_);
 
         // Kalman Update
         if(isCoupled){
@@ -343,7 +350,11 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
 
     outlierDetection_.doOutlierDetection(innVector_,Py_,Pyx_);
     Pyinv_.setIdentity();
-    Py_.llt().solveInPlace(Pyinv_);
+
+    Eigen::LLT<Eigen::MatrixXd> llt_py(Py_);
+    LOG_IF(WARNING, llt_py.info() != Eigen::Success) << "LLT failed.";
+    Pyinv_.setIdentity();
+    llt_py.solveInPlace(Pyinv_);
 
     // Kalman Update
     K_ = Pyx_.transpose()*Pyinv_;
