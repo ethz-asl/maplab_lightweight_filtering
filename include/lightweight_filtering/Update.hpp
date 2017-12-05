@@ -138,8 +138,8 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
     refreshUKFParameter();
   }
   virtual void refreshPropertiesCustom(){}
-  void eval_(mtInnovation& x, const mtInputTuple& inputs, double dt) const{
-    evalInnovation(x,std::get<0>(inputs),std::get<1>(inputs));
+  bool eval_(mtInnovation& x, const mtInputTuple& inputs, double dt) const{
+    return evalInnovation(x,std::get<0>(inputs),std::get<1>(inputs));
   }
   template<int i,typename std::enable_if<i==0>::type* = nullptr>
   void jacInput_(Eigen::MatrixXd& F, const mtInputTuple& inputs, double dt) const{
@@ -149,11 +149,11 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
   void jacInput_(Eigen::MatrixXd& F, const mtInputTuple& inputs, double dt) const{
     jacNoise(F,std::get<0>(inputs));
   }
-  virtual void evalInnovation(mtInnovation& y, const mtState& state, const mtNoise& noise) const = 0;
-  virtual void evalInnovationShort(mtInnovation& y, const mtState& state) const{
+  virtual bool evalInnovation(mtInnovation& y, const mtState& state, const mtNoise& noise) const = 0;
+  virtual bool evalInnovationShort(mtInnovation& y, const mtState& state) const{
     mtNoise n; // TODO get static for Identity()
     n.setIdentity();
-    evalInnovation(y,state,n);
+    return evalInnovation(y,state,n);
   }
   virtual void jacState(Eigen::MatrixXd& F, const mtState& state) const = 0;
   virtual void jacNoise(Eigen::MatrixXd& F, const mtState& state) const = 0;
@@ -183,6 +183,8 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
   int performUpdate(mtFilterState& filterState, const mtMeas& meas){
     bool isFinished = true;
     int r = 0;
+    mtState stateBackup = filterState.state_;
+    MXD covBackup = filterState.cov_;
     do {
       preProcess(filterState,meas,isFinished);
       if(!isFinished){
@@ -205,15 +207,22 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
       filterState.state_.fix();
       enforceSymmetry(filterState.cov_);
     } while (!isFinished);
+
+    if (r != 0) {
+      filterState.state_ = stateBackup;
+      filterState.cov_ = covBackup;
+      LOG(WARNING) << "Rejected failed update.";
+    }
     return r;
   }
   int performUpdateEKF(mtFilterState& filterState, const mtMeas& meas){
     meas_ = meas;
+    bool evaluation_success = false;
     if(!useSpecialLinearizationPoint_){
       this->jacState(H_,filterState.state_);
       Hlin_ = H_;
       this->jacNoise(Hn_,filterState.state_);
-      this->evalInnovationShort(y_,filterState.state_);
+      evaluation_success = this->evalInnovationShort(y_,filterState.state_);
     } else {
       filterState.state_.boxPlus(filterState.difVecLin_,linState_);
       this->jacState(H_,linState_);
@@ -224,7 +233,11 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
         Hlin_ = H_;
       }
       this->jacNoise(Hn_,linState_);
-      this->evalInnovationShort(y_,linState_);
+      evaluation_success = this->evalInnovationShort(y_,linState_);
+    }
+    if (!evaluation_success) {
+      LOG(WARNING) << "Evaluation of residual failed. Rejecting update.";
+      return 1;
     }
 
     if(isCoupled){
@@ -240,7 +253,10 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
     Pyinv_.setIdentity();
 
     Eigen::LLT<Eigen::MatrixXd> llt_py(Py_);
-    LOG_IF(WARNING, llt_py.info() != Eigen::Success) << "LLT failed.";
+    if (llt_py.info() != Eigen::Success) {
+      LOG(WARNING)  << "LLT failed. Rejecting update.";
+      return 1;
+    }
     Pyinv_.setIdentity();
     llt_py.solveInPlace(Pyinv_);
 
@@ -274,10 +290,17 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
     while(generateCandidates(filterState,linState_)){
       cancelIteration_ = false;
       hasConverged_ = false;
+      bool update_failed = false;
       for(iterationNum_=0;iterationNum_<maxNumIteration_ && !hasConverged_ && !cancelIteration_;iterationNum_++){
         this->jacState(H_,linState_);
         this->jacNoise(Hn_,linState_);
-        this->evalInnovationShort(y_,linState_);
+        if (!this->evalInnovationShort(y_,linState_)) {
+          LOG(WARNING) << "Evaluation of residual failed. Rejecting "
+                       << "(candidate)  update.";
+          update_failed = true;
+          cancelIteration_ = true;
+          continue;
+        }
 
         if(isCoupled){
           C_ = filterState.G_*preupdnoiP_*Hn_.transpose();
@@ -291,7 +314,12 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
         outlierDetection_.doOutlierDetection(innVector_,Py_,H_);
 
         Eigen::LLT<Eigen::MatrixXd> llt_py(Py_);
-        LOG_IF(WARNING, llt_py.info() != Eigen::Success) << "LLT failed.";
+        if (llt_py.info() != Eigen::Success) {
+          LOG(WARNING)  << "LLT failed. Rejecting (candidate) update.";
+          update_failed = true;
+          cancelIteration_ = true;
+          continue;
+        }
         Pyinv_.setIdentity();
         llt_py.solveInPlace(Pyinv_);
 
@@ -307,7 +335,7 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
         updateVecNorm_ = updateVec_.norm();
         hasConverged_ = updateVecNorm_<=updateVecNormTermination_;
       }
-      if(extraOutlierCheck(linState_)){
+      if(extraOutlierCheck(linState_) && !update_failed){
         successfulUpdate_ = true;
         double score = (innVector_.transpose()*Pyinv_*innVector_)(0);
         scores.push_back(score);
@@ -340,6 +368,9 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
           successfulUpdate_ = false;
         }
       }
+    } else {
+      // Update failed.
+      return 1;
     }
     return 0;
   }

@@ -22,7 +22,7 @@ class MeasurementTimeline{
   double maxWaitTime_;
   double minWaitTime_;
   MeasurementTimeline(){
-    maxWaitTime_ = 0.1;
+    maxWaitTime_ = 0.15;
     minWaitTime_ = 0.0;
   };
   virtual ~MeasurementTimeline(){};
