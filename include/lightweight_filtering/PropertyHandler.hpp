@@ -10,6 +10,7 @@
 
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/info_parser.hpp>
+#include <glog/logging.h>
 #include "lightweight_filtering/common.hpp"
 #include <unordered_map>
 #include <unordered_set>
@@ -98,7 +99,11 @@ class Register{
   }
   void readPropertyTree(const ptree& pt){
     for(typename std::map<TYPE*,std::string>::iterator it=registerMap_.begin(); it != registerMap_.end(); ++it){
+      try {
       *(it->first) = pt.get<TYPE>(it->second);
+      } catch(const boost::property_tree::ptree_error& e) {
+        LOG(FATAL) << e.what() << ". Probably missing in the config file.";
+      }
     }
     for(typename std::unordered_set<TYPE*>::iterator it=zeros_.begin(); it != zeros_.end(); ++it){
       **it = static_cast<TYPE>(0);
