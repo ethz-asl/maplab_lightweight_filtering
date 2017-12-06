@@ -27,6 +27,7 @@ class MeasurementTimeline{
   };
   virtual ~MeasurementTimeline(){};
   void addMeas(const mtMeas& meas, const double& t){
+    CHECK_EQ(measMap_.count(t), 0u);
     measMap_[t] = meas;
   }
   void clear()
