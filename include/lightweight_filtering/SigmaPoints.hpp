@@ -174,7 +174,7 @@ class SigmaPoints{
     computeFromGaussian(identity,P);
   };
   const mtState& operator()(unsigned int i) const{
-    assert(i<L_);
+    CHECK(i<L_);
     if(i<O_){
       return sigmaPoints_[0];
     } else if(i<O_+N_){
@@ -184,7 +184,7 @@ class SigmaPoints{
     }
   };
   mtState& operator()(unsigned int i) {
-    assert(i<L_);
+    CHECK(i<L_);
     if(i<O_){
       return sigmaPoints_[0];
     } else if(i<O_+N_){
