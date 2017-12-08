@@ -44,7 +44,7 @@ class OutlierDetectionBase{
     outlier_ = d_ > mahalanobisTh_;
     if(outlier_){
       outlierCount_++;
-      VLOG(2) << "Detected outlier - mahalanobis (d / threshold):"  << d_
+      VLOG(5) << "Detected outlier - mahalanobis (d / threshold):"  << d_
               << " > " << mahalanobisTh_ << " - count : " << outlierCount_
               << ".";
     } else {
