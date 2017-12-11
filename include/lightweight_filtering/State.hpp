@@ -451,11 +451,11 @@ class ArrayElement: public ElementBase<ArrayElement<Element,M>,typename Element:
     }
   }
   mtGet& get(unsigned int i){
-    CHECK(i<M_);
+    CHECK_LT(i, M_);
     return array_[i].get();
   }
   const mtGet& get(unsigned int i) const{
-    CHECK(i<M_);
+    CHECK_LT(i, M_);
     return array_[i].get();
   }
   void registerElementToPropertyHandler(PropertyHandler* mpPropertyHandler, const std::string& str){
