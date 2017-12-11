@@ -183,8 +183,6 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
   int performUpdate(mtFilterState& filterState, const mtMeas& meas){
     bool isFinished = true;
     int r = 0;
-    mtState stateBackup = filterState.state_;
-    MXD covBackup = filterState.cov_;
     do {
       preProcess(filterState,meas,isFinished);
       if(!isFinished){
@@ -207,12 +205,6 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
       filterState.state_.fix();
       enforceSymmetry(filterState.cov_);
     } while (!isFinished);
-
-    if (r != 0) {
-      filterState.state_ = stateBackup;
-      filterState.cov_ = covBackup;
-      LOG(WARNING) << "Rejected failed update.";
-    }
     return r;
   }
   int performUpdateEKF(mtFilterState& filterState, const mtMeas& meas){
@@ -236,7 +228,7 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
       evaluation_success = this->evalInnovationShort(y_,linState_);
     }
     if (!evaluation_success) {
-      LOG(WARNING) << "Evaluation of residual failed. Rejecting update.";
+      LOG(WARNING) << "Evaluation of residual failed.";
       return 1;
     }
 
@@ -254,7 +246,7 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
 
     Eigen::LLT<Eigen::MatrixXd> llt_py(Py_);
     if (llt_py.info() != Eigen::Success) {
-      LOG(WARNING)  << "LLT failed. Rejecting update.";
+      LOG(WARNING)  << "LLT failed.";
       return 1;
     }
     Pyinv_.setIdentity();
@@ -315,7 +307,7 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
 
         Eigen::LLT<Eigen::MatrixXd> llt_py(Py_);
         if (llt_py.info() != Eigen::Success) {
-          LOG(WARNING)  << "LLT failed. Rejecting (candidate) update.";
+          LOG(WARNING)  << "LLT failed.";
           update_failed = true;
           cancelIteration_ = true;
           continue;

@@ -10,6 +10,8 @@
 
 #include <iomanip>
 
+#include <glog/logging.h>
+
 #include "lightweight_filtering/common.hpp"
 #include "lightweight_filtering/PropertyHandler.hpp"
 
@@ -267,7 +269,7 @@ class FilterBase: public PropertyHandler{
     if(std::get<i>(updateTimelineTuple_).hasMeasurementAt(tNext)){
           VLOG(5) << "Update using measurement at " << std::setprecision(10) << tNext << " from timeline " << i;
           int r = std::get<i>(mUpdates_).performUpdate(filterState,std::get<i>(updateTimelineTuple_).measMap_[tNext]);
-          if(r!=0) std::cout << "Error during update: " << r << std::endl;
+          LOG_IF(INFO, r!=0) <<  "Error during update: " << r << ". Rejected update.";
           logCountRegUpd_++;
     }
     doAvailableUpdates<i+1>(filterState,tNext);
