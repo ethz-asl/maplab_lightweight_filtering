@@ -269,7 +269,8 @@ class FilterBase: public PropertyHandler{
     if(std::get<i>(updateTimelineTuple_).hasMeasurementAt(tNext)){
           VLOG(5) << "Update using measurement at " << std::setprecision(10) << tNext << " from timeline " << i;
           int r = std::get<i>(mUpdates_).performUpdate(filterState,std::get<i>(updateTimelineTuple_).measMap_[tNext]);
-          LOG_IF(INFO, r!=0) <<  "Error during update: " << r << ". Rejected update.";
+          VLOG_IF(1, r!=0) <<  "Error during update: " << r << ". Rejected update.";
+
           logCountRegUpd_++;
     }
     doAvailableUpdates<i+1>(filterState,tNext);
