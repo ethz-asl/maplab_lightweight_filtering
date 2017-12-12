@@ -163,6 +163,11 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
       std::cout << "Warning: update preProcessing is not implemented!" << std::endl;
     }
   }
+
+  virtual void checkIfFeaturesAreAwesome(mtFilterState& filterState, const std::string&, bool debug = false){
+    LOG(FATAL) << "Virtual features are awesome.";
+  }
+
   virtual bool extraOutlierCheck(const mtState& state) const{
     return hasConverged_;
   }
@@ -183,10 +188,15 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
   int performUpdate(mtFilterState& filterState, const mtMeas& meas){
     bool isFinished = true;
     int r = 0;
+
+    //checkIfFeaturesAreAwesome(filterState, "a1", true);
     mtState stateBackup = filterState.state_;
+
     MXD covBackup = filterState.cov_;
     do {
+      checkIfFeaturesAreAwesome(filterState, "a");
       preProcess(filterState,meas,isFinished);
+      checkIfFeaturesAreAwesome(filterState, "b");
       if(!isFinished){
         switch(filterState.mode_){
           case ModeEKF:
@@ -203,16 +213,31 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
             break;
         }
       }
+      checkIfFeaturesAreAwesome(filterState, "c");
       postProcess(filterState,meas,outlierDetection_,isFinished);
+      checkIfFeaturesAreAwesome(filterState, "d");
+
+      checkIfFeaturesAreAwesome(filterState, "e");
       filterState.state_.fix();
+      checkIfFeaturesAreAwesome(filterState, "f");
+
+      checkIfFeaturesAreAwesome(filterState, "g");
       enforceSymmetry(filterState.cov_);
+      checkIfFeaturesAreAwesome(filterState, "h");
     } while (!isFinished);
 
     if (r != 0) {
-      filterState.state_ = stateBackup;
-      filterState.cov_ = covBackup;
+      LOG(WARNING) << "Update failed";
+      checkIfFeaturesAreAwesome(filterState, "i");
+      //filterState.state_ = stateBackup;
+
+      //checkIfFeaturesAreAwesome(filterState, "j", true);
+      //filterState.cov_ = covBackup;
       LOG(WARNING) << "Rejected failed update.";
     }
+
+    checkIfFeaturesAreAwesome(filterState, "k");
+
     return r;
   }
   int performUpdateEKF(mtFilterState& filterState, const mtMeas& meas){
