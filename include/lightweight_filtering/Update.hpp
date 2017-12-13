@@ -18,11 +18,11 @@
 #include <Eigen/StdVector>
 
 namespace LWF{
- double getConditionNumberOfMatrix(const Eigen::MatrixXd& matrix) {
-   Eigen::JacobiSVD<Eigen::MatrixXd> svd(matrix);
+inline double getConditionNumberOfMatrix(const Eigen::MatrixXd& matrix) {
+  Eigen::JacobiSVD<Eigen::MatrixXd> svd(matrix);
   return svd.singularValues()(0) /
       svd.singularValues()(svd.singularValues().size() - 1);
- }
+}
 
 template<typename Innovation, typename FilterState, typename Meas, typename Noise, typename OutlierDetection = OutlierDetectionDefault, bool isCoupled = false>
 class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierDetection,isCoupled>,Innovation,typename FilterState::mtState,Noise>, public PropertyHandler{
