@@ -14,9 +14,15 @@
 #include "lightweight_filtering/SigmaPoints.hpp"
 #include "lightweight_filtering/OutlierDetection.hpp"
 #include <list>
+#include <Eigen/Dense>
 #include <Eigen/StdVector>
 
 namespace LWF{
+ double getConditionNumberOfMatrix(const Eigen::MatrixXd& matrix) {
+   Eigen::JacobiSVD<Eigen::MatrixXd> svd(matrix);
+  return svd.singularValues()(0) /
+      svd.singularValues()(svd.singularValues().size() - 1);
+ }
 
 template<typename Innovation, typename FilterState, typename Meas, typename Noise, typename OutlierDetection = OutlierDetectionDefault, bool isCoupled = false>
 class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierDetection,isCoupled>,Innovation,typename FilterState::mtState,Noise>, public PropertyHandler{
@@ -228,7 +234,7 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
       evaluation_success = this->evalInnovationShort(y_,linState_);
     }
     if (!evaluation_success) {
-      LOG(WARNING) << "Evaluation of residual failed.";
+      VLOG(1) << "Evaluation of residual failed.";
       return 1;
     }
 
@@ -242,11 +248,11 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
 
     // Outlier detection // TODO: adapt for special linearization point
     outlierDetection_.doOutlierDetection(innVector_,Py_,Hlin_);
-    Pyinv_.setIdentity();
 
     Eigen::LLT<Eigen::MatrixXd> llt_py(Py_);
     if (llt_py.info() != Eigen::Success) {
-      LOG(WARNING)  << "LLT failed.";
+      VLOG(1) << "LLT failed. condition_number(Py) = " <<
+          getConditionNumberOfMatrix(Py_);
       return 1;
     }
     Pyinv_.setIdentity();
@@ -287,8 +293,8 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
         this->jacState(H_,linState_);
         this->jacNoise(Hn_,linState_);
         if (!this->evalInnovationShort(y_,linState_)) {
-          LOG(WARNING) << "Evaluation of residual failed. Rejecting "
-                       << "(candidate)  update.";
+          VLOG(1) << "Evaluation of residual failed. Rejecting (candidate) "
+                  << "update.";
           update_failed = true;
           cancelIteration_ = true;
           continue;
@@ -307,7 +313,8 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
 
         Eigen::LLT<Eigen::MatrixXd> llt_py(Py_);
         if (llt_py.info() != Eigen::Success) {
-          LOG(WARNING)  << "LLT failed.";
+          VLOG(1) << "LLT failed. condition_number(Py) = " <<
+              getConditionNumberOfMatrix(Py_);
           update_failed = true;
           cancelIteration_ = true;
           continue;
@@ -372,10 +379,11 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
     y_.boxMinus(yIdentity_,innVector_);
 
     outlierDetection_.doOutlierDetection(innVector_,Py_,Pyx_);
-    Pyinv_.setIdentity();
 
     Eigen::LLT<Eigen::MatrixXd> llt_py(Py_);
-    LOG_IF(WARNING, llt_py.info() != Eigen::Success) << "LLT failed.";
+    VLOG_IF(1, llt_py.info() != Eigen::Success)
+      << "LLT failed. condition_number(Py) = "
+      << getConditionNumberOfMatrix(Py_);
     Pyinv_.setIdentity();
     llt_py.solveInPlace(Pyinv_);
 
