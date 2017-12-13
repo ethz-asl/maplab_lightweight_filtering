@@ -104,9 +104,10 @@ class UpdateExample: public LWF::Update<Innovation,FilterState,UpdateMeas,Update
     disablePreAndPostProcessingWarning_ = true;
   };
   virtual ~UpdateExample(){};
-  void evalInnovation(mtInnovation& inn, const mtState& state, const mtNoise& noise) const{
+  bool evalInnovation(mtInnovation& inn, const mtState& state, const mtNoise& noise) const{
     inn.get<Innovation::POS>() = state.get<State::ATT>().rotate(state.get<State::POS>())-meas_.get<UpdateMeas::POS>()+noise.get<UpdateNoise::POS>();
     inn.get<Innovation::ATT>() = (state.get<State::ATT>()*meas_.get<UpdateMeas::ATT>().inverted()).boxPlus(noise.get<UpdateNoise::ATT>());
+    return true;
   }
   void jacState(Eigen::MatrixXd& J, const mtState& state) const{
     mtInnovation inn;
@@ -184,9 +185,10 @@ class PredictAndUpdateExample: public LWF::Update<Innovation,FilterState,UpdateM
     disablePreAndPostProcessingWarning_ = true;
   };
   virtual ~PredictAndUpdateExample(){};
-  void evalInnovation(mtInnovation& inn, const mtState& state, const mtNoise& noise) const{
+  bool evalInnovation(mtInnovation& inn, const mtState& state, const mtNoise& noise) const{
     inn.get<Innovation::POS>() = state.get<State::ATT>().rotate(state.get<State::POS>())-meas_.get<UpdateMeas::POS>()+noise.get<UpdateNoise::POS>();
     inn.get<Innovation::ATT>() = (state.get<State::ATT>()*meas_.get<UpdateMeas::ATT>().inverted()).boxPlus(noise.get<UpdateNoise::ATT>());
+    return true;
   }
   void jacState(Eigen::MatrixXd& J, const mtState& state) const{
     mtInnovation inn;
@@ -485,9 +487,10 @@ class UpdateExample: public LWF::Update<Innovation,FilterState,UpdateMeas,Update
     disablePreAndPostProcessingWarning_ = true;
   };
   virtual ~UpdateExample(){};
-  void evalInnovation(mtInnovation& inn, const mtState& state, const mtNoise& noise) const{
+  bool evalInnovation(mtInnovation& inn, const mtState& state, const mtNoise& noise) const{
     inn.get<Innovation::POS>() = state.get<State::POS>()-meas_.get<UpdateMeas::POS>()+noise.get<UpdateNoise::POS>();
     inn.get<Innovation::HEI>() = V3D(0,0,1).dot(state.get<State::POS>())-meas_.get<UpdateMeas::HEI>()+noise.get<UpdateNoise::HEI>();
+    return true;
   }
   void jacState(Eigen::MatrixXd& J, const mtState& state) const{
     mtInnovation inn;
@@ -539,9 +542,10 @@ class PredictAndUpdateExample: public LWF::Update<Innovation,FilterState,UpdateM
     disablePreAndPostProcessingWarning_ = true;
   };
   virtual ~PredictAndUpdateExample(){};
-  void evalInnovation(mtInnovation& inn, const mtState& state, const mtNoise& noise) const{
+  bool evalInnovation(mtInnovation& inn, const mtState& state, const mtNoise& noise) const{
     inn.get<Innovation::POS>() = state.get<State::POS>()-meas_.get<UpdateMeas::POS>()+noise.get<UpdateNoise::POS>();
     inn.get<Innovation::HEI>() = V3D(0,0,1).dot(state.get<State::POS>())-meas_.get<UpdateMeas::HEI>()+noise.get<UpdateNoise::HEI>();
+    return true;
   }
   void jacState(Eigen::MatrixXd& J, const mtState& state) const{
     mtInnovation inn;

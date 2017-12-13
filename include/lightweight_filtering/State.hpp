@@ -11,6 +11,7 @@
 #include "lightweight_filtering/common.hpp"
 #include "lightweight_filtering/PropertyHandler.hpp"
 #include <random>
+#include <glog/logging.h>
 
 namespace rot = kindr;
 
@@ -47,7 +48,7 @@ class ElementBase{
   virtual const mtGet& get(unsigned int i) const = 0;
   virtual void registerElementToPropertyHandler(PropertyHandler* mpPropertyHandler, const std::string& str) = 0;
   void registerCovarianceToPropertyHandler(Eigen::MatrixXd& cov, PropertyHandler* mpPropertyHandler, const std::string& str, int j){
-    assert(j+D_<=cov.cols());
+    CHECK(j+D_<=cov.cols());
     for(unsigned int i=0;i<DERIVED::D_;i++){
       mpPropertyHandler->doubleRegister_.registerScalar(str + name_ + "_" + std::to_string(i), cov(j+i,j+i));
     }
@@ -113,11 +114,11 @@ class ScalarElement: public ElementBase<ScalarElement,double,1>{
   void fix(){
   }
   mtGet& get(unsigned int i = 0){
-    assert(i==0);
+    CHECK(i==0);
     return s_;
   }
   const mtGet& get(unsigned int i = 0) const{
-    assert(i==0);
+    CHECK(i==0);
     return s_;
   }
   void registerElementToPropertyHandler(PropertyHandler* mpPropertyHandler, const std::string& str){
@@ -166,11 +167,11 @@ class VectorElement: public ElementBase<VectorElement<N>,Eigen::Matrix<double,N,
   void fix(){
   }
   mtGet& get(unsigned int i = 0){
-    assert(i==0);
+    CHECK(i==0);
     return v_;
   }
   const mtGet& get(unsigned int i = 0) const{
-    assert(i==0);
+    CHECK(i==0);
     return v_;
   }
   void registerElementToPropertyHandler(PropertyHandler* mpPropertyHandler, const std::string& str){
@@ -219,11 +220,11 @@ class QuaternionElement: public ElementBase<QuaternionElement,QPD,3>{
     q_.fix();
   }
   mtGet& get(unsigned int i = 0){
-    assert(i==0);
+    CHECK(i==0);
     return q_;
   }
   const mtGet& get(unsigned int i = 0) const{
-    assert(i==0);
+    CHECK(i==0);
     return q_;
   }
   void registerElementToPropertyHandler(PropertyHandler* mpPropertyHandler, const std::string& str){
@@ -346,11 +347,11 @@ class NormalVectorElement: public ElementBase<NormalVectorElement,NormalVectorEl
     q_.fix();
   }
   mtGet& get(unsigned int i = 0){
-    assert(i==0);
+    CHECK(i==0);
     return *this;
   }
   const mtGet& get(unsigned int i = 0) const{
-    assert(i==0);
+    CHECK(i==0);
     return *this;
   }
   void registerElementToPropertyHandler(PropertyHandler* mpPropertyHandler, const std::string& str){
@@ -450,11 +451,11 @@ class ArrayElement: public ElementBase<ArrayElement<Element,M>,typename Element:
     }
   }
   mtGet& get(unsigned int i){
-    assert(i<M_);
+    CHECK_LT(i, M_);
     return array_[i].get();
   }
   const mtGet& get(unsigned int i) const{
-    assert(i<M_);
+    CHECK_LT(i, M_);
     return array_[i].get();
   }
   void registerElementToPropertyHandler(PropertyHandler* mpPropertyHandler, const std::string& str){

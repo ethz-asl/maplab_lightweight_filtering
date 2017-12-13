@@ -8,6 +8,10 @@
 #ifndef LWF_FilterBase_HPP_
 #define LWF_FilterBase_HPP_
 
+#include <iomanip>
+
+#include <glog/logging.h>
+
 #include "lightweight_filtering/common.hpp"
 #include "lightweight_filtering/PropertyHandler.hpp"
 
@@ -27,6 +31,7 @@ class MeasurementTimeline{
   };
   virtual ~MeasurementTimeline(){};
   void addMeas(const mtMeas& meas, const double& t){
+    CHECK_EQ(measMap_.count(t), 0u);
     measMap_[t] = meas;
   }
   void clear()
@@ -160,6 +165,9 @@ class FilterBase: public PropertyHandler{
     safeTime = maxPredictionTime;
     // Check if we have to wait for update measurements
     checkUpdateWaitTime(maxPredictionTime,safeTime);
+
+    VLOG(5) << "Found safe time: " << std::setprecision(10) << safeTime;
+
     if(safeTime <= safe_.t_){
       safeTime = safe_.t_;
       return false;
@@ -174,19 +182,21 @@ class FilterBase: public PropertyHandler{
   template<int i=0, typename std::enable_if<(i>=nUpdates_)>::type* = nullptr>
   void checkUpdateWaitTime(double actualTime,double& time){
   }
-  void updateSafe(const double* maxTime = nullptr){
+  void updateSafe() {
     double nextSafeTime;
     bool gotSafeTime = getSafeTime(nextSafeTime);
-    if(!gotSafeTime || (maxTime != nullptr && *maxTime < safe_.t_)){
+
+    if (!gotSafeTime) {
       if(logCountDiagnostics_){
         std::cout << "Performed safe Update with RegPre: 0, MerPre: 0, BadPre: 0, RegUpd: 0, ComUpd: 0" << std::endl;
       }
       return;
     }
-    if(maxTime != nullptr && nextSafeTime > *maxTime) nextSafeTime = *maxTime;
+
     if(front_.t_<=nextSafeTime && !gotFrontWarning_ && front_.t_>safe_.t_){
       safe_ = front_;
     }
+
     update(safe_,nextSafeTime);
     clean(safe_.t_);
     safeWarningTime_ = safe_.t_;
@@ -210,9 +220,14 @@ class FilterBase: public PropertyHandler{
     logCountBadPre_ = 0;
     logCountComUpd_ = 0;
     logCountRegUpd_ = 0;
-    while(filterState.t_<tEnd){
+
+    VLOG(5) << "Update loop, timestamp limit " << std::setprecision(10) << tEnd;
+
+    while(filterState.t_ < tEnd){
       tNext = tEnd;
       if(!getNextUpdate(filterState.t_,tNext) && updateToUpdateMeasOnly_){
+        VLOG(5) << "Break loop with filter timestamp at: "
+                << std::setprecision(10) << filterState.t_;
         break; // Don't go further if there is no update available
       }
       int r = 0;
@@ -252,8 +267,10 @@ class FilterBase: public PropertyHandler{
   template<int i=0, typename std::enable_if<(i<nUpdates_)>::type* = nullptr>
   void doAvailableUpdates(mtFilterState& filterState, double tNext){
     if(std::get<i>(updateTimelineTuple_).hasMeasurementAt(tNext)){
+          VLOG(5) << "Update using measurement at " << std::setprecision(10) << tNext << " from timeline " << i;
           int r = std::get<i>(mUpdates_).performUpdate(filterState,std::get<i>(updateTimelineTuple_).measMap_[tNext]);
-          if(r!=0) std::cout << "Error during update: " << r << std::endl;
+          VLOG_IF(1, r!=0) <<  "Error during update: " << r << ". Rejected update.";
+
           logCountRegUpd_++;
     }
     doAvailableUpdates<i+1>(filterState,tNext);
