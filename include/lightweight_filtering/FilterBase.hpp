@@ -80,8 +80,8 @@ class FilterBase: public PropertyHandler{
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   typedef Prediction mtPrediction;
   typedef typename mtPrediction::mtState mtState;
-  static const unsigned int D_ = mtState::D_;
-  static const int nUpdates_ = sizeof...(Updates);
+  static constexpr unsigned int D_ = mtState::D_;
+  static constexpr int nUpdates_ = sizeof...(Updates);
   typedef typename mtPrediction::mtFilterState mtFilterState;
   mtFilterState safe_;
   mtFilterState front_;

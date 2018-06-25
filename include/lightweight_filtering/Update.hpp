@@ -40,7 +40,7 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
   typedef Noise mtNoise;
   typedef OutlierDetection mtOutlierDetection;
   mtMeas meas_; // TODO change to pointer, or remove
-  static const bool coupledToPrediction_ = isCoupled;
+  static constexpr bool coupledToPrediction_ = isCoupled;
   bool useSpecialLinearizationPoint_;
   bool useImprovedJacobian_;
   bool hasConverged_;

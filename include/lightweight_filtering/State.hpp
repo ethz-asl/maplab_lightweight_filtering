@@ -23,8 +23,8 @@ class ElementBase{
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   ElementBase(){};
   virtual ~ElementBase(){};
-  static const unsigned int D_ = D;
-  static const unsigned int E_ = E;
+  static constexpr unsigned int D_ = D;
+  static constexpr unsigned int E_ = E;
   typedef Eigen::Matrix<double,D_,1> mtDifVec;
   typedef GET mtGet;
   std::string name_;
@@ -134,7 +134,7 @@ class VectorElement: public ElementBase<VectorElement<N>,Eigen::Matrix<double,N,
   using typename Base::mtDifVec;
   using typename Base::mtGet;
   using Base::name_;
-  static const unsigned int N_ = N;
+  static constexpr unsigned int N_ = N;
   Eigen::Matrix<double,N_,1> v_;
   VectorElement(){}
   VectorElement(const VectorElement<N>& other){
@@ -379,7 +379,7 @@ class ArrayElement: public ElementBase<ArrayElement<Element,M>,typename Element:
   using typename Base::mtGet;
   using Base::name_;
   using Base::D_;
-  static const unsigned int M_ = M;
+  static constexpr unsigned int M_ = M;
   Element array_[M_];
   mutable MXD boxMinusJacMat_;
   ArrayElement(): boxMinusJacMat_((int)Element::D_,(int)Element::D_){
@@ -491,25 +491,25 @@ class TH_multiple_elements<Arg,0>{
 template <typename Element>
 class TH_getDimension{
  public:
-  static const unsigned int D_ = Element::D_;
+  static constexpr unsigned int D_ = Element::D_;
 };
 template <typename Element>
 class TH_getDimension<std::tuple<Element>>{
  public:
-  static const unsigned int D_ = Element::D_;
+  static constexpr unsigned int D_ = Element::D_;
 };
 template <typename Element, typename... Elements>
 class TH_getDimension<std::tuple<Element, Elements...>>{
  public:
-  static const unsigned int D_ = Element::D_ + TH_getDimension<std::tuple<Elements...>>::D_;
+  static constexpr unsigned int D_ = Element::D_ + TH_getDimension<std::tuple<Elements...>>::D_;
 };
 
 template<typename... Elements>
 class State{
  public:
   typedef decltype(std::tuple_cat(typename TH_convert<Elements>::t()...)) t;
-  static const unsigned int D_ = TH_getDimension<t>::D_;
-  static const unsigned int E_ = std::tuple_size<t>::value;
+  static constexpr unsigned int D_ = TH_getDimension<t>::D_;
+  static constexpr unsigned int E_ = std::tuple_size<t>::value;
   typedef Eigen::Matrix<double,D_,1> mtDifVec;
   t mElements_;
   State(){

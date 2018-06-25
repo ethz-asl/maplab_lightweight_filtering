@@ -676,7 +676,7 @@ class GIFPredictionExampleWithUpdate: public LWF::GIFPrediction<FilterState,GIFI
 
 class NonlinearTest{
  public:
-  static const int id_ = 0;
+  static constexpr int id_ = 0;
   typedef Nonlinear::State mtState;
   typedef Nonlinear::FilterState mtFilterState;
   typedef Nonlinear::UpdateMeas mtUpdateMeas;
@@ -714,7 +714,7 @@ class NonlinearTest{
 
 class LinearTest{
  public:
-  static const int id_ = 1;
+  static constexpr int id_ = 1;
   typedef Linear::State mtState;
   typedef Linear::FilterState mtFilterState;
   typedef Linear::UpdateMeas mtUpdateMeas;
