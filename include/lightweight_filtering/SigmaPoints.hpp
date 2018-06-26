@@ -18,9 +18,9 @@ class SigmaPoints{
  public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   typedef State mtState;
-  static const unsigned int N_ = N;
-  static const unsigned int L_ = L;
-  static const unsigned int O_ = O;
+  static constexpr unsigned int N_ = N;
+  static constexpr unsigned int L_ = L;
+  static constexpr unsigned int O_ = O;
   double wm_ = 1.0;
   double wc_ = 1.0;
   double wc0_ = 1.0;

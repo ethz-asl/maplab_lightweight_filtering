@@ -16,15 +16,15 @@
 namespace LWF{
 
 template<unsigned int S, unsigned int D, unsigned int N = 1> struct ODEntry{
-  static const unsigned int S_ = S;
-  static const unsigned int D_ = D;
+  static constexpr unsigned int S_ = S;
+  static constexpr unsigned int D_ = D;
 };
 
 template<unsigned int S, unsigned int D>
 class OutlierDetectionBase{
  public:
-  static const unsigned int S_ = S;
-  static const unsigned int D_ = D;
+  static constexpr unsigned int S_ = S;
+  static constexpr unsigned int D_ = D;
   bool outlier_;
   bool enabled_;
   double mahalanobisTh_;

@@ -24,7 +24,7 @@ class MeasurementTimelineTest : public ::testing::Test {
   virtual ~MeasurementTimelineTest() {
   }
   LWF::MeasurementTimeline<double> timeline_;
-  static const unsigned int N_ = 5;
+  static constexpr unsigned int N_ = 5;
   double times_[N_];
   double values_[N_];
 };

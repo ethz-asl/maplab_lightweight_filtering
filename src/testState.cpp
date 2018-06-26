@@ -67,7 +67,7 @@ class VectorElementTest : public virtual ::testing::Test {
   }
   virtual ~VectorElementTest() {
   }
-  static const unsigned int N_ = 4;
+  static constexpr unsigned int N_ = 4;
   LWF::VectorElement<N_> testElement1_;
   LWF::VectorElement<N_> testElement2_;
   LWF::VectorElement<N_>::mtDifVec difVec_;
@@ -389,7 +389,7 @@ class ArrayElementTest : public virtual ::testing::Test {
   }
   virtual ~ArrayElementTest() {
   }
-  static const unsigned int N_ = 5;
+  static constexpr unsigned int N_ = 5;
   LWF::ArrayElement<LWF::QuaternionElement,N_> testElement1_;
   LWF::ArrayElement<LWF::QuaternionElement,N_> testElement2_;
   LWF::ArrayElement<LWF::QuaternionElement,N_> testElement3_;
@@ -469,14 +469,14 @@ class AuxillaryElement: public LWF::AuxiliaryBase<AuxillaryElement>{
 
 class StateTesting : public virtual ::testing::Test {
  protected:
-  static const unsigned int _sca = 0;
-  static const unsigned int _vec0 = _sca+1;
-  static const unsigned int _vec1 = _vec0+1;
-  static const unsigned int _vec2 = _vec1+1;
-  static const unsigned int _vec3 = _vec2+1;
-  static const unsigned int _qua0 = _vec3+1;
-  static const unsigned int _qua1 = _qua0+1;
-  static const unsigned int _aux = _qua1+1;
+  static constexpr unsigned int _sca = 0;
+  static constexpr unsigned int _vec0 = _sca+1;
+  static constexpr unsigned int _vec1 = _vec0+1;
+  static constexpr unsigned int _vec2 = _vec1+1;
+  static constexpr unsigned int _vec3 = _vec2+1;
+  static constexpr unsigned int _qua0 = _vec3+1;
+  static constexpr unsigned int _qua1 = _qua0+1;
+  static constexpr unsigned int _aux = _qua1+1;
   StateTesting():covMat_((int)mtState::D_,(int)mtState::D_) {
     testScalar1_ = 4.5;
     testScalar2_ = -17.34;

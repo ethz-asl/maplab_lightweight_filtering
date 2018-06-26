@@ -45,12 +45,12 @@ class SigmaPointTest : public ::testing::Test {
   }
   ~SigmaPointTest() {
   }
-  static const unsigned int S_ = 4;
-  static const unsigned int V_ = 3;
-  static const unsigned int Q_ = 2;
-  static const unsigned int N_ = 2*(S_+3*(V_+Q_))+1;
-  static const unsigned int O_ = 2;
-  static const unsigned int L_ = N_+O_+2;
+  static constexpr unsigned int S_ = 4;
+  static constexpr unsigned int V_ = 3;
+  static constexpr unsigned int Q_ = 2;
+  static constexpr unsigned int N_ = 2*(S_+3*(V_+Q_))+1;
+  static constexpr unsigned int O_ = 2;
+  static constexpr unsigned int L_ = N_+O_+2;
   typedef LWF::State<LWF::ArrayElement<LWF::ScalarElement,S_>,LWF::ArrayElement<LWF::VectorElement<3>,V_>,LWF::ArrayElement<LWF::QuaternionElement,Q_>> mtState;
   typedef LWF::VectorElement<3> mtElementVector;
   typedef mtState::mtDifVec mtDifVec;
