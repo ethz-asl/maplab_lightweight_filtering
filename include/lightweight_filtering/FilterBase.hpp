@@ -137,22 +137,26 @@ class FilterBase: public PropertyHandler{
   }
   bool addPredictionMeas(const typename Prediction::mtMeas& meas, double t){
     bool measurement_too_late = false;
-    if(t<= safeWarningTime_) {
-      std::cout << "[FilterBase::addPredictionMeas] Warning: included measurements at time " << t << " before safeTime " << safeWarningTime_ << std::endl;
+    if(t < safeWarningTime_) {
+      LOG(WARNING)
+        << "Prediction included measurements at time "
+        << std::setprecision(10) << t << " before safeTime " << safeWarningTime_;
       measurement_too_late = true;
     }
-    if(t<= frontWarningTime_) gotFrontWarning_ = true;
+    if(t < frontWarningTime_) gotFrontWarning_ = true;
     predictionTimeline_.addMeas(meas,t);
     return !measurement_too_late;
   }
   template<int i>
   bool addUpdateMeas(const typename std::tuple_element<i,decltype(mUpdates_)>::type::mtMeas& meas, double t){
     bool measurement_too_late = false;
-    if(t<= safeWarningTime_) {
-      std::cout << "[FilterBase::addUpdateMeas] Warning: included measurements at time " << t << " before safeTime " << safeWarningTime_ << std::endl;
+    if(t < safeWarningTime_) {
+      LOG(WARNING) << "Update included measurements at time "
+                   << std::setprecision(10) << t << " before safeTime "
+                   << safeWarningTime_;
       measurement_too_late = true;
     }
-    if(t<= frontWarningTime_) gotFrontWarning_ = true;
+    if(t < frontWarningTime_) gotFrontWarning_ = true;
     std::get<i>(updateTimelineTuple_).addMeas(meas,t);
     return !measurement_too_late;
   }
@@ -268,9 +272,7 @@ class FilterBase: public PropertyHandler{
   void doAvailableUpdates(mtFilterState& filterState, double tNext){
     if(std::get<i>(updateTimelineTuple_).hasMeasurementAt(tNext)){
           VLOG(5) << "Update using measurement at " << std::setprecision(10) << tNext << " from timeline " << i;
-          int r = std::get<i>(mUpdates_).performUpdate(filterState,std::get<i>(updateTimelineTuple_).measMap_[tNext]);
-          VLOG_IF(1, r!=0) <<  "Error during update: " << r << ". Rejected update.";
-
+          std::get<i>(mUpdates_).performUpdate(filterState,std::get<i>(updateTimelineTuple_).measMap_[tNext]);
           logCountRegUpd_++;
     }
     doAvailableUpdates<i+1>(filterState,tNext);
