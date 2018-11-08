@@ -166,7 +166,7 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
   virtual void preProcess(mtFilterState& filterState, const mtMeas& meas, bool& isFinished){
     isFinished = false;
     if(!disablePreAndPostProcessingWarning_){
-      std::cout << "Warning: update preProcessing is not implemented!" << std::endl;
+      LOG(WARNING) << "Update preProcess() is not implemented!";
     }
   }
   virtual bool extraOutlierCheck(const mtState& state) const{
@@ -183,7 +183,7 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
   virtual void postProcess(mtFilterState& filterState, const mtMeas& meas, const mtOutlierDetection& outlierDetection, bool& isFinished){
     isFinished = true;
     if(!disablePreAndPostProcessingWarning_){
-      std::cout << "Warning: update postProcessing is not implemented!" << std::endl;
+      LOG(WARNING) << "Update postProcess() is not implemented!";
     }
   }
   int performUpdate(mtFilterState& filterState, const mtMeas& meas){
@@ -368,7 +368,6 @@ class Update: public ModelBase<Update<Innovation,FilterState,Meas,Noise,OutlierD
         }
       }
     } else {
-      // Update failed.
       return 1;
     }
     return 0;
